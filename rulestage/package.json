@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "devvit playtest",
-    "build": "devvit build",
+    "build": "pnpm run build:web && devvit build",
     "typecheck": "tsc --noEmit",
-    "build:web": "cd webroot && npm run build"
+    "build:web": "pnpm --dir webroot run build"
   },
   "dependencies": {
     "@devvit/public-api": "0.12.24"

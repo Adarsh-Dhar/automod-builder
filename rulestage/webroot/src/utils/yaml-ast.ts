@@ -146,7 +146,8 @@ function conditionToYaml(condition: AutomodCondition): Record<string, unknown> {
   const key = keyMap[condition.type] || condition.type;
 
   if (condition.type === "is_top_level") {
-    return { [key]: condition.value === "true" || condition.value === true };
+    const isTopLevel = String(condition.value).toLowerCase() === "true";
+    return { [key]: isTopLevel };
   }
 
   if (["karma", "account_age"].includes(condition.type)) {

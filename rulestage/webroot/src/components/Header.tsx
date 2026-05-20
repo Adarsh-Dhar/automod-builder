@@ -9,6 +9,10 @@ interface HeaderProps {
   isSimulating: boolean;
   geminiApiKey: string;
   onOpenApiKey: () => void;
+  subredditName: string;
+  onSaveRules: () => void;
+  saveState: "idle" | "saving" | "saved" | "error";
+  hasPendingChanges: boolean;
 }
 
 const MODES: { id: ViewMode; label: string; icon: string }[] = [
@@ -25,6 +29,10 @@ export default function Header({
   isSimulating,
   geminiApiKey,
   onOpenApiKey,
+  subredditName,
+  onSaveRules,
+  saveState,
+  hasPendingChanges,
 }: HeaderProps) {
   return (
     <header className="h-[60px] bg-reddit-darker border-b border-reddit-border flex items-center px-4 gap-4 shrink-0">
@@ -66,6 +74,11 @@ export default function Header({
         <span className="tag tag-blue">{ast.length} rule{ast.length !== 1 ? "s" : ""}</span>
       </div>
 
+      <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-md border border-reddit-border bg-reddit-dark text-xs text-reddit-text-secondary">
+        <span className="uppercase tracking-[0.18em] text-[10px] text-reddit-text-muted">Subreddit</span>
+        <span className="font-medium text-reddit-text-primary">r/{subredditName || "loading"}</span>
+      </div>
+
       <div className="flex-1" />
 
       {/* Gemini key indicator */}
@@ -80,6 +93,41 @@ export default function Header({
       >
         <span className={`w-1.5 h-1.5 rounded-full ${geminiApiKey ? "bg-reddit-green" : "bg-reddit-text-muted"}`} />
         {geminiApiKey ? "AI Ready" : "Add API Key"}
+      </button>
+
+      <button
+        onClick={onSaveRules}
+        disabled={!hasPendingChanges || saveState === "saving"}
+        className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          saveState === "saved"
+            ? "border-[#3FB950]/30 bg-[#3FB950]/10 text-[#3FB950]"
+            : saveState === "error"
+              ? "border-[#F85149]/30 bg-[#F85149]/10 text-[#F85149]"
+              : "border-[#21262D] bg-[#161B22] hover:bg-[#21262D] text-[#E6EDF3]"
+        }`}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${
+            saveState === "saved"
+              ? "bg-[#3FB950]"
+              : saveState === "error"
+                ? "bg-[#F85149]"
+                : saveState === "saving"
+                  ? "bg-[#58A6FF] animate-pulse"
+                  : hasPendingChanges
+                    ? "bg-[#FFB000]"
+                    : "bg-[#484F58]"
+          }`}
+        />
+        {saveState === "saving"
+          ? "Saving..."
+          : saveState === "saved"
+            ? "Saved"
+            : saveState === "error"
+              ? "Save failed"
+              : hasPendingChanges
+                ? "Save to Reddit"
+                : "Up to date"}
       </button>
 
       {/* Simulate button */}

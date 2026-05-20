@@ -127,7 +127,8 @@ function evaluateCondition(condition: AutomodCondition, post: MockPost): boolean
       return post.subreddit === String(value);
     }
     case "is_top_level": {
-      return post.isTopLevel === (value === "true" || value === true);
+      const expected = String(value).toLowerCase() === "true";
+      return post.isTopLevel === expected;
     }
     default:
       return false;

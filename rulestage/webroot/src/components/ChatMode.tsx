@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import type { AutomodAST, ChatMessage } from "../types";
 import { callGemini, extractASTFromResponse, extractYamlFromResponse } from "../utils/gemini";
 import { astToYaml } from "../utils/yaml-ast";
+import { yamlToAST } from "../utils/yaml-ast";
 
 interface ChatModeProps {
   ast: AutomodAST;
@@ -96,7 +97,6 @@ export default function ChatMode({
   }, [messages, isLoading]);
 
   const applyYaml = (yamlStr: string) => {
-    const { yamlToAST } = require("../utils/yaml-ast");
     const newAst = yamlToAST(yamlStr);
     if (newAst.length > 0) {
       onApplyAST(newAst);

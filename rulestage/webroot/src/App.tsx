@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppState, AutomodAST, ViewMode, ChatMessage, SimulationDiff } from "./types";
 import { yamlToAST, astToYaml } from "./utils/yaml-ast";
 import Header from "./components/Header";
@@ -7,6 +7,27 @@ import DragMode from "./components/DragMode";
 import ChatMode from "./components/ChatMode";
 import SimulationPanel from "./components/SimulationPanel";
 import ApiKeyModal from "./components/ApiKeyModal";
+
+type DevvitMessage =
+  | { type: "APP_READY" }
+  | { type: "LOAD_RULES" }
+  | { type: "SAVE_RULES"; yaml: string }
+  | { type: "GET_SUBREDDIT" }
+  | { type: "RULES_LOADED"; yaml: string }
+  | { type: "SUBREDDIT_INFO"; subredditName: string }
+  | { type: "SAVE_RULES_ACK" }
+  | { type: "SAVE_RULES_ERROR"; error: string };
+
+type DevvitWrappedMessage = {
+  type?: string;
+  data?: {
+    message?: Partial<DevvitMessage>;
+  };
+};
+
+function isWrappedDevvitMessage(value: unknown): value is DevvitWrappedMessage {
+  return typeof value === "object" && value !== null;
+}
 
 const DEFAULT_YAML = `# RuleStage — Automoderator Configuration
 # Switch between Code, Drag, and Chat modes above
@@ -38,19 +59,29 @@ const initialState: AppState = {
   geminiApiKey: "",
 };
 
+function postToDevvit(message: DevvitMessage) {
+  if (typeof window === "undefined") return;
+  window.parent.postMessage(message, "*");
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>(initialState);
   const [showSimulation, setShowSimulation] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [subredditName, setSubredditName] = useState("loading");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [persistedYaml, setPersistedYaml] = useState(DEFAULT_YAML);
 
   const updateFromYaml = useCallback((newYaml: string) => {
     const newAst = yamlToAST(newYaml);
     setState((prev) => ({ ...prev, yaml: newYaml, ast: newAst, isSyncing: false }));
+    setSaveState("idle");
   }, []);
 
   const updateFromAST = useCallback((newAst: AutomodAST) => {
     const newYaml = astToYaml(newAst);
     setState((prev) => ({ ...prev, ast: newAst, yaml: newYaml, isSyncing: false }));
+    setSaveState("idle");
   }, []);
 
   const setMode = useCallback((mode: ViewMode) => {
@@ -82,6 +113,50 @@ export default function App() {
     setState((prev) => ({ ...prev, geminiApiKey: key }));
   }, []);
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const payload = event.data as unknown;
+      const message = isWrappedDevvitMessage(payload)
+        ? payload.data?.message ?? payload
+        : undefined;
+
+      if (!message || typeof message.type !== "string") return;
+
+      if (message.type === "RULES_LOADED" && "yaml" in message && typeof message.yaml === "string") {
+        setPersistedYaml(message.yaml);
+        updateFromYaml(message.yaml);
+        setSaveState("saved");
+      }
+
+      if (message.type === "SUBREDDIT_INFO" && "subredditName" in message && typeof message.subredditName === "string") {
+        setSubredditName(message.subredditName);
+      }
+
+      if (message.type === "SAVE_RULES_ACK") {
+        setSaveState("saved");
+      }
+
+      if (message.type === "SAVE_RULES_ERROR") {
+        setSaveState("error");
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    postToDevvit({ type: "APP_READY" });
+    postToDevvit({ type: "LOAD_RULES" });
+    postToDevvit({ type: "GET_SUBREDDIT" });
+
+    return () => window.removeEventListener("message", handleMessage);
+  }, [updateFromYaml]);
+
+  const hasPendingChanges = useMemo(() => state.yaml !== persistedYaml, [persistedYaml, state.yaml]);
+
+  const onSaveRules = useCallback(() => {
+    setSaveState("saving");
+    setPersistedYaml(state.yaml);
+    postToDevvit({ type: "SAVE_RULES", yaml: state.yaml });
+  }, [state.yaml]);
+
   return (
     <div className="min-h-screen bg-reddit-dark flex flex-col">
       <Header
@@ -92,6 +167,10 @@ export default function App() {
         isSimulating={state.isSimulating}
         geminiApiKey={state.geminiApiKey}
         onOpenApiKey={() => setShowApiKeyModal(true)}
+        subredditName={subredditName}
+        onSaveRules={onSaveRules}
+        saveState={saveState}
+        hasPendingChanges={hasPendingChanges}
       />
 
       <div className="flex-1 flex overflow-hidden" style={{ height: "calc(100vh - 60px)" }}>
