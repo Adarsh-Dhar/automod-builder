@@ -1,0 +1,17 @@
+{
+  "name": "rulestage",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "devvit playtest",
+    "build": "devvit build",
+    "typecheck": "tsc --noEmit",
+    "build:web": "cd webroot && npm run build"
+  },
+  "dependencies": {
+    "@devvit/public-api": "0.12.24"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
