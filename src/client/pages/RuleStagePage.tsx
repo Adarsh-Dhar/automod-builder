@@ -31,9 +31,9 @@ type RuleStageMutationResponse = {
 };
 
 const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
-  code: { label: 'Code Mode', helper: 'Edit raw YAML and keep the rule source of truth in sync.' },
-  drag: { label: 'Drag Mode', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
-  chat: { label: 'Chat Mode', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
+  code: { label: 'Code', helper: 'Edit raw YAML and keep the rule source of truth in sync.' },
+  drag: { label: 'Drag', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
+  chat: { label: 'Chat', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
 };
 
 const chatSuggestions: RuleChatSuggestion[] = [
@@ -258,7 +258,7 @@ export function RuleStagePage() {
                 Build, test, and stage Automod rules without leaving Reddit.
               </h1>
               <p className="max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-                Code Mode, Drag Mode, and Chat Mode all write into the same rule state.
+                All three modes write into the same rule state.
                 The simulation panel shows exactly what would happen before anything is deployed.
               </p>
             </div>
@@ -272,11 +272,7 @@ export function RuleStagePage() {
               </div>
               <Badge className="bg-orange-400/15 text-orange-200 hover:bg-orange-400/15">{rule.action}</Badge>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-2xl bg-white/5 p-3">
-                <p className="text-slate-400">Mode</p>
-                <p className="font-medium">{modeMeta[mode].label}</p>
-              </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
               <div className="rounded-2xl bg-white/5 p-3">
                 <p className="text-slate-400">Matches</p>
                 <p className="font-medium">{simulation.matched} / {createDefaultSimulationPosts().length}</p>
@@ -285,21 +281,23 @@ export function RuleStagePage() {
           </Card>
         </header>
 
-        <nav className="flex flex-wrap gap-2 rounded-3xl border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
-          {(Object.keys(modeMeta) as RuleStageMode[]).map((item) => (
-            <Button
-              key={item}
-              variant={mode === item ? 'default' : 'ghost'}
-              className={cn(
-                'rounded-full px-5 py-2 text-sm',
-                mode === item ? 'bg-white text-slate-950 hover:bg-slate-100' : 'text-slate-200 hover:bg-white/8 hover:text-white'
-              )}
-              onClick={() => setMode(item)}
-            >
-              {modeMeta[item].label}
-            </Button>
-          ))}
-          <div className="ml-auto flex items-center gap-2">
+        <nav className="rounded-3xl border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {(Object.keys(modeMeta) as RuleStageMode[]).map((item) => (
+              <Button
+                key={item}
+                variant={mode === item ? 'default' : 'ghost'}
+                className={cn(
+                  'shrink-0 rounded-full px-5 py-2 text-sm',
+                  mode === item ? 'bg-white text-slate-950 hover:bg-slate-100' : 'text-slate-200 hover:bg-white/8 hover:text-white'
+                )}
+                onClick={() => setMode(item)}
+              >
+                {modeMeta[item].label}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-end gap-2">
             <Button
               variant="ghost"
               className="rounded-full text-slate-200 hover:bg-white/8 hover:text-white"
@@ -333,7 +331,7 @@ export function RuleStagePage() {
         <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
           <Card className="overflow-hidden border-white/10 bg-slate-950/55 p-0 text-slate-100 shadow-none">
             <div className="border-b border-white/10 px-5 py-4">
-              <p className="text-sm font-medium text-white">{modeMeta[mode].label}</p>
+              <p className="text-sm font-medium text-white">{modeMeta[mode].label} Mode</p>
               <p className="text-sm text-slate-400">{modeMeta[mode].helper}</p>
             </div>
 
