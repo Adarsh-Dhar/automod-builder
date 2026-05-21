@@ -1,5 +1,6 @@
 import { useInit } from '../contexts/init-context';
 import ChatMode from '../components/ChatMode';
+import DecoderMode from '../components/DecoderMode';
 import { useEffect, useState } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -30,6 +31,7 @@ const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
   code: { label: 'Code', helper: 'Edit raw YAML and keep the rule source of truth in sync.' },
   drag: { label: 'Drag', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
   chat: { label: 'Chat', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
+  decoder: { label: 'Decoder', helper: 'Feed 3 spam examples; get a Regex that traps the campaign.' },
 };
 
 type ChatMessage = {
@@ -119,6 +121,14 @@ export function RuleStagePage() {
     setChatMessages((current) => [...current, message]);
   };
 
+  const handleApplyYaml = (yaml: string) => {
+    const parsed = parseAutomodRuleDraft(yaml, rule);
+    setRule(parsed);
+    setDraft(serializeAutomodRule(parsed));
+    setMode('code');
+    void persistRule(parsed);
+  };
+
   const refreshBlast = async (nextRule: AutomodRule) => {
     try {
       setBlasting(true);
@@ -175,33 +185,6 @@ export function RuleStagePage() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const applySuggestion = (suggestion: RuleChatSuggestion) => {
-    const nextRule = cloneRule(rule);
-
-    if (suggestion.rule.name) {
-      nextRule.name = suggestion.rule.name;
-    }
-
-    if (suggestion.rule.comment) {
-      nextRule.comment = suggestion.rule.comment;
-    }
-
-    if (suggestion.rule.modmail) {
-      nextRule.modmail = suggestion.rule.modmail;
-    }
-
-    if (suggestion.rule.conditions?.length) {
-      nextRule.conditions = suggestion.rule.conditions.map((condition) => ({
-        ...condition,
-      }));
-    }
-
-    setRule(nextRule);
-    setDraft(serializeAutomodRule(nextRule));
-    setMode('code');
-    void persistRule(nextRule);
   };
 
   const handleActionChange = (action: AutomodAction) => {
@@ -467,17 +450,17 @@ export function RuleStagePage() {
                   messages={chatMessages}
                   onAddMessage={handleAddChatMessage}
                   onApplyAST={() => {}}
-                  onApplyYaml={(yaml) => {
-                    const parsed = parseAutomodRuleDraft(yaml, rule);
-                    setRule(parsed);
-                    setDraft(serializeAutomodRule(parsed));
-                    setMode('code');
-                    void persistRule(parsed);
-                  }}
+                  onApplyYaml={handleApplyYaml}
                   geminiApiKey={geminiApiKey}
                   subredditName={init?.subredditName}
                   contextYaml={draft}
                 />
+              </div>
+            )}
+
+            {mode === 'decoder' && (
+              <div className="p-5">
+                <DecoderMode onApplyYaml={handleApplyYaml} geminiApiKey={geminiApiKey} />
               </div>
             )}
           </Card>

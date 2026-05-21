@@ -1,8 +1,24 @@
-export type RuleStageMode = 'code' | 'drag' | 'chat';
+export type RuleStageMode = 'code' | 'drag' | 'chat' | 'decoder';
+
+export type ObfuscationTrick =
+  | 'homoglyph'
+  | 'zero-width'
+  | 'look-alike'
+  | 'separator-noise'
+  | 'evasive-phrasing'
+  | 'mixed-script';
+
+export type DecoderAnalysis = {
+  tricks: ObfuscationTrick[];
+  explanation: string;
+  regexPattern: string;
+  automodYaml: string;
+  confidence: 'high' | 'medium' | 'low';
+};
 
 export type AutomodAction = 'remove' | 'approve' | 'report';
 
-export type AutomodComparator = 'includes' | '<' | '>' | '<=' | '>=';
+export type AutomodComparator = 'includes' | 'matches' | '<' | '>' | '<=' | '>=';
 
 export type AutomodCondition = {
   field: 'title' | 'body' | 'account_age' | 'combined_karma';
@@ -88,14 +104,67 @@ export const DEFAULT_AUTOMOD_RULE: AutomodRule = {
 };
 
 const CONDITION_FIELD_LABELS: Record<AutomodCondition['field'], string> = {
-  title: 'title (includes)',
-  body: 'body (includes)',
+  title: 'title',
+  body: 'body',
   account_age: 'author.account_age',
   combined_karma: 'author.combined_karma',
 };
 
+function serializeTextCondition(field: 'title' | 'body', condition: AutomodCondition | undefined): string | null {
+  if (!condition) {
+    return null;
+  }
+
+  const comparatorLabel = condition.comparator === 'matches' ? 'matches' : 'includes';
+  return `${field} (${comparatorLabel}): ['${condition.value}']`;
+}
+
+function extractBracketValue(line: string): string {
+  const valueMatch = line.match(/\[(.*)\]/);
+  return valueMatch?.[1]?.replaceAll("'", '').trim() ?? '';
+}
+
+function matchesTextCondition(condition: AutomodCondition, text: string): boolean {
+  if (condition.comparator === 'matches') {
+    try {
+      return new RegExp(condition.value, 'i').test(text);
+    } catch {
+      return false;
+    }
+  }
+
+  return condition.value
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .some((phrase) => phrase.length > 0 && text.toLowerCase().includes(phrase));
+}
+
+function matchesNumericCondition(condition: AutomodCondition, actualValue: number): boolean {
+  const targetValue = Number.parseInt(condition.value, 10);
+
+  if (Number.isNaN(targetValue)) {
+    return false;
+  }
+
+  switch (condition.comparator) {
+    case '<':
+      return actualValue < targetValue;
+    case '<=':
+      return actualValue <= targetValue;
+    case '>':
+      return actualValue > targetValue;
+    case '>=':
+      return actualValue >= targetValue;
+    case 'matches':
+      return actualValue === targetValue;
+    default:
+      return actualValue < targetValue;
+  }
+}
+
 export function serializeAutomodRule(rule: AutomodRule): string {
   const titleCondition = rule.conditions.find((condition) => condition.field === 'title');
+  const bodyCondition = rule.conditions.find((condition) => condition.field === 'body');
   const accountAgeCondition = rule.conditions.find((condition) => condition.field === 'account_age');
   const karmaCondition = rule.conditions.find((condition) => condition.field === 'combined_karma');
 
@@ -103,7 +172,8 @@ export function serializeAutomodRule(rule: AutomodRule): string {
     '---',
     `# ${rule.name}`,
     `type: ${rule.type}`,
-    `title (includes): ['${titleCondition?.value ?? ''}']`,
+    serializeTextCondition('title', titleCondition),
+    serializeTextCondition('body', bodyCondition),
     'author:',
     `  satisfy_any_threshold: ${rule.satisfyAnyThreshold ? 'true' : 'false'}`,
     accountAgeCondition ? `  account_age: "${accountAgeCondition.comparator} ${accountAgeCondition.value}"` : null,
@@ -161,13 +231,24 @@ export function parseAutomodRuleDraft(draft: string, fallback: AutomodRule = DEF
       continue;
     }
 
-    if (line.startsWith('title (includes):')) {
-      const valueMatch = line.match(/\[(.*)\]/);
-      const titleValue = valueMatch?.[1]?.replaceAll("'", '').trim() ?? '';
+    if (line.startsWith('title (includes):') || line.startsWith('title (matches):')) {
+      const titleValue = extractBracketValue(line);
       const titleCondition = nextRule.conditions.find((condition) => condition.field === 'title');
 
       if (titleCondition) {
+        titleCondition.comparator = line.includes('(matches)') ? 'matches' : 'includes';
         titleCondition.value = titleValue;
+      }
+      continue;
+    }
+
+    if (line.startsWith('body (includes):') || line.startsWith('body (matches):')) {
+      const bodyValue = extractBracketValue(line);
+      const bodyCondition = nextRule.conditions.find((condition) => condition.field === 'body');
+
+      if (bodyCondition) {
+        bodyCondition.comparator = line.includes('(matches)') ? 'matches' : 'includes';
+        bodyCondition.value = bodyValue;
       }
       continue;
     }
@@ -273,31 +354,29 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
 
   for (const post of posts) {
     const titleCondition = rule.conditions.find((condition) => condition.field === 'title');
+    const bodyCondition = rule.conditions.find((condition) => condition.field === 'body');
     const accountAgeCondition = rule.conditions.find((condition) => condition.field === 'account_age');
     const karmaCondition = rule.conditions.find((condition) => condition.field === 'combined_karma');
 
-    const titleMatch = titleCondition
-      ? titleCondition.value
-          .split(',')
-          .map((part) => part.trim().toLowerCase())
-          .some((phrase) => phrase.length > 0 && post.title.toLowerCase().includes(phrase))
-      : false;
+    const titleMatch = titleCondition ? matchesTextCondition(titleCondition, post.title) : false;
+    const bodyMatch = bodyCondition ? matchesTextCondition(bodyCondition, post.body) : false;
 
-    const ageMatch = accountAgeCondition
-      ? accountAgeCondition.comparator === '<'
-        ? post.accountAgeDays < Number.parseInt(accountAgeCondition.value, 10)
-        : post.accountAgeDays > Number.parseInt(accountAgeCondition.value, 10)
-      : false;
+    const ageMatch = accountAgeCondition ? matchesNumericCondition(accountAgeCondition, post.accountAgeDays) : false;
 
-    const karmaMatch = karmaCondition
-      ? karmaCondition.comparator === '<'
-        ? post.combinedKarma < Number.parseInt(karmaCondition.value, 10)
-        : post.combinedKarma > Number.parseInt(karmaCondition.value, 10)
-      : false;
+    const karmaMatch = karmaCondition ? matchesNumericCondition(karmaCondition, post.combinedKarma) : false;
 
-    const shouldMatch = rule.satisfyAnyThreshold
-      ? titleMatch && (ageMatch || karmaMatch)
-      : titleMatch && ageMatch && karmaMatch;
+    const textConditions = [titleCondition, bodyCondition].filter((condition): condition is AutomodCondition => !!condition);
+    const numericConditions = [accountAgeCondition, karmaCondition].filter((condition): condition is AutomodCondition => !!condition);
+
+    const textMatch = textConditions.length === 0 ? true : (!titleCondition || titleMatch) && (!bodyCondition || bodyMatch);
+    const thresholdMatch =
+      numericConditions.length === 0
+        ? true
+        : rule.satisfyAnyThreshold
+          ? ageMatch || karmaMatch
+          : ageMatch && karmaMatch;
+
+    const shouldMatch = textMatch && thresholdMatch;
 
     if (shouldMatch) {
       items.push({
@@ -336,5 +415,10 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
 }
 
 export function describeCondition(condition: AutomodCondition): string {
+  if (condition.field === 'title' || condition.field === 'body') {
+    const comparatorLabel = condition.comparator === 'matches' ? 'matches' : 'includes';
+    return `${CONDITION_FIELD_LABELS[condition.field]} (${comparatorLabel}) ${condition.value}`;
+  }
+
   return `${CONDITION_FIELD_LABELS[condition.field]} ${condition.comparator} ${condition.value}`;
 }
