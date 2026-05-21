@@ -1,10 +1,11 @@
 /**
- * Trigger handlers for the ranking system
+ * Trigger handlers for the ranking system and Blast Radius cache.
  */
 
 import { Hono } from 'hono';
 import type { TriggerResponse } from '@devvit/web/shared';
-import { reddit } from '@devvit/web/server';
+import { context, redis, reddit } from '@devvit/web/server';
+import type { CachedPost } from '../../shared/blast-types';
 import { checkLevelUp, getOrCreateProfile, incrementCommentCount } from '../services/rank.service';
 
 export const triggers = new Hono();
@@ -16,14 +17,51 @@ function acknowledgeTrigger(triggerName: string) {
   };
 }
 
+function getBlastCacheKey(): string {
+  return `blast:posts:${context.subredditName ?? 'default'}`;
+}
+
+function parseCachedPosts(raw: string | null): CachedPost[] {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as CachedPost[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizePostId(value: string): string {
+  return value.startsWith('t3_') ? value.slice(3) : value;
+}
+
 /**
  * POST /internal/triggers/on-mod-action
- * RuleStage does not need to react to mod actions yet, but Devvit expects the
- * endpoint to exist because it is registered in devvit.json.
+ * Records moderation outcomes for the Blast Radius backtest cache.
  */
 triggers.post('/on-mod-action', async (c) => {
   try {
-    await c.req.json().catch(() => null);
+    const input = await c.req.json<any>().catch(() => null);
+    const targetId: string = String(input?.target_fullname ?? input?.targetFullname ?? '');
+    const action: string = String(input?.action ?? '');
+
+    if (targetId && (action === 'removelink' || action === 'approvelink')) {
+      const raw = await redis.get(getBlastCacheKey());
+      const posts = parseCachedPosts(raw);
+      const normalizedTargetId = normalizePostId(targetId);
+      const post = posts.find((item) => normalizePostId(item.id) === normalizedTargetId);
+
+      if (post) {
+        const wasRemoved = action === 'removelink';
+        post.wasRemoved = wasRemoved;
+        post.isSpam = wasRemoved;
+        await redis.set(getBlastCacheKey(), JSON.stringify(posts));
+      }
+    }
+
     return c.json(acknowledgeTrigger('on-mod-action'), 200);
   } catch (error) {
     console.error('[RuleStage] Error in OnModAction handler:', error);
@@ -33,12 +71,33 @@ triggers.post('/on-mod-action', async (c) => {
 
 /**
  * POST /internal/triggers/on-post-submit
- * Keep the trigger wired even though RuleStage v1 does not need post-submit
- * processing yet.
+ * Caches recent posts so Blast Radius can backtest new rules.
  */
 triggers.post('/on-post-submit', async (c) => {
   try {
-    await c.req.json().catch(() => null);
+    const input = await c.req.json<any>().catch(() => null);
+    const post = input?.post ?? input;
+
+    if (post?.id) {
+      const raw = await redis.get(getBlastCacheKey());
+      const posts = parseCachedPosts(raw);
+      const nextPost: CachedPost = {
+        id: String(post.id),
+        title: String(post.title ?? ''),
+        body: String(post.selftext ?? post.body ?? ''),
+        author: String(post.author?.name ?? post.author?.username ?? post.author ?? 'unknown'),
+        accountAgeDays: Number(post.author?.account_age_days ?? post.author?.accountAgeDays ?? 0),
+        combinedKarma: Number(post.author?.combined_karma ?? post.author?.combinedKarma ?? 0),
+        createdAt: Number(post.created_utc ?? post.createdAt ?? Date.now() / 1000),
+        isSpam: false,
+        wasRemoved: false,
+      };
+
+      const deduped = posts.filter((item) => item.id !== nextPost.id);
+      deduped.unshift(nextPost);
+      await redis.set(getBlastCacheKey(), JSON.stringify(deduped.slice(0, 500)));
+    }
+
     return c.json(acknowledgeTrigger('on-post-submit'), 200);
   } catch (error) {
     console.error('[RuleStage] Error in OnPostSubmit handler:', error);

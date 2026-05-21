@@ -17,6 +17,7 @@ import {
   type RuleChatSuggestion,
   type RuleStageMode,
 } from '../../shared/automod';
+import type { BlastRadiusResult } from '../../shared/blast-types';
 
 type RuleStageInitResponse = {
   status: 'success';
@@ -89,8 +90,10 @@ export function RuleStagePage() {
   const [draft, setDraft] = useState(() => serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
   const [chatPrompt, setChatPrompt] = useState('Create a stricter anti-spam rule for drop-shipping titles.');
   const [simulation, setSimulation] = useState(() => evaluateRule(DEFAULT_AUTOMOD_RULE, createDefaultSimulationPosts()));
+  const [blast, setBlast] = useState<BlastRadiusResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [blasting, setBlasting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -222,6 +225,32 @@ export function RuleStagePage() {
     }
   };
 
+  const handleBlast = async () => {
+    try {
+      setBlasting(true);
+      const response = await fetch('/api/rule-stage/blast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rule }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to run blast radius');
+      }
+
+      const data = (await response.json()) as { status: 'success'; blast: BlastRadiusResult };
+      setBlast(data.blast);
+      setError(null);
+    } catch (blastError) {
+      console.error('RuleStage blast failed:', blastError);
+      setError('Unable to run the blast radius backtest.');
+    } finally {
+      setBlasting(false);
+    }
+  };
+
   const handleReset = async () => {
     try {
       const response = await fetch('/api/rule-stage/reset', { method: 'POST' });
@@ -312,6 +341,14 @@ export function RuleStagePage() {
               onClick={runSimulation}
             >
               Run Simulation
+            </Button>
+            <Button
+              className="rounded-full bg-sky-400 px-5 text-slate-950 hover:bg-sky-300"
+              onClick={() => {
+                void handleBlast();
+              }}
+            >
+              {blasting ? 'Running Blast...' : 'Run Blast Radius'}
             </Button>
           </div>
         </nav>
@@ -501,6 +538,23 @@ export function RuleStagePage() {
                   <p className="text-2xl font-semibold">{simulation.matched}</p>
                 </div>
               </div>
+            </Card>
+
+            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">Blast Radius</p>
+                <Badge className="bg-sky-400/15 text-sky-200 hover:bg-sky-400/15">Backtest</Badge>
+              </div>
+              {blast ? (
+                <div className="mt-4 space-y-3 text-sm text-slate-200">
+                  <p>Tested against {blast.totalTested} cached posts.</p>
+                  <p>Would have caught {blast.wouldCatch} spam posts.</p>
+                  <p>{blast.falsePositives.length} legitimate posts would have been flagged.</p>
+                  <p>Catch rate: {(blast.catchRate * 100).toFixed(0)}%</p>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-slate-400">Run the blast radius backtest to see false positives and missed spam.</p>
+              )}
             </Card>
 
             <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none">

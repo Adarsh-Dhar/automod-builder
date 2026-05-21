@@ -16,6 +16,7 @@ const messages: Message[] = [];
 export function ChatPage() {
   const [showConversations, setShowConversations] = React.useState(false);
   const [activeConversation, setActiveConversation] = React.useState<string | null>(conversations[0]?.id ?? null);
+  const [subredditName, setSubredditName] = React.useState<string>('');
 
   const currentConversation = conversations.find((conversation) => conversation.id === activeConversation) ?? conversations[0];
 
@@ -26,7 +27,33 @@ export function ChatPage() {
 
   // Gemini API key loaded from environment (Vite .env via VITE_GEMINI_API_KEY)
   const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ?? '';
-  const [geminiApiKey, setGeminiApiKey] = React.useState<string>(envKey);
+  const [geminiApiKey] = React.useState<string>(envKey);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    const loadInit = async () => {
+      try {
+        const response = await fetch('/api/init');
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as { subredditName?: string };
+        if (isActive) {
+          setSubredditName(data.subredditName ?? '');
+        }
+      } catch (error) {
+        console.warn('Failed to load subreddit init data', error);
+      }
+    };
+
+    void loadInit();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // Chat messages shaped for ChatMode: { id, role: 'user'|'assistant', content, timestamp }
   const [chatMessages, setChatMessages] = React.useState(() =>
@@ -118,6 +145,7 @@ export function ChatPage() {
                   onApplyAST={() => {}}
                   onApplyYaml={(yaml) => handleApplyYaml(yaml)}
                   geminiApiKey={geminiApiKey}
+                  subredditName={subredditName}
                 />
               </div>
             </main>

@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import type { AutomodAST, ChatMessage } from "../types";
 import { callGemini } from "../utils/gemini";
 import { astToYaml } from "../utils/yaml-ast";
+import { buildSubredditContextPrompt, fetchSubredditContext } from "../utils/reddit";
+import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft } from "../../shared/automod";
+import type { BlastRadiusResult } from "../../shared/blast-types";
 
 interface ChatModeProps {
   ast: AutomodAST;
@@ -10,6 +13,7 @@ interface ChatModeProps {
   onApplyAST: (ast: AutomodAST) => void;
   onApplyYaml: (yaml: string) => void;
   geminiApiKey: string;
+  subredditName?: string;
 }
 
   function genId(): string {
@@ -29,6 +33,31 @@ function extractLastYaml(messages: ChatMessage[]): string | null {
     if (match) return match[1].trim();
   }
   return null;
+}
+
+function extractYamlBlock(content: string): string | null {
+  const match = content.match(/```(?:yaml)?\n([\s\S]*?)```/);
+  return match ? match[1].trim() : null;
+}
+
+function formatBlastMessage(result: BlastRadiusResult): string {
+  if (result.totalTested === 0) {
+    return "⚡ **Blast Radius**: No cached posts yet. This rule will be backtested once the subreddit has history.";
+  }
+
+  const falsePositiveLines = result.falsePositives
+    .slice(0, 3)
+    .map((post) => `- \"${post.title}\" (u/${post.author})`)
+    .join("\n");
+
+  return [
+    `⚡ **Blast Radius** (tested against last ${result.totalTested} posts)`,
+    `✅ Would have caught **${result.wouldCatch} spam posts**`,
+    result.falsePositives.length > 0
+      ? `⚠️ Would have **falsely flagged ${result.falsePositives.length} legitimate posts**:\n${falsePositiveLines}`
+      : "✅ No false positives detected",
+    `Catch rate: ${(result.catchRate * 100).toFixed(0)}% | False positive rate: ${(result.falsePositiveRate * 100).toFixed(0)}%`,
+  ].join("\n\n");
 }
 
 function MessageBubble({
@@ -129,17 +158,46 @@ export default function ChatMode({
   onApplyAST: _onApplyAST,
   onApplyYaml,
   geminiApiKey,
-  onOpenApiKey,
+  subredditName,
 }: ChatModeProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
+  const [subredditContext, setSubredditContext] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadSubredditContext = async () => {
+      if (!subredditName) {
+        setSubredditContext("");
+        return;
+      }
+
+      try {
+        const ctx = await fetchSubredditContext(subredditName);
+        if (isActive) {
+          setSubredditContext(buildSubredditContextPrompt(ctx));
+        }
+      } catch {
+        if (isActive) {
+          setSubredditContext("");
+        }
+      }
+    };
+
+    void loadSubredditContext();
+
+    return () => {
+      isActive = false;
+    };
+  }, [subredditName]);
 
   const handleApplyYaml = (yamlStr: string, msgId: string) => {
     onApplyYaml(yamlStr);
@@ -207,13 +265,41 @@ export default function ChatMode({
         contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
       }
 
-      const response = await callGemini(geminiApiKey, contextual, history);
+      const response = await callGemini(geminiApiKey, contextual, history, subredditContext);
       onAddMessage({
         id: genId(),
         role: "assistant",
         content: response,
         timestamp: Date.now(),
       });
+
+      const yamlInReply = extractYamlBlock(response);
+      if (yamlInReply) {
+        try {
+          const parsedRule = parseAutomodRuleDraft(yamlInReply, DEFAULT_AUTOMOD_RULE);
+          const blastResponse = await fetch('/api/rule-stage/blast', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rule: parsedRule }),
+          });
+
+          if (blastResponse.ok) {
+            const blastData = (await blastResponse.json()) as { status: 'success'; blast: BlastRadiusResult };
+            if (blastData.status === 'success') {
+              onAddMessage({
+                id: genId(),
+                role: 'assistant',
+                content: formatBlastMessage(blastData.blast),
+                timestamp: Date.now(),
+              });
+            }
+          }
+        } catch (blastError) {
+          console.warn('Blast Radius backtest failed:', blastError);
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { DEFAULT_AUTOMOD_RULE } from '../../shared/automod';
+import { runBlastRadius } from '../services/blast-radius.service';
 import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
 export const ruleStage = new Hono();
@@ -50,6 +51,18 @@ ruleStage.post('/simulate', async (c) => {
   } catch (error) {
     console.error('[RuleStage] simulate failed:', error);
     return c.json({ status: 'error', message: 'Failed to run simulation' }, 500);
+  }
+});
+
+ruleStage.post('/blast', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => null);
+    const rule = body?.rule ?? (await getCurrentRule());
+    const blast = await runBlastRadius(rule);
+    return c.json({ status: 'success', blast });
+  } catch (error) {
+    console.error('[RuleStage] blast failed:', error);
+    return c.json({ status: 'error', message: 'Failed to run Blast Radius' }, 500);
   }
 });
 

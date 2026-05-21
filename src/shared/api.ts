@@ -4,6 +4,7 @@ export type InitResponse = {
   count: number;
   username: string;
   isModerator?: boolean;
+  subredditName?: string;
 };
 
 export type IncrementResponse = {

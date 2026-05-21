@@ -67,6 +67,7 @@ api.get('/init', async (c) => {
       count: count ? parseInt(count) : 0,
       username: username ?? 'anonymous',
       isModerator,
+      subredditName: context.subredditName ?? undefined,
     });
   } catch (error) {
     console.error(`API Init Error for post ${postId}:`, error);
