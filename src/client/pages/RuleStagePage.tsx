@@ -1,3 +1,5 @@
+import { useInit } from '../contexts/init-context';
+import ChatMode from '../components/ChatMode';
 import { useEffect, useState } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -14,7 +16,6 @@ import {
   type AutomodAction,
   type AutomodCondition,
   type AutomodRule,
-  type RuleChatSuggestion,
   type RuleStageMode,
 } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
@@ -25,42 +26,18 @@ type RuleStageInitResponse = {
   simulation: ReturnType<typeof evaluateRule>;
 };
 
-type RuleStageMutationResponse = {
-  status: 'success';
-  rule: AutomodRule;
-  simulation?: ReturnType<typeof evaluateRule>;
-};
-
 const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
   code: { label: 'Code', helper: 'Edit raw YAML and keep the rule source of truth in sync.' },
   drag: { label: 'Drag', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
   chat: { label: 'Chat', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
 };
 
-const chatSuggestions: RuleChatSuggestion[] = [
-  {
-    title: 'Tighten title matching',
-    description: 'Focus the rule on classic drop-shipping bait phrases.',
-    rule: {
-      conditions: [
-        {
-          field: 'title',
-          comparator: 'includes',
-          value: 'look what i got, just arrived, grab yours here',
-        },
-      ],
-    },
-  },
-  {
-    title: 'Add a stronger moderator note',
-    description: 'Use a clearer modmail line and stickied comment for review.',
-    rule: {
-      comment:
-        'Your post was flagged by our anti-spam filter. If this was a mistake, reply to modmail and we will review it.',
-      modmail: 'Potential drop-shipping spam removed: {{permalink}}\nPlease review this post.',
-    },
-  },
-];
+type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+};
 
 function cloneRule(rule: AutomodRule): AutomodRule {
   return {
@@ -85,12 +62,14 @@ function updateConditionValue(rule: AutomodRule, field: AutomodCondition['field'
 }
 
 export function RuleStagePage() {
+  const { init } = useInit();
   const [mode, setMode] = useState<RuleStageMode>('code');
   const [rule, setRule] = useState<AutomodRule>(DEFAULT_AUTOMOD_RULE);
   const [draft, setDraft] = useState(() => serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
-  const [chatPrompt, setChatPrompt] = useState('Create a stricter anti-spam rule for drop-shipping titles.');
   const [simulation, setSimulation] = useState(() => evaluateRule(DEFAULT_AUTOMOD_RULE, createDefaultSimulationPosts()));
   const [blast, setBlast] = useState<BlastRadiusResult | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [geminiApiKey] = useState(() => (import.meta as any).env?.VITE_GEMINI_API_KEY ?? '');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
@@ -136,6 +115,35 @@ export function RuleStagePage() {
     };
   }, []);
 
+  const handleAddChatMessage = (message: ChatMessage) => {
+    setChatMessages((current) => [...current, message]);
+  };
+
+  const refreshBlast = async (nextRule: AutomodRule) => {
+    try {
+      setBlasting(true);
+      const response = await fetch('/api/rule-stage/blast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rule: nextRule }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to run blast radius');
+      }
+
+      const data = (await response.json()) as { status: 'success'; blast: BlastRadiusResult };
+      setBlast(data.blast);
+    } catch (blastError) {
+      console.error('RuleStage blast failed:', blastError);
+      setError('Unable to run the blast radius backtest.');
+    } finally {
+      setBlasting(false);
+    }
+  };
+
   const handleDraftChange = (value: string) => {
     setDraft(value);
 
@@ -160,6 +168,7 @@ export function RuleStagePage() {
       }
 
       await response.json();
+      await refreshBlast(nextRule);
     } catch (saveError) {
       console.error('RuleStage save failed:', saveError);
       setError('Unable to save the current rule.');
@@ -225,32 +234,6 @@ export function RuleStagePage() {
     }
   };
 
-  const handleBlast = async () => {
-    try {
-      setBlasting(true);
-      const response = await fetch('/api/rule-stage/blast', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ rule }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to run blast radius');
-      }
-
-      const data = (await response.json()) as { status: 'success'; blast: BlastRadiusResult };
-      setBlast(data.blast);
-      setError(null);
-    } catch (blastError) {
-      console.error('RuleStage blast failed:', blastError);
-      setError('Unable to run the blast radius backtest.');
-    } finally {
-      setBlasting(false);
-    }
-  };
-
   const handleReset = async () => {
     try {
       const response = await fetch('/api/rule-stage/reset', { method: 'POST' });
@@ -262,6 +245,7 @@ export function RuleStagePage() {
       setRule(data.rule);
       setDraft(serializeAutomodRule(data.rule));
       setSimulation(data.simulation);
+      await refreshBlast(data.rule);
       setError(null);
     } catch (resetError) {
       console.error('RuleStage reset failed:', resetError);
@@ -345,7 +329,7 @@ export function RuleStagePage() {
             <Button
               className="rounded-full bg-sky-400 px-5 text-slate-950 hover:bg-sky-300"
               onClick={() => {
-                void handleBlast();
+                void refreshBlast(rule);
               }}
             >
               {blasting ? 'Running Blast...' : 'Run Blast Radius'}
@@ -477,38 +461,23 @@ export function RuleStagePage() {
             )}
 
             {mode === 'chat' && (
-              <div className="grid gap-4 p-5">
-                <Card className="border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-medium">Prompt</p>
-                  <Textarea
-                    value={chatPrompt}
-                    onChange={(event) => setChatPrompt(event.target.value)}
-                    className="mt-3 min-h-28 rounded-2xl border-white/10 bg-slate-900/80 text-slate-100"
-                  />
-                </Card>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  {chatSuggestions.map((suggestion) => (
-                    <Card key={suggestion.title} className="border-white/10 bg-white/5 p-4">
-                      <p className="text-sm font-medium">{suggestion.title}</p>
-                      <p className="mt-1 text-sm text-slate-400">{suggestion.description}</p>
-                      <Button
-                        className="mt-4 rounded-full bg-emerald-400 text-slate-950 hover:bg-emerald-300"
-                        onClick={() => applySuggestion(suggestion)}
-                      >
-                        Apply suggestion
-                      </Button>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card className="border-white/10 bg-slate-900/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Draft response</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-200">
-                    I can translate your prompt into the same rule state used by Code Mode and Drag Mode.
-                    Start with a clearer phrase list, keep the age and karma gates, and tune the action to remove.
-                  </p>
-                </Card>
+              <div className="p-5">
+                <ChatMode
+                  ast={[]}
+                  messages={chatMessages}
+                  onAddMessage={handleAddChatMessage}
+                  onApplyAST={() => {}}
+                  onApplyYaml={(yaml) => {
+                    const parsed = parseAutomodRuleDraft(yaml, rule);
+                    setRule(parsed);
+                    setDraft(serializeAutomodRule(parsed));
+                    setMode('code');
+                    void persistRule(parsed);
+                  }}
+                  geminiApiKey={geminiApiKey}
+                  subredditName={init?.subredditName}
+                  contextYaml={draft}
+                />
               </div>
             )}
           </Card>
@@ -549,8 +518,20 @@ export function RuleStagePage() {
                 <div className="mt-4 space-y-3 text-sm text-slate-200">
                   <p>Tested against {blast.totalTested} cached posts.</p>
                   <p>Would have caught {blast.wouldCatch} spam posts.</p>
-                  <p>{blast.falsePositives.length} legitimate posts would have been flagged.</p>
-                  <p>Catch rate: {(blast.catchRate * 100).toFixed(0)}%</p>
+                  {blast.falsePositives.length > 0 ? (
+                    <div className="space-y-2">
+                      <p>False positives:</p>
+                      <ul className="space-y-1 pl-4 text-slate-300">
+                        {blast.falsePositives.slice(0, 3).map((post) => (
+                          <li key={post.id}>- {post.title} (u/{post.author})</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p>No false positives detected.</p>
+                  )}
+                  <p>Missed spam: {blast.missedSpam.length}</p>
+                  <p>Catch rate: {(blast.catchRate * 100).toFixed(0)}% | False positive rate: {(blast.falsePositiveRate * 100).toFixed(0)}%</p>
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-slate-400">Run the blast radius backtest to see false positives and missed spam.</p>

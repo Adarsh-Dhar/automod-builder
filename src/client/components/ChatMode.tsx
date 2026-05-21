@@ -14,6 +14,7 @@ interface ChatModeProps {
   onApplyYaml: (yaml: string) => void;
   geminiApiKey: string;
   subredditName?: string;
+  contextYaml?: string;
 }
 
   function genId(): string {
@@ -159,6 +160,7 @@ export default function ChatMode({
   onApplyYaml,
   geminiApiKey,
   subredditName,
+  contextYaml,
 }: ChatModeProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -260,8 +262,8 @@ export default function ChatMode({
       }));
 
       let contextual = trimmed;
-      if (ast.length > 0) {
-        const currentYaml = astToYaml(ast);
+      const currentYaml = contextYaml ?? (ast.length > 0 ? astToYaml(ast) : '');
+      if (currentYaml) {
         contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
       }
 

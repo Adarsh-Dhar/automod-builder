@@ -1,14 +1,17 @@
 import './index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { InitProvider } from './contexts/init-context';
 import { ThemeProvider } from './contexts/theme-context';
 import { RuleStagePage } from './pages/RuleStagePage';
 
 function App() {
   return (
-    <ThemeProvider>
-      <RuleStagePage />
-    </ThemeProvider>
+    <InitProvider>
+      <ThemeProvider>
+        <RuleStagePage />
+      </ThemeProvider>
+    </InitProvider>
   );
 }
 
