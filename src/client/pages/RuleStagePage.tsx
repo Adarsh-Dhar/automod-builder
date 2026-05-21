@@ -1,0 +1,538 @@
+import { useEffect, useState } from 'react';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import { Textarea } from '../components/ui/textarea';
+import { cn } from '../lib/utils';
+import {
+  createDefaultSimulationPosts,
+  DEFAULT_AUTOMOD_RULE,
+  describeCondition,
+  evaluateRule,
+  parseAutomodRuleDraft,
+  serializeAutomodRule,
+  type AutomodAction,
+  type AutomodCondition,
+  type AutomodRule,
+  type RuleChatSuggestion,
+  type RuleStageMode,
+} from '../../shared/automod';
+
+type RuleStageInitResponse = {
+  status: 'success';
+  rule: AutomodRule;
+  simulation: ReturnType<typeof evaluateRule>;
+};
+
+type RuleStageMutationResponse = {
+  status: 'success';
+  rule: AutomodRule;
+  simulation?: ReturnType<typeof evaluateRule>;
+};
+
+const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
+  code: { label: 'Code Mode', helper: 'Edit raw YAML and keep the rule source of truth in sync.' },
+  drag: { label: 'Drag Mode', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
+  chat: { label: 'Chat Mode', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
+};
+
+const chatSuggestions: RuleChatSuggestion[] = [
+  {
+    title: 'Tighten title matching',
+    description: 'Focus the rule on classic drop-shipping bait phrases.',
+    rule: {
+      conditions: [
+        {
+          field: 'title',
+          comparator: 'includes',
+          value: 'look what i got, just arrived, grab yours here',
+        },
+      ],
+    },
+  },
+  {
+    title: 'Add a stronger moderator note',
+    description: 'Use a clearer modmail line and stickied comment for review.',
+    rule: {
+      comment:
+        'Your post was flagged by our anti-spam filter. If this was a mistake, reply to modmail and we will review it.',
+      modmail: 'Potential drop-shipping spam removed: {{permalink}}\nPlease review this post.',
+    },
+  },
+];
+
+function cloneRule(rule: AutomodRule): AutomodRule {
+  return {
+    ...rule,
+    conditions: rule.conditions.map((condition) => ({ ...condition })),
+  };
+}
+
+function updateCondition(rule: AutomodRule, field: AutomodCondition['field'], patch: Partial<AutomodCondition>): AutomodRule {
+  const next = cloneRule(rule);
+  const target = next.conditions.find((condition) => condition.field === field);
+
+  if (target) {
+    Object.assign(target, patch);
+  }
+
+  return next;
+}
+
+function updateConditionValue(rule: AutomodRule, field: AutomodCondition['field'], value: string): AutomodRule {
+  return updateCondition(rule, field, { value });
+}
+
+export function RuleStagePage() {
+  const [mode, setMode] = useState<RuleStageMode>('code');
+  const [rule, setRule] = useState<AutomodRule>(DEFAULT_AUTOMOD_RULE);
+  const [draft, setDraft] = useState(() => serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
+  const [chatPrompt, setChatPrompt] = useState('Create a stricter anti-spam rule for drop-shipping titles.');
+  const [simulation, setSimulation] = useState(() => evaluateRule(DEFAULT_AUTOMOD_RULE, createDefaultSimulationPosts()));
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/rule-stage/init');
+        if (!response.ok) {
+          throw new Error('Failed to load RuleStage state');
+        }
+
+        const data = (await response.json()) as RuleStageInitResponse;
+        if (!isActive) {
+          return;
+        }
+
+        setRule(data.rule);
+        setDraft(serializeAutomodRule(data.rule));
+        setSimulation(data.simulation);
+      } catch (loadError) {
+        if (!isActive) {
+          return;
+        }
+
+        console.error('RuleStage load failed:', loadError);
+        setError('Unable to load saved rule state.');
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const handleDraftChange = (value: string) => {
+    setDraft(value);
+
+    const parsed = parseAutomodRuleDraft(value, rule);
+    setRule(parsed);
+    void persistRule(parsed);
+  };
+
+  const persistRule = async (nextRule: AutomodRule) => {
+    try {
+      setSaving(true);
+      const response = await fetch('/api/rule-stage/rule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(nextRule),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save rule');
+      }
+
+      await response.json();
+    } catch (saveError) {
+      console.error('RuleStage save failed:', saveError);
+      setError('Unable to save the current rule.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applySuggestion = (suggestion: RuleChatSuggestion) => {
+    const nextRule = cloneRule(rule);
+
+    if (suggestion.rule.name) {
+      nextRule.name = suggestion.rule.name;
+    }
+
+    if (suggestion.rule.comment) {
+      nextRule.comment = suggestion.rule.comment;
+    }
+
+    if (suggestion.rule.modmail) {
+      nextRule.modmail = suggestion.rule.modmail;
+    }
+
+    if (suggestion.rule.conditions?.length) {
+      nextRule.conditions = suggestion.rule.conditions.map((condition) => ({
+        ...condition,
+      }));
+    }
+
+    setRule(nextRule);
+    setDraft(serializeAutomodRule(nextRule));
+    setMode('code');
+    void persistRule(nextRule);
+  };
+
+  const handleActionChange = (action: AutomodAction) => {
+    const nextRule = cloneRule(rule);
+    nextRule.action = action;
+    setRule(nextRule);
+    setDraft(serializeAutomodRule(nextRule));
+    void persistRule(nextRule);
+  };
+
+  const handleSimulation = async () => {
+    try {
+      const response = await fetch('/api/rule-stage/simulate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rule }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to run simulation');
+      }
+
+      const data = (await response.json()) as { status: 'success'; simulation: ReturnType<typeof evaluateRule> };
+      setSimulation(data.simulation);
+    } catch (simulateError) {
+      console.error('RuleStage simulation failed:', simulateError);
+      setError('Unable to run the simulation.');
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      const response = await fetch('/api/rule-stage/reset', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error('Failed to reset RuleStage state');
+      }
+
+      const data = (await response.json()) as RuleStageInitResponse;
+      setRule(data.rule);
+      setDraft(serializeAutomodRule(data.rule));
+      setSimulation(data.simulation);
+      setError(null);
+    } catch (resetError) {
+      console.error('RuleStage reset failed:', resetError);
+      setError('Unable to reset RuleStage state.');
+    }
+  };
+
+  const runSimulation = () => {
+    void handleSimulation();
+  };
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_40%),linear-gradient(135deg,#0b1020_0%,#111827_45%,#1e293b_100%)] text-slate-100">
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-6">
+        <header className="grid gap-4 rounded-4xl border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:grid-cols-[1.4fr_1fr] md:p-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">RuleStage</Badge>
+              <Badge className="bg-white/10 text-white hover:bg-white/10">Automod builder</Badge>
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
+                Build, test, and stage Automod rules without leaving Reddit.
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
+                Code Mode, Drag Mode, and Chat Mode all write into the same rule state.
+                The simulation panel shows exactly what would happen before anything is deployed.
+              </p>
+            </div>
+          </div>
+
+          <Card className="border-white/10 bg-slate-950/60 p-4 text-slate-100 shadow-none">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Current rule</p>
+                <p className="text-lg font-medium">{rule.name}</p>
+              </div>
+              <Badge className="bg-orange-400/15 text-orange-200 hover:bg-orange-400/15">{rule.action}</Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-2xl bg-white/5 p-3">
+                <p className="text-slate-400">Mode</p>
+                <p className="font-medium">{modeMeta[mode].label}</p>
+              </div>
+              <div className="rounded-2xl bg-white/5 p-3">
+                <p className="text-slate-400">Matches</p>
+                <p className="font-medium">{simulation.matched} / {createDefaultSimulationPosts().length}</p>
+              </div>
+            </div>
+          </Card>
+        </header>
+
+        <nav className="flex flex-wrap gap-2 rounded-3xl border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
+          {(Object.keys(modeMeta) as RuleStageMode[]).map((item) => (
+            <Button
+              key={item}
+              variant={mode === item ? 'default' : 'ghost'}
+              className={cn(
+                'rounded-full px-5 py-2 text-sm',
+                mode === item ? 'bg-white text-slate-950 hover:bg-slate-100' : 'text-slate-200 hover:bg-white/8 hover:text-white'
+              )}
+              onClick={() => setMode(item)}
+            >
+              {modeMeta[item].label}
+            </Button>
+          ))}
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="ghost"
+              className="rounded-full text-slate-200 hover:bg-white/8 hover:text-white"
+              onClick={() => {
+                void handleReset();
+              }}
+            >
+              Reset rule
+            </Button>
+            <Button
+              className="rounded-full bg-emerald-400 px-5 text-slate-950 hover:bg-emerald-300"
+              onClick={runSimulation}
+            >
+              Run Simulation
+            </Button>
+          </div>
+        </nav>
+
+        {error && (
+          <Card className="border-amber-300/20 bg-amber-400/10 p-4 text-amber-100 shadow-none">
+            <p className="text-sm">{error}</p>
+          </Card>
+        )}
+
+        {loading && (
+          <Card className="border-white/10 bg-white/6 p-4 text-slate-200 shadow-none">
+            <p className="text-sm">Loading saved rule state...</p>
+          </Card>
+        )}
+
+        <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+          <Card className="overflow-hidden border-white/10 bg-slate-950/55 p-0 text-slate-100 shadow-none">
+            <div className="border-b border-white/10 px-5 py-4">
+              <p className="text-sm font-medium text-white">{modeMeta[mode].label}</p>
+              <p className="text-sm text-slate-400">{modeMeta[mode].helper}</p>
+            </div>
+
+            {mode === 'code' && (
+              <div className="grid gap-4 p-5">
+                <Textarea
+                  value={draft}
+                  onChange={(event) => handleDraftChange(event.target.value)}
+                  className="min-h-128 rounded-[1.35rem] border-white/10 bg-slate-900/90 font-mono text-sm text-slate-100 shadow-inner shadow-black/20 focus-visible:ring-emerald-400/40"
+                />
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <span>Editing the YAML draft updates the shared rule state immediately.</span>
+                </div>
+              </div>
+            )}
+
+            {mode === 'drag' && (
+              <div className="grid gap-4 p-5">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Card className="border-white/10 bg-white/5 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Trigger</p>
+                    <p className="mt-2 text-lg font-medium">{rule.name}</p>
+                    <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0])}</p>
+                  </Card>
+                  <Card className="border-white/10 bg-white/5 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Audience</p>
+                    <p className="mt-2 text-lg font-medium">New or low-karma accounts</p>
+                    <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[1] ?? DEFAULT_AUTOMOD_RULE.conditions[1])}</p>
+                    <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[2] ?? DEFAULT_AUTOMOD_RULE.conditions[2])}</p>
+                  </Card>
+                  <Card className="border-white/10 bg-white/5 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Action</p>
+                    <p className="mt-2 text-lg font-medium">{rule.action}</p>
+                    <p className="mt-1 text-sm text-slate-400">Comment stickied: {rule.commentStickied ? 'yes' : 'no'}</p>
+                  </Card>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card className="border-white/10 bg-white/5 p-4">
+                    <p className="text-sm font-medium">Title phrases</p>
+                    <p className="mt-1 text-sm text-slate-400">Edit the phrase list to widen or narrow the match.</p>
+                    <Textarea
+                      value={rule.conditions[0]?.value ?? ''}
+                      onChange={(event) => {
+                        const nextRule = updateConditionValue(rule, 'title', event.target.value);
+                        setRule(nextRule);
+                        setDraft(serializeAutomodRule(nextRule));
+                      }}
+                      className="mt-3 min-h-28 rounded-2xl border-white/10 bg-slate-900/80 text-slate-100"
+                    />
+                  </Card>
+
+                  <Card className="border-white/10 bg-white/5 p-4">
+                    <p className="text-sm font-medium">Thresholds</p>
+                    <p className="mt-1 text-sm text-slate-400">Adjust the account age and karma gates.</p>
+                    <div className="mt-3 grid gap-3">
+                      <label className="grid gap-2 text-sm text-slate-300">
+                        Account age
+                        <input
+                          className="rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400"
+                          value={rule.conditions[1]?.value ?? ''}
+                          onChange={(event) => {
+                            const nextRule = updateConditionValue(rule, 'account_age', event.target.value);
+                            setRule(nextRule);
+                            setDraft(serializeAutomodRule(nextRule));
+                          }}
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm text-slate-300">
+                        Combined karma
+                        <input
+                          className="rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400"
+                          value={rule.conditions[2]?.value ?? ''}
+                          onChange={(event) => {
+                            const nextRule = updateConditionValue(rule, 'combined_karma', event.target.value);
+                            setRule(nextRule);
+                            setDraft(serializeAutomodRule(nextRule));
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </Card>
+                </div>
+
+                <Card className="border-white/10 bg-white/5 p-4">
+                  <p className="text-sm font-medium">Action mode</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(['remove', 'report', 'approve'] as AutomodAction[]).map((action) => (
+                      <Button
+                        key={action}
+                        variant={rule.action === action ? 'default' : 'outline'}
+                        className={cn(
+                          'rounded-full',
+                          rule.action === action
+                            ? 'bg-white text-slate-950 hover:bg-slate-100'
+                            : 'border-white/15 bg-transparent text-slate-200 hover:bg-white/8 hover:text-white'
+                        )}
+                        onClick={() => handleActionChange(action)}
+                      >
+                        {action}
+                      </Button>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {mode === 'chat' && (
+              <div className="grid gap-4 p-5">
+                <Card className="border-white/10 bg-white/5 p-4">
+                  <p className="text-sm font-medium">Prompt</p>
+                  <Textarea
+                    value={chatPrompt}
+                    onChange={(event) => setChatPrompt(event.target.value)}
+                    className="mt-3 min-h-28 rounded-2xl border-white/10 bg-slate-900/80 text-slate-100"
+                  />
+                </Card>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {chatSuggestions.map((suggestion) => (
+                    <Card key={suggestion.title} className="border-white/10 bg-white/5 p-4">
+                      <p className="text-sm font-medium">{suggestion.title}</p>
+                      <p className="mt-1 text-sm text-slate-400">{suggestion.description}</p>
+                      <Button
+                        className="mt-4 rounded-full bg-emerald-400 text-slate-950 hover:bg-emerald-300"
+                        onClick={() => applySuggestion(suggestion)}
+                      >
+                        Apply suggestion
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+
+                <Card className="border-white/10 bg-slate-900/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Draft response</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
+                    I can translate your prompt into the same rule state used by Code Mode and Drag Mode.
+                    Start with a clearer phrase list, keep the age and karma gates, and tune the action to remove.
+                  </p>
+                </Card>
+              </div>
+            )}
+          </Card>
+
+          <aside className="grid gap-4">
+            <Card className="border-white/10 bg-slate-950/55 p-4 text-slate-100 shadow-none">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Simulation summary</p>
+                <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">Dry run</Badge>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">{saving ? 'Saving rule...' : 'Saved to Redis-backed RuleStage state.'}</p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-white/5 p-3">
+                  <p className="text-slate-400">Removed</p>
+                  <p className="text-2xl font-semibold">{simulation.removed}</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 p-3">
+                  <p className="text-slate-400">Approved</p>
+                  <p className="text-2xl font-semibold">{simulation.approved}</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 p-3">
+                  <p className="text-slate-400">Reported</p>
+                  <p className="text-2xl font-semibold">{simulation.reported}</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 p-3">
+                  <p className="text-slate-400">Matched</p>
+                  <p className="text-2xl font-semibold">{simulation.matched}</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none">
+              <p className="text-sm font-medium">Recent dry-run items</p>
+              <div className="mt-4 space-y-3">
+                {simulation.items.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/55 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{item.title}</p>
+                        <p className="text-sm text-slate-400">u/{item.author}</p>
+                      </div>
+                      <Badge className={cn(
+                        item.outcome === 'remove'
+                          ? 'bg-red-400/15 text-red-200 hover:bg-red-400/15'
+                          : item.outcome === 'report'
+                            ? 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/15'
+                            : 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15'
+                      )}>
+                        {item.outcome}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-400">{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </aside>
+        </section>
+      </div>
+    </div>
+  );
+}

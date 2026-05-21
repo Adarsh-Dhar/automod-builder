@@ -1,16 +1,9 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compileOnSave": false,
   "files": [],
   "references": [
-    {
-      "path": "./lib/db"
-    },
-    {
-      "path": "./lib/api-client-react"
-    },
-    {
-      "path": "./lib/api-zod"
-    }
+    { "path": "./tools/tsconfig.client.json" },
+    { "path": "./tools/tsconfig.server.json" },
+    { "path": "./tools/tsconfig.shared.json" },
+    { "path": "./tools/tsconfig.vite.json" }
   ]
 }

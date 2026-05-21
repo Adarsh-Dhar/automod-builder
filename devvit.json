@@ -1,0 +1,51 @@
+{
+  "name": "rulestage",
+  "permissions": {
+    "http": {
+      "enable": true,
+      "domains": [
+        "generativelanguage.googleapis.com"
+      ]
+    },
+    "reddit": true
+  },
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "inline": true,
+        "entry": "splash.html"
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Open RuleStage",
+        "description": "Open the Automod builder and simulator",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/rank-settings"
+      }
+    ]
+  },
+  "triggers": {
+    "onModAction": "/internal/triggers/on-mod-action",
+    "onPostSubmit": "/internal/triggers/on-post-submit",
+    "onCommentSubmit": "/internal/triggers/on-comment-submit"
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "dev": {
+    "subreddit": "sub_vault_dev"
+  }
+}
