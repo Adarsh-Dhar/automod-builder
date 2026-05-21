@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
-import { DEFAULT_AUTOMOD_RULE, buildDecoderAnalysisPrompt, type DecoderAnalysis } from '../../shared/automod';
+import { context } from '@devvit/web/server';
+import { DEFAULT_AUTOMOD_RULE, buildDebugPrompt, buildDecoderAnalysisPrompt, type DecoderAnalysis } from '../../shared/automod';
+import type { DebugResponse } from '../../shared/debug-types';
+import { runDebug } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
@@ -51,6 +54,70 @@ async function analyzeObfuscationOnServer(examples: [string, string, string]): P
 
   if (parsed.confidence !== 'high' && parsed.confidence !== 'medium' && parsed.confidence !== 'low') {
     throw new Error('Gemini returned an invalid confidence level');
+  }
+
+  return parsed;
+}
+
+type DebugAnalysis = {
+  explanation: string;
+  fixedYaml: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+async function analyzeDebugOnServer(result: DebugResponse): Promise<DebugAnalysis> {
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY ?? '';
+
+  if (!apiKey) {
+    throw new Error('Missing server Gemini API key');
+  }
+
+  const prompt = buildDebugPrompt(
+    {
+      id: result.postId,
+      title: result.postTitle,
+      body: result.postBody,
+      author: result.postAuthor,
+      accountAgeDays: 0,
+      combinedKarma: 0,
+    },
+    result.matches
+  );
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const txt = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${txt}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+
+  const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
+  const parsed = JSON.parse(stripCodeFences(text || JSON.stringify(data))) as DebugAnalysis;
+
+  if (
+    !parsed ||
+    typeof parsed.explanation !== 'string' ||
+    typeof parsed.fixedYaml !== 'string' ||
+    (parsed.confidence !== 'high' && parsed.confidence !== 'medium' && parsed.confidence !== 'low')
+  ) {
+    throw new Error('Gemini returned an invalid debug analysis payload');
   }
 
   return parsed;
@@ -133,6 +200,31 @@ ruleStage.post('/decoder/analyze', async (c) => {
   } catch (error) {
     console.error('[RuleStage] decoder analyze failed:', error);
     return c.json({ status: 'error', message: 'Failed to analyze obfuscation' }, 500);
+  }
+});
+
+ruleStage.post('/debug', async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => null)) as { postId?: unknown } | null;
+    const postId = typeof body?.postId === 'string' ? body.postId.trim() : '';
+
+    if (!postId) {
+      return c.json({ status: 'error', message: 'postId is required' }, 400);
+    }
+
+    const debugResult = await runDebug(postId, context.subredditName ?? undefined);
+    const analysis = await analyzeDebugOnServer(debugResult);
+
+    return c.json({
+      status: 'success',
+      debug: {
+        ...debugResult,
+        aiFixYaml: analysis.fixedYaml,
+      },
+    });
+  } catch (error) {
+    console.error('[RuleStage] debug failed:', error);
+    return c.json({ status: 'error', message: 'Failed to debug post' }, 500);
   }
 });
 

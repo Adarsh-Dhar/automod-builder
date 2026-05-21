@@ -1,3 +1,5 @@
+import type { DebugMatch } from './debug-types';
+
 export type RuleStageMode = 'code' | 'drag' | 'chat' | 'decoder';
 
 export type ObfuscationTrick =
@@ -96,6 +98,49 @@ export type RuleChatSuggestion = {
   description: string;
   rule: Partial<AutomodRule>;
 };
+
+export function buildDebugPrompt(post: SimulationPost, matchedRules: DebugMatch[]): string {
+  const matchSummary = matchedRules
+    .map((match, index) => {
+      const condition = match.matchedCondition;
+
+      return [
+        `Match ${index + 1}:`,
+        `Rule name: ${match.ruleName}`,
+        `Confidence: ${match.confidence}`,
+        `Line range: ${match.lineStart}-${match.lineEnd}`,
+        `Matched condition: ${condition.field} ${condition.comparator} ${condition.value}`,
+        'Rule YAML:',
+        match.rawYaml,
+      ].join('\n');
+    })
+    .join('\n\n');
+
+  return [
+    'You are explaining why AutoModerator matched a Reddit post and how to tighten the rule with a minimal rewrite.',
+    'Return a single JSON object only. Do not include markdown fences or commentary.',
+    'The JSON object must match this shape exactly:',
+    '{',
+    '  "explanation": "short human readable explanation of why the rule fired",',
+    '  "fixedYaml": "a minimal YAML rewrite that preserves the intent while reducing false positives",',
+    '  "confidence": "high" | "medium" | "low"',
+    '}',
+    '',
+    'Post title:',
+    post.title,
+    '',
+    'Post body:',
+    post.body,
+    '',
+    'Post author:',
+    post.author,
+    '',
+    'Matched rules:',
+    matchSummary || 'No matched rules were detected.',
+    '',
+    'Keep the rewrite focused on the matched blocks only. Do not invent unrelated rule changes.',
+  ].join('\n');
+}
 
 export const DEFAULT_AUTOMOD_RULE: AutomodRule = {
   id: 'drop-shipping-spam',

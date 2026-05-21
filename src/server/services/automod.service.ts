@@ -1,4 +1,4 @@
-import { context, redis } from '@devvit/web/server';
+import { context, redis, reddit } from '@devvit/web/server';
 import {
   createDefaultSimulationPosts,
   DEFAULT_AUTOMOD_RULE,
@@ -22,6 +22,22 @@ function ruleStorageKey(): string {
 
 function postsStorageKey(): string {
   return `${MOCK_POSTS_KEY}:${getSubredditKey()}`;
+}
+
+function extractWikiContent(page: unknown): string {
+  if (typeof page === 'string') {
+    return page;
+  }
+
+  if (page && typeof page === 'object') {
+    const record = page as Record<string, unknown>;
+    const content = record.content_md ?? record.content ?? record.wikitext ?? record.body ?? record.md;
+    if (typeof content === 'string') {
+      return content;
+    }
+  }
+
+  return '';
 }
 
 export async function getCurrentRule(): Promise<AutomodRule> {
@@ -69,6 +85,22 @@ export async function runSimulation(rule?: AutomodRule) {
   const posts = await getMockSimulationPosts();
 
   return evaluateRule(activeRule, posts);
+}
+
+export async function getLiveAutomodYaml(subredditName: string): Promise<string> {
+  try {
+    const wikiPage = await reddit.getWikiPage({ subredditName, page: 'config/automoderator' });
+    const liveYaml = extractWikiContent(wikiPage);
+
+    if (liveYaml.trim()) {
+      return liveYaml;
+    }
+  } catch (error) {
+    console.warn('[RuleStage] Failed to load live automod wiki, falling back to Redis draft.', error);
+  }
+
+  const draft = await redis.get(ruleStorageKey());
+  return draft?.trim() ? draft : serializeAutomodRule(DEFAULT_AUTOMOD_RULE);
 }
 
 export async function resetRuleStageState(): Promise<AutomodRule> {

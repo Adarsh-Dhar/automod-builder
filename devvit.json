@@ -7,7 +7,8 @@
         "generativelanguage.googleapis.com"
       ]
     },
-    "reddit": true
+    "reddit": true,
+    "wikiRead": true
   },
   "post": {
     "dir": "dist/client",

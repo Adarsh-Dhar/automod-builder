@@ -5,6 +5,9 @@ import { astToYaml } from "../utils/yaml-ast";
 import { buildSubredditContextPrompt, fetchSubredditContext } from "../utils/reddit";
 import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft } from "../../shared/automod";
 import type { BlastRadiusResult } from "../../shared/blast-types";
+import type { DebugResponse } from "../../shared/debug-types";
+import DebugResultCard from "./DebugResultCard";
+import { formatDebugMessage, parsePostId } from "../utils/debug";
 
 interface ChatModeProps {
   ast: AutomodAST;
@@ -41,6 +44,12 @@ function extractYamlBlock(content: string): string | null {
   return match ? match[1].trim() : null;
 }
 
+function detectDebugIntent(text: string): string | null {
+  const postId = parsePostId(text);
+  const intentRe = /why.*(removed|flagged|filtered)|what.*(rule|automod).*(got|hit|caught|removed)|debug.*post/i;
+  return intentRe.test(text) && postId ? postId : null;
+}
+
 function formatBlastMessage(result: BlastRadiusResult): string {
   if (result.totalTested === 0) {
     return "⚡ **Blast Radius**: No cached posts yet. This rule will be backtested once the subreddit has history.";
@@ -71,6 +80,7 @@ function MessageBubble({
   applied: boolean;
 }) {
   const [justApplied, setJustApplied] = useState(false);
+  const debugResult = msg.debugResult;
   const yamlMatch = msg.content.match(/```(?:yaml)?\n([\s\S]*?)```/);
   const textParts = msg.content.split(/```(?:yaml)?\n[\s\S]*?```/);
 
@@ -101,49 +111,53 @@ function MessageBubble({
             : "bg-white border border-[#E7EAF1] text-[#1F2937]"
         }`}
       >
-        {textParts.map((part, i) => (
-          <span key={i}>
-            {part && (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1F2937]">{part}</p>
-            )}
-            {i === 0 && yamlMatch && (
-              <div className="mt-2 overflow-hidden rounded-xl border border-[#E7EAF1] bg-white">
-                <div className="flex items-center justify-between bg-[#FBFCFF] px-3 py-1.5">
-                  <span className="font-mono text-[10px] text-[#8B93A5]">yaml</span>
-                  {onApply && (
-                    <button
-                      onClick={() => handleApply(yamlMatch[1])}
-                      className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 ${
-                        showApplied
-                          ? "text-[#22A06B]"
-                          : "text-[#FF6B35] hover:text-[#F35B20]"
-                      }`}
-                    >
-                      {showApplied ? (
-                        <>
-                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                            <path d="M1.5 5.5L4.5 8.5L9.5 2.5" stroke="#22A06B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          Applied to Code
-                        </>
-                      ) : (
-                        <>
-                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                            <path d="M2 5.5H9M6 2.5L9 5.5L6 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          Apply to Rules
-                        </>
-                      )}
-                    </button>
-                  )}
+        {debugResult ? (
+          <DebugResultCard result={debugResult} onApplyYaml={handleApply} />
+        ) : (
+          textParts.map((part, i) => (
+            <span key={i}>
+              {part && (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1F2937]">{part}</p>
+              )}
+              {i === 0 && yamlMatch && (
+                <div className="mt-2 overflow-hidden rounded-xl border border-[#E7EAF1] bg-white">
+                  <div className="flex items-center justify-between bg-[#FBFCFF] px-3 py-1.5">
+                    <span className="font-mono text-[10px] text-[#8B93A5]">yaml</span>
+                    {onApply && (
+                      <button
+                        onClick={() => handleApply(yamlMatch[1])}
+                        className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 ${
+                          showApplied
+                            ? "text-[#22A06B]"
+                            : "text-[#FF6B35] hover:text-[#F35B20]"
+                        }`}
+                      >
+                        {showApplied ? (
+                          <>
+                            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                              <path d="M1.5 5.5L4.5 8.5L9.5 2.5" stroke="#22A06B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Applied to Code
+                          </>
+                        ) : (
+                          <>
+                            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                              <path d="M2 5.5H9M6 2.5L9 5.5L6 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Apply to Rules
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  <pre className="max-h-48 overflow-auto bg-[#FBFCFF] p-3 font-mono text-xs text-[#0F766E]">
+                    {yamlMatch[1]}
+                  </pre>
                 </div>
-                <pre className="max-h-48 overflow-auto bg-[#FBFCFF] p-3 font-mono text-xs text-[#0F766E]">
-                  {yamlMatch[1]}
-                </pre>
-              </div>
-            )}
-          </span>
-        ))}
+              )}
+            </span>
+          ))
+        )}
         <div className="mt-1.5 text-[10px] text-[#8B93A5]">
           {new Date(msg.timestamp).toLocaleTimeString()}
         </div>
@@ -208,12 +222,9 @@ export default function ChatMode({
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
-    if (!geminiApiKey) {
-      setError('Missing Gemini API key in environment');
-      return;
-    }
 
     const trimmed = text.trim();
+    const debugPostId = detectDebugIntent(trimmed);
 
     // Detect apply-intent: user says "apply", "yes apply it", "yeah good now apply", etc.
     if (APPLY_INTENT_RE.test(trimmed)) {
@@ -256,6 +267,36 @@ export default function ChatMode({
     setIsLoading(true);
 
     try {
+      if (debugPostId) {
+        const response = await fetch('/api/rule-stage/debug', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ postId: debugPostId }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to debug post');
+        }
+
+        const data = (await response.json()) as { status: 'success'; debug: DebugResponse };
+
+        onAddMessage({
+          id: genId(),
+          role: 'assistant',
+          content: formatDebugMessage(data.debug),
+          timestamp: Date.now(),
+          debugResult: data.debug,
+        });
+
+        return;
+      }
+
+      if (!geminiApiKey) {
+        throw new Error('Missing Gemini API key in environment');
+      }
+
       const history = messages.map((m) => ({
         role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
         content: m.content,
