@@ -60,7 +60,7 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedRegex, setCopiedRegex] = useState(false);
-  const [appliedYaml, setAppliedYaml] = useState(false);
+  const [appliedPattern, setAppliedPattern] = useState<string | null>(null);
 
   const canAnalyze = examples.every((example) => example.trim().length > 0) && !loading;
 
@@ -76,7 +76,6 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
     try {
       setLoading(true);
       setError(null);
-      setAppliedYaml(false);
       const response = await fetch('/api/rule-stage/decoder/analyze', {
         method: 'POST',
         headers: {
@@ -125,10 +124,13 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
     }
 
     onApplyYaml(analysis.automodYaml);
-    setAppliedYaml(true);
+    setAppliedPattern(analysis.regexPattern);
   };
 
-  const apiKeyStatus = geminiApiKey ? 'Client key present for Chat mode' : 'Decoder uses the server Gemini key';
+  const apiKeyStatus = geminiApiKey
+    ? 'Decoder runs server-side; the browser key is only needed for Chat mode.'
+    : 'Decoder runs server-side; add a key only if you want to use Chat mode.';
+  const appliedYaml = analysis ? appliedPattern === analysis.regexPattern : false;
 
   return (
     <div className="grid gap-4">
@@ -160,7 +162,6 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
           >
             {loading ? 'Analyzing…' : 'Analyze'}
           </Button>
-          {!geminiApiKey && <span className="text-xs text-slate-400">Add a Gemini API key to use Decoder mode.</span>}
           {loading && (
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />

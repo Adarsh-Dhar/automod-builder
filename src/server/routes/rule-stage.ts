@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { DEFAULT_AUTOMOD_RULE, type DecoderAnalysis } from '../../shared/automod';
+import { DEFAULT_AUTOMOD_RULE, buildDecoderAnalysisPrompt, type DecoderAnalysis } from '../../shared/automod';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
@@ -16,28 +16,7 @@ async function analyzeObfuscationOnServer(examples: [string, string, string]): P
     throw new Error('Missing server Gemini API key');
   }
 
-  const prompt = [
-    'You are analyzing spam messages that bypass moderation by using Unicode and phrasing obfuscation.',
-    'Inspect all three examples and identify the shared tricks used across the campaign.',
-    'Return a single JSON object only. Do not wrap it in markdown fences or add commentary.',
-    'The JSON object must match this shape exactly:',
-    '{',
-    '  "tricks": ["homoglyph" | "zero-width" | "look-alike" | "separator-noise" | "evasive-phrasing" | "mixed-script"],',
-    '  "explanation": "human readable breakdown of each trick and how it works",',
-    '  "regexPattern": "a single regex string that would match the campaign",',
-    '  "automodYaml": "AutoModerator YAML snippet that applies the regex pattern",',
-    '  "confidence": "high" | "medium" | "low"',
-    '}',
-    '',
-    'Example 1:',
-    examples[0],
-    '',
-    'Example 2:',
-    examples[1],
-    '',
-    'Example 3:',
-    examples[2],
-  ].join('\n');
+  const prompt = buildDecoderAnalysisPrompt(examples);
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',

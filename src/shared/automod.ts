@@ -16,6 +16,31 @@ export type DecoderAnalysis = {
   confidence: 'high' | 'medium' | 'low';
 };
 
+export function buildDecoderAnalysisPrompt(examples: [string, string, string]): string {
+  return [
+    'You are analyzing spam messages that bypass moderation by using Unicode and phrasing obfuscation.',
+    'Inspect all three examples and identify the shared tricks used across the campaign.',
+    'Return a single JSON object only. Do not wrap it in markdown fences or add commentary.',
+    'The JSON object must match this shape exactly:',
+    '{',
+    '  "tricks": ["homoglyph" | "zero-width" | "look-alike" | "separator-noise" | "evasive-phrasing" | "mixed-script"],',
+    '  "explanation": "human readable breakdown of each trick and how it works",',
+    '  "regexPattern": "a single regex string that would match the campaign",',
+    '  "automodYaml": "AutoModerator YAML snippet that applies the regex pattern",',
+    '  "confidence": "high" | "medium" | "low"',
+    '}',
+    '',
+    'Example 1:',
+    examples[0],
+    '',
+    'Example 2:',
+    examples[1],
+    '',
+    'Example 3:',
+    examples[2],
+  ].join('\n');
+}
+
 export type AutomodAction = 'remove' | 'approve' | 'report';
 
 export type AutomodComparator = 'includes' | 'matches' | '<' | '>' | '<=' | '>=';
