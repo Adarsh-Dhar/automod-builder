@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { analyzeObfuscation } from '../utils/gemini';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -63,7 +62,7 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
   const [copiedRegex, setCopiedRegex] = useState(false);
   const [appliedYaml, setAppliedYaml] = useState(false);
 
-  const canAnalyze = examples.every((example) => example.trim().length > 0) && !!geminiApiKey && !loading;
+  const canAnalyze = examples.every((example) => example.trim().length > 0) && !loading;
 
   const updateExample = (index: number, value: string) => {
     setExamples((current) => current.map((example, itemIndex) => (itemIndex === index ? value : example)));
@@ -78,8 +77,20 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
       setLoading(true);
       setError(null);
       setAppliedYaml(false);
-      const result = await analyzeObfuscation(geminiApiKey, [examples[0], examples[1], examples[2]]);
-      setAnalysis(result);
+      const response = await fetch('/api/rule-stage/decoder/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ examples: [examples[0], examples[1], examples[2]] }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze obfuscation');
+      }
+
+      const data = (await response.json()) as { status: 'success'; analysis: DecoderAnalysis };
+      setAnalysis(data.analysis);
     } catch (analysisError) {
       console.error('Decoder analysis failed:', analysisError);
       setError((analysisError as Error).message || 'Failed to analyze obfuscation.');
@@ -116,6 +127,8 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
     onApplyYaml(analysis.automodYaml);
     setAppliedYaml(true);
   };
+
+  const apiKeyStatus = geminiApiKey ? 'Client key present for Chat mode' : 'Decoder uses the server Gemini key';
 
   return (
     <div className="grid gap-4">
@@ -156,10 +169,11 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
             </div>
           )}
         </div>
+        <p className="mt-3 text-xs text-slate-400">{apiKeyStatus}</p>
       </Card>
 
       {error && (
-        <div className="rounded-2xl border border-[#FECACA] bg-[#FFF1F2] p-3 text-xs text-[#B42318] shadow-sm">
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200 shadow-sm">
           Error: {error}
         </div>
       )}

@@ -156,7 +156,7 @@ function matchesNumericCondition(condition: AutomodCondition, actualValue: numbe
     case '>=':
       return actualValue >= targetValue;
     case 'matches':
-      return actualValue === targetValue;
+      return false;
     default:
       return actualValue < targetValue;
   }
