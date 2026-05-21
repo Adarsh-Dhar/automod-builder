@@ -4,9 +4,9 @@ RuleStage is a Reddit Devvit app for building and testing AutoModerator rules wi
 
 ## Project layout
 
-- `rulestage/` contains the Devvit app and the packaged webroot frontend.
-- `rulestage/src/main.tsx` hosts the Devvit post and Redis/webview bridge.
-- `rulestage/webroot/` contains the editor UI that is built into `rulestage/webroot/dist`.
+- `devvit.yaml` at the repository root is the config file used by `devvit playtest` and `devvit build`.
+- `main.ts` at the repository root hosts the Devvit post and Redis/webview bridge.
+- `artifacts/rulestage/` contains the editor UI that is built into `artifacts/rulestage/dist/public`.
 
 ## Setup
 
@@ -19,37 +19,36 @@ RuleStage is a Reddit Devvit app for building and testing AutoModerator rules wi
 2. Install the package-local dependencies that are not linked from the top-level workspace graph:
 
 	```bash
-	cd rulestage && pnpm install --ignore-workspace
-	cd webroot && pnpm install --ignore-workspace
+	cd artifacts/rulestage && pnpm install --ignore-workspace
 	```
 
 ## Build
 
-From `rulestage/`:
+From the repository root:
 
 ```bash
-pnpm run build
+PORT=22143 BASE_PATH=/ pnpm run build
 ```
 
-That runs the webroot build first and then `devvit build`.
+That typechecks the workspace and then builds the frontend into `artifacts/rulestage/dist/public`.
 
 To build just the frontend:
 
 ```bash
-cd webroot && pnpm run build
+cd artifacts/rulestage && PORT=22143 BASE_PATH=/ pnpm run build
 ```
 
-The frontend build now emits to `rulestage/webroot/dist`, which is the path referenced by `devvit.yaml`.
+The frontend build now emits to `artifacts/rulestage/dist/public`, which is the path referenced by `devvit.yaml`.
 
 ## Playtest
 
-From `rulestage/`:
+From the repository root:
 
 ```bash
-pnpm run dev
+npx -y devvit playtest testAdarsh2
 ```
 
-That launches `devvit playtest` for the custom post.
+That launches `devvit playtest` using the root-level `devvit.yaml`.
 
 ## Notes
 

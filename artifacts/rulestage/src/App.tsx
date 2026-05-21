@@ -42,21 +42,9 @@ export default function App() {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [snapshots, setSnapshots] = useState<HistorySnapshot[]>(() => loadHistory());
+  const [snapshots, setSnapshots] = useState<HistorySnapshot[]>([]);
 
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Auto-save snapshot 5 seconds after last yaml change
-  useEffect(() => {
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      const updated = saveSnapshot(yaml, ast.length);
-      setSnapshots(updated);
-    }, 5000);
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    };
-  }, [yaml, ast.length]);
 
   const updateFromYaml = useCallback((newYaml: string) => {
     const newAst = yamlToAST(newYaml);
@@ -98,6 +86,85 @@ export default function App() {
     updateFromYaml(restoredYaml);
     setRightPanel(null);
   }, [updateFromYaml]);
+
+  useEffect(() => {
+    let readyTimer: ReturnType<typeof setTimeout> | null = null;
+    let readyAttempts = 0;
+
+    const postAppReady = () => {
+      if (window.parent === window) return;
+
+      try {
+        // eslint-disable-next-line no-console
+        console.log("[RuleStage] Posting APP_READY to host", readyAttempts + 1);
+        window.parent.postMessage(
+          {
+            type: "devvit-message",
+            data: {
+              message: { type: "APP_READY" },
+            },
+          },
+          "*"
+        );
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("[RuleStage] Failed to post APP_READY", e);
+      }
+
+      readyAttempts += 1;
+      if (readyAttempts < 20) {
+        readyTimer = setTimeout(postAppReady, 250);
+      }
+    };
+
+    postAppReady();
+
+    const handleMessage = (event: MessageEvent) => {
+      // eslint-disable-next-line no-console
+      console.log("[RuleStage] Received window message", event && event.data);
+      const payload = event.data?.data?.message;
+      if (event.data?.type !== "devvit-message" || !payload) return;
+
+      // eslint-disable-next-line no-console
+      console.log("[RuleStage] devvit-message payload", payload);
+
+      if (payload.type === "RULES_LOADED" && typeof payload.yaml === "string") {
+        updateFromYaml(payload.yaml);
+      }
+
+      if (readyTimer) {
+        clearTimeout(readyTimer);
+        readyTimer = null;
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      if (readyTimer) clearTimeout(readyTimer);
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [updateFromYaml]);
+
+  useEffect(() => {
+    try {
+      const initial = loadHistory();
+      setSnapshots(initial);
+    } catch {
+      setSnapshots([]);
+    }
+  }, []);
+
+  // Auto-save snapshot 5 seconds after last yaml change
+  useEffect(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      const updated = saveSnapshot(yaml, ast.length);
+      setSnapshots(updated);
+    }, 5000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [yaml, ast.length]);
 
   return (
     <div className="min-h-screen bg-[#0D1117] flex flex-col font-sans">

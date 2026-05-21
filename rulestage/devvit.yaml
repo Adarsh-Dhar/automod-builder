@@ -1,5 +1,0 @@
-name: rulestage
-version: 0.0.1
-webViews:
-  - id: rulestage-ui
-    path: webroot/dist
