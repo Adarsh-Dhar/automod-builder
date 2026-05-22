@@ -16,23 +16,23 @@ function genId(): string {
   return Math.random().toString(36).slice(2, 9);
 }
 
-const CONDITION_TYPES: { value: AutomodConditionType; label: string; color: string }[] = [
-  { value: "karma", label: "Karma", color: "#58A6FF" },
-  { value: "account_age", label: "Account Age (days)", color: "#58A6FF" },
-  { value: "title_regex", label: "Title Pattern", color: "#BC8CFF" },
-  { value: "body_regex", label: "Body Pattern", color: "#BC8CFF" },
-  { value: "domain", label: "Domain", color: "#D29922" },
-  { value: "url_regex", label: "URL Pattern", color: "#D29922" },
-  { value: "is_top_level", label: "Is Top Level", color: "#58A6FF" },
+const CONDITION_TYPES: { value: AutomodConditionType; label: string; colorClass: string }[] = [
+  { value: "karma", label: "Karma", colorClass: "text-sky-500" },
+  { value: "account_age", label: "Account Age (days)", colorClass: "text-sky-500" },
+  { value: "title_regex", label: "Title Pattern", colorClass: "text-violet-500" },
+  { value: "body_regex", label: "Body Pattern", colorClass: "text-violet-500" },
+  { value: "domain", label: "Domain", colorClass: "text-amber-500" },
+  { value: "url_regex", label: "URL Pattern", colorClass: "text-amber-500" },
+  { value: "is_top_level", label: "Is Top Level", colorClass: "text-sky-500" },
 ];
 
-const ACTION_TYPES: { value: AutomodActionType; label: string; color: string }[] = [
-  { value: "remove", label: "Remove Post", color: "#F85149" },
-  { value: "spam", label: "Mark as Spam", color: "#F85149" },
-  { value: "approve", label: "Approve Post", color: "#3FB950" },
-  { value: "report", label: "Report Post", color: "#D29922" },
-  { value: "lock", label: "Lock Post", color: "#D29922" },
-  { value: "set_flair", label: "Set Flair", color: "#BC8CFF" },
+const ACTION_TYPES: { value: AutomodActionType; label: string; colorClass: string }[] = [
+  { value: "remove", label: "Remove Post", colorClass: "text-red-500" },
+  { value: "spam", label: "Mark as Spam", colorClass: "text-red-500" },
+  { value: "approve", label: "Approve Post", colorClass: "text-emerald-500" },
+  { value: "report", label: "Report Post", colorClass: "text-amber-500" },
+  { value: "lock", label: "Lock Post", colorClass: "text-amber-500" },
+  { value: "set_flair", label: "Set Flair", colorClass: "text-violet-500" },
 ];
 
 function ConditionBlock({
@@ -47,11 +47,11 @@ function ConditionBlock({
   const typeInfo = CONDITION_TYPES.find((t) => t.value === condition.type);
   return (
     <div
-      className="p-3 rounded-lg border bg-[#0D1117] mb-2"
-      style={{ borderColor: `${typeInfo?.color}40`, borderLeftWidth: 2, borderLeftColor: typeInfo?.color }}
+      className="p-3 rounded-lg border bg-slate-950 mb-2 border-white/10 border-l-2"
+      style={{ borderLeftColor: typeInfo?.colorClass.replace('text-', '') === 'sky-500' ? '#0ea5e9' : typeInfo?.colorClass.replace('text-', '') === 'violet-500' ? '#8b5cf6' : typeInfo?.colorClass.replace('text-', '') === 'amber-500' ? '#f59e0b' : '' }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-semibold" style={{ color: typeInfo?.color }}>
+        <span className={`text-xs font-semibold ${typeInfo?.colorClass}`}>
           {typeInfo?.label}
         </span>
         <div className="flex-1" />
@@ -63,7 +63,7 @@ function ConditionBlock({
         <select
           value={condition.type}
           onChange={(e) => onUpdate({ ...condition, type: e.target.value as AutomodConditionType })}
-          className="text-xs bg-[#161B22] border border-[#21262D] rounded px-2 py-1 text-[#8B949E] focus:outline-none"
+          className="text-xs bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-400 focus:outline-none"
         >
           {CONDITION_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -77,7 +77,7 @@ function ConditionBlock({
             onChange={(e) =>
               onUpdate({ ...condition, operator: e.target.value as AutomodCondition["operator"] })
             }
-            className="text-xs bg-[#161B22] border border-[#21262D] rounded px-2 py-1 text-[#8B949E] focus:outline-none"
+            className="text-xs bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-400 focus:outline-none"
           >
             {["<", "<=", ">", ">=", "=="].map((op) => (
               <option key={op} value={op}>
@@ -99,7 +99,7 @@ function ConditionBlock({
               ? "bit.ly"
               : "(regex)"
           }
-          className="flex-1 min-w-[80px] text-xs bg-[#161B22] border border-[#21262D] rounded px-2 py-1 text-[#E6EDF3] focus:outline-none focus:border-[#58A6FF] font-mono"
+          className="flex-1 min-w-20 text-xs bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-100 focus:outline-none focus:border-sky-500 font-mono"
         />
       </div>
     </div>
@@ -118,15 +118,15 @@ function ActionBlock({
   const typeInfo = ACTION_TYPES.find((t) => t.value === action.type);
   return (
     <div
-      className="p-3 rounded-lg border bg-[#0D1117] mb-2"
-      style={{ borderColor: `${typeInfo?.color}40`, borderLeftWidth: 2, borderLeftColor: typeInfo?.color }}
+      className="p-3 rounded-lg border bg-slate-950 mb-2 border-white/10 border-l-2"
+      style={{ borderLeftColor: typeInfo?.colorClass.replace('text-', '') === 'red-500' ? '#ef4444' : typeInfo?.colorClass.replace('text-', '') === 'emerald-500' ? '#10b981' : typeInfo?.colorClass.replace('text-', '') === 'amber-500' ? '#f59e0b' : typeInfo?.colorClass.replace('text-', '') === 'violet-500' ? '#8b5cf6' : '' }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-semibold" style={{ color: typeInfo?.color }}>
+        <span className={`text-xs font-semibold ${typeInfo?.colorClass}`}>
           {typeInfo?.label}
         </span>
         <div className="flex-1" />
-        <button onClick={onRemove} className="text-[#484F58] hover:text-[#F85149] text-xs transition-colors">
+        <button onClick={onRemove} className="text-slate-500 hover:text-red-500 text-xs transition-colors">
           ✕
         </button>
       </div>
@@ -134,7 +134,7 @@ function ActionBlock({
         <select
           value={action.type}
           onChange={(e) => onUpdate({ ...action, type: e.target.value as AutomodActionType })}
-          className="text-xs bg-[#161B22] border border-[#21262D] rounded px-2 py-1 text-[#8B949E] focus:outline-none"
+          className="text-xs bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-400 focus:outline-none"
         >
           {ACTION_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -148,7 +148,7 @@ function ActionBlock({
             value={action.value || ""}
             onChange={(e) => onUpdate({ ...action, value: e.target.value })}
             placeholder={action.type === "report" ? "Reason..." : "Flair text..."}
-            className="flex-1 min-w-[100px] text-xs bg-[#161B22] border border-[#21262D] rounded px-2 py-1 text-[#E6EDF3] focus:outline-none font-mono"
+            className="flex-1 min-w-25 text-xs bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-100 focus:outline-none font-mono"
           />
         )}
       </div>
@@ -174,36 +174,36 @@ function RuleCard({
   onMoveDown: () => void;
 }) {
   return (
-    <div className="bg-[#161B22] border border-[#21262D] rounded-lg p-4 mb-4">
+    <div className="bg-slate-900 border border-white/10 rounded-lg p-4 mb-4">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex flex-col gap-0.5">
           <button
             onClick={onMoveUp}
             disabled={index === 0}
-            className="text-[#484F58] hover:text-[#E6EDF3] disabled:opacity-20 text-xs transition-colors leading-none"
+            className="text-slate-500 hover:text-slate-100 disabled:opacity-20 text-xs transition-colors leading-none"
           >
             ▲
           </button>
           <button
             onClick={onMoveDown}
             disabled={index === total - 1}
-            className="text-[#484F58] hover:text-[#E6EDF3] disabled:opacity-20 text-xs transition-colors leading-none"
+            className="text-slate-500 hover:text-slate-100 disabled:opacity-20 text-xs transition-colors leading-none"
           >
             ▼
           </button>
         </div>
-        <div className="w-6 h-6 rounded bg-[#FF4500]/20 border border-[#FF4500]/40 flex items-center justify-center text-xs font-bold text-[#FF4500]">
+        <div className="w-6 h-6 rounded bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-xs font-bold text-orange-500">
           {index + 1}
         </div>
         <input
           value={rule.name}
           onChange={(e) => onUpdate({ ...rule, name: e.target.value })}
-          className="flex-1 bg-transparent text-[#E6EDF3] font-semibold text-sm border-b border-transparent hover:border-[#21262D] focus:border-[#58A6FF] focus:outline-none pb-0.5"
+          className="flex-1 bg-transparent text-slate-100 font-semibold text-sm border-b border-transparent hover:border-white/10 focus:border-sky-500 focus:outline-none pb-0.5"
         />
         <button
           onClick={onRemove}
-          className="text-xs text-[#484F58] hover:text-[#F85149] transition-colors"
+          className="text-xs text-slate-500 hover:text-red-500 transition-colors"
         >
           Delete
         </button>
@@ -222,7 +222,7 @@ function RuleCard({
                 onChange={(e) =>
                   onUpdate({ ...rule, conditionCombination: e.target.value as "all" | "any" })
                 }
-                className="text-[11px] bg-[#0D1117] border border-[#21262D] rounded px-2 py-0.5 text-[#8B949E]"
+                className="text-[11px] bg-slate-950 border border-white/10 rounded px-2 py-0.5 text-slate-400"
               >
                 <option value="all">ALL match</option>
                 <option value="any">ANY match</option>
@@ -237,14 +237,14 @@ function RuleCard({
                     ],
                   })
                 }
-                className="text-xs text-[#58A6FF] hover:text-[#E6EDF3] transition-colors"
+                className="text-xs text-sky-500 hover:text-slate-100 transition-colors"
               >
                 + Add
               </button>
             </div>
           </div>
           {rule.conditions.length === 0 ? (
-            <div className="text-xs text-[#484F58] italic p-2 border border-dashed border-[#21262D] rounded">
+            <div className="text-xs text-slate-500 italic p-2 border border-dashed border-white/10 rounded">
               No conditions — applies to all posts
             </div>
           ) : (
@@ -268,7 +268,7 @@ function RuleCard({
         {/* Actions */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold text-[#484F58] uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
               THEN
             </span>
             <button
@@ -278,13 +278,13 @@ function RuleCard({
                   actions: [...rule.actions, { id: genId(), type: "remove" }],
                 })
               }
-              className="text-xs text-[#58A6FF] hover:text-[#E6EDF3] transition-colors"
+              className="text-xs text-sky-500 hover:text-slate-100 transition-colors"
             >
               + Add
             </button>
           </div>
           {rule.actions.length === 0 ? (
-            <div className="text-xs text-[#484F58] italic p-2 border border-dashed border-[#21262D] rounded">
+            <div className="text-xs text-slate-500 italic p-2 border border-dashed border-white/10 rounded">
               No actions defined
             </div>
           ) : (
@@ -342,16 +342,16 @@ export default function DragMode({ ast, onASTChange }: DragModeProps) {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[#0D1117]">
-      <div className="flex items-center gap-3 px-4 py-2 bg-[#090D13] border-b border-[#21262D] shrink-0">
-        <span className="text-xs text-[#484F58]">
+    <div className="h-full flex flex-col overflow-hidden bg-slate-950">
+      <div className="flex items-center gap-3 px-4 py-2 bg-slate-950/95 border-b border-white/10 shrink-0">
+        <span className="text-xs text-slate-500">
           Visual rule builder — changes sync to Code mode instantly
         </span>
         <div className="flex-1" />
         <button
           onClick={addRule}
           data-testid="btn-add-rule"
-          className="text-xs bg-[#FF4500] hover:bg-[#E03D00] text-white font-semibold px-3 py-1.5 rounded-md transition-colors"
+          className="text-xs bg-orange-500 hover:bg-orange-600 text-white font-semibold px-3 py-1.5 rounded-md transition-colors"
         >
           + Add Rule
         </button>
@@ -361,10 +361,10 @@ export default function DragMode({ ast, onASTChange }: DragModeProps) {
         {ast.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <div className="text-4xl opacity-20">⬡</div>
-            <div className="text-[#484F58] text-sm">No rules yet</div>
+            <div className="text-slate-500 text-sm">No rules yet</div>
             <button
               onClick={addRule}
-              className="text-sm bg-[#FF4500] hover:bg-[#E03D00] text-white font-semibold px-4 py-2 rounded-md transition-colors"
+              className="text-sm bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-md transition-colors"
             >
               Create your first rule
             </button>
@@ -386,7 +386,7 @@ export default function DragMode({ ast, onASTChange }: DragModeProps) {
         {ast.length > 0 && (
           <button
             onClick={addRule}
-            className="w-full py-3 border border-dashed border-[#21262D] rounded-lg text-[#484F58] hover:text-[#8B949E] hover:border-[#484F58] transition-colors text-sm"
+            className="w-full py-3 border border-dashed border-white/10 rounded-lg text-slate-500 hover:text-slate-400 hover:border-slate-500 transition-colors text-sm"
           >
             + Add another rule
           </button>

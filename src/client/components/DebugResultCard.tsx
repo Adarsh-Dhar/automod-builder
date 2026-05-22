@@ -17,16 +17,16 @@ type HighlightToken = {
 function confidenceStyles(confidence: DebugMatch['confidence']): string {
   switch (confidence) {
     case 'high':
-      return 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15';
+      return 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/20';
     case 'medium':
-      return 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/15';
+      return 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/20';
     default:
-      return 'bg-red-400/15 text-red-200 hover:bg-red-400/15';
+      return 'bg-red-400/15 text-red-200 hover:bg-red-400/20';
   }
 }
 
 function tokenizeYaml(line: string): HighlightToken[] {
-  const tokens = line.match(/#.*$|"[^"]*"|'[^']*'|\b(?:true|false|null|yes|no)\b|\b\d+\b|[:\-]|[^:\-\s][^:\n]*/g) ?? [line];
+  const tokens = line.match(/#.*$|"[^"]*"|'[^']*'|\b(?:true|false|null|yes|no)\b|\b\d+\b|[:-]|[^:\-\s][^:\n]*/g) ?? [line];
 
   return tokens.map((token) => {
     if (token.startsWith('#')) {
@@ -71,7 +71,7 @@ function MatchSnippet({ match }: { match: DebugMatch }) {
   const guiltyRelative = guiltyLine - match.lineStart;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-slate-950/70">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div>
           <p className="text-sm font-medium text-slate-100">{match.ruleName}</p>
@@ -91,7 +91,7 @@ function MatchSnippet({ match }: { match: DebugMatch }) {
                     {match.lineStart + index}
                   </span>
                   <span className={`shrink-0 ${isGuilty ? 'text-amber-300' : 'text-slate-500'}`}>{isGuilty ? '→' : ' '}</span>
-                  <span className="flex-1 whitespace-pre-wrap break-words">
+                  <span className="flex-1 whitespace-pre-wrap wrap-break-word">
                     {tokenizeYaml(line).map((token, tokenIndex) => (
                       <span key={tokenIndex} className={token.className}>
                         {token.text}
@@ -128,7 +128,7 @@ export default function DebugResultCard({ result, onApplyYaml }: DebugResultCard
   };
 
   return (
-    <Card className="border-white/10 bg-slate-950/60 p-4 text-slate-100 shadow-none">
+    <Card className="border-white/10 bg-slate-950/60 p-4 text-slate-100 shadow-none rounded-xl">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-3">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Debug result</p>

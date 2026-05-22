@@ -113,7 +113,7 @@ function MessageBubble({
         {msg.role === 'user' ? '👤' : '✳'}
       </div>
       <div
-        className={`max-w-[82%] rounded-[20px] p-3.5 text-sm ${
+        className={`max-w-[85%] sm:max-w-[82%] rounded-[16px] sm:rounded-[20px] p-2.5 sm:p-3.5 text-sm ${
           msg.role === 'user'
             ? 'bg-[#1A1020] text-white rounded-br-sm'
             : 'bg-white border border-[#EFEFEF] text-[#1A1020] rounded-bl-sm shadow-sm'
@@ -373,15 +373,15 @@ export default function ChatMode({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[28px] border border-[#E7E9F0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-      <div className="flex-1 overflow-auto bg-white px-5 py-5">
+    <div className="flex h-full flex-col overflow-hidden rounded-[20px] sm:rounded-[28px] border border-[#E7E9F0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+      <div className="flex-1 overflow-auto bg-white px-3 sm:px-5 py-3 sm:py-5">
         {messages.length === 0 && (
-          <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-[#AAAAAA]">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F5C842] text-[#1A1020] shadow-sm text-2xl">
+          <div className="flex min-h-60 sm:min-h-72 flex-col items-center justify-center gap-3 text-center text-[#AAAAAA]">
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-[#F5C842] text-[#1A1020] shadow-sm text-xl sm:text-2xl">
               ✳
             </div>
-            <p className="text-base font-semibold text-[#1A1020]">How can I help you today?</p>
-            <p className="max-w-xs text-sm text-[#AAAAAA]">Ask me anything — I'm powered by ChaTin AI</p>
+            <p className="text-sm sm:text-base font-semibold text-[#1A1020]">How can I help you today?</p>
+            <p className="max-w-xs text-xs sm:text-sm text-[#AAAAAA]">Ask me anything — I'm powered by ChaTin AI</p>
           </div>
         )}
 
@@ -424,8 +424,8 @@ export default function ChatMode({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[#F0F0F0] bg-white px-5 py-4">
-        <div className="flex items-end gap-3">
+      <div className="shrink-0 border-t border-[#F0F0F0] bg-white px-3 sm:px-5 py-3 sm:py-4">
+        <div className="flex items-end gap-2 sm:gap-3">
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -434,20 +434,20 @@ export default function ChatMode({
             placeholder='Write a message... or type "apply" to use the last rule'
             rows={2}
             data-testid="chat-input"
-            className="min-h-13.5 flex-1 resize-none rounded-[16px] border border-[#EBEBEB] bg-[#F4F2F7] px-4 py-3 text-sm text-[#1A1020] outline-none transition-colors placeholder:text-[#AAAAAA] focus:border-[#F5C842] disabled:opacity-50"
+            className="min-h-13.5 flex-1 resize-none rounded-[16px] border border-[#EBEBEB] bg-[#F4F2F7] px-3 sm:px-4 py-3 text-sm text-[#1A1020] outline-none transition-colors placeholder:text-[#AAAAAA] focus:border-[#F5C842] disabled:opacity-50"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             data-testid="btn-send"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#F5C842] text-[#1A1020] shadow-[0_8px_20px_rgba(245,200,66,0.35)] transition-colors hover:bg-[#e6b93c] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#F5C842] text-[#1A1020] shadow-[0_8px_20px_rgba(245,200,66,0.35)] transition-colors hover:bg-[#e6b93c] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
               <path d="M2 7.5L13 2L8.5 13L7 8.5L2 7.5Z" fill="white" />
             </svg>
           </button>
         </div>
-        <p className="mt-2 text-[10px] text-[#8B93A5]">Shift+Enter for new line · Enter to send · type "apply" to use last rule</p>
+        <p className="mt-2 text-[10px] text-[#8B93A5] hidden sm:block">Shift+Enter for new line · Enter to send · type "apply" to use last rule</p>
       </div>
 
       <style>{`

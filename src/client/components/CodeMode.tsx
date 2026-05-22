@@ -85,7 +85,7 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
       {/* Editor + Inspector */}
       <div className="flex-1 flex overflow-hidden">
         {/* Line numbers */}
-        <div className="select-none bg-[#090D13] border-r border-[#21262D] py-4 px-2 text-right w-12 overflow-hidden">
+        <div className="select-none bg-[#090D13] border-r border-[#21262D] py-4 px-2 text-right w-10 sm:w-12 overflow-hidden">
           {Array.from({ length: lineCount }, (_, i) => (
             <div
               key={i + 1}
@@ -110,7 +110,7 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
         </div>
 
         {/* AST Inspector */}
-        <div className="w-64 border-l border-[#21262D] bg-[#090D13] overflow-auto p-3 shrink-0">
+        <div className="w-48 md:w-64 border-l border-[#21262D] bg-[#090D13] overflow-auto p-3 shrink-0 hidden sm:block">
           <div className="text-[10px] font-semibold text-[#484F58] uppercase tracking-wider mb-3">
             JSON AST
           </div>

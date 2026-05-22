@@ -60,7 +60,7 @@ export default function HistoryPanel({
   };
 
   return (
-    <div className="w-[420px] border-l border-[#21262D] bg-[#090D13] flex flex-col shrink-0">
+    <div className="w-full sm:w-[380px] md:w-[420px] border-l border-[#21262D] bg-[#090D13] flex flex-col shrink-0">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#21262D] shrink-0">
         <div className="flex-1">

@@ -243,7 +243,7 @@ export function RuleStagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F2F7] text-slate-100">
+    <div className="min-h-screen bg-background text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-6">
         <header className="grid gap-4 rounded-[20px] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:grid-cols-[1.4fr_1fr] md:p-6">
           <div className="space-y-3">
@@ -279,14 +279,14 @@ export function RuleStagePage() {
           </Card>
         </header>
 
-        <nav className="rounded-[20px] border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <nav className="w-full max-w-7xl mx-auto rounded-[20px] border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
+          <div className="flex flex-wrap gap-1">
             {(Object.keys(modeMeta) as RuleStageMode[]).map((item) => (
               <Button
                 key={item}
                 variant={mode === item ? 'default' : 'ghost'}
                 className={cn(
-                  'shrink-0 rounded-full px-5 py-2 text-sm',
+                  'rounded-md px-2 py-1 text-[10px]',
                   mode === item ? 'bg-white text-slate-950 hover:bg-slate-100' : 'text-slate-200 hover:bg-white/8 hover:text-white'
                 )}
                 onClick={() => setMode(item)}
@@ -295,10 +295,10 @@ export function RuleStagePage() {
               </Button>
             ))}
           </div>
-          <div className="mt-2 flex items-center justify-end gap-2">
+          <div className="mt-2 flex flex-wrap gap-1">
             <Button
               variant="ghost"
-              className="rounded-full text-slate-200 hover:bg-white/8 hover:text-white"
+              className="rounded-md px-2 py-1 text-[10px] text-slate-200 hover:bg-white/8 hover:text-white"
               onClick={() => {
                 void handleReset();
               }}
@@ -306,13 +306,13 @@ export function RuleStagePage() {
               Reset rule
             </Button>
             <Button
-              className="rounded-full bg-emerald-400 px-5 text-slate-950 hover:bg-emerald-300"
+              className="rounded-md px-2 py-1 text-[10px] bg-emerald-400 text-slate-950 hover:bg-emerald-300"
               onClick={runSimulation}
             >
               Run Simulation
             </Button>
             <Button
-              className="rounded-full bg-sky-400 px-5 text-slate-950 hover:bg-sky-300"
+              className="rounded-md px-2 py-1 text-[10px] bg-sky-400 text-slate-950 hover:bg-sky-300"
               onClick={() => {
                 void refreshBlast(rule);
               }}
@@ -436,7 +436,7 @@ export function RuleStagePage() {
                         key={action}
                         variant={rule.action === action ? 'default' : 'outline'}
                         className={cn(
-                          'rounded-full',
+                          'rounded-xl',
                           rule.action === action
                             ? 'bg-white text-slate-950 hover:bg-slate-100'
                             : 'border-white/15 bg-transparent text-slate-200 hover:bg-white/8 hover:text-white'
@@ -543,13 +543,13 @@ export function RuleStagePage() {
                 <Badge className="bg-sky-400/15 text-sky-200 hover:bg-sky-400/15">Backtest</Badge>
               </div>
               {blast ? (
-                <div className="mt-4 space-y-3 text-sm text-slate-200">
-                  <p>Tested against {blast.totalTested} cached posts.</p>
+                <div className="mt-4 space-y-2 text-xs text-slate-300">
+                  <p className="font-medium">Tested against {blast.totalTested} cached posts.</p>
                   <p>Would have caught {blast.wouldCatch} spam posts.</p>
                   {blast.falsePositives.length > 0 ? (
-                    <div className="space-y-2">
-                      <p>False positives:</p>
-                      <ul className="space-y-1 pl-4 text-slate-300">
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-200">False positives:</p>
+                      <ul className="space-y-0.5 pl-4 text-slate-400">
                         {blast.falsePositives.slice(0, 3).map((post) => (
                           <li key={post.id}>- {post.title} (u/{post.author})</li>
                         ))}
@@ -562,7 +562,7 @@ export function RuleStagePage() {
                   <p>Catch rate: {(blast.catchRate * 100).toFixed(0)}% | False positive rate: {(blast.falsePositiveRate * 100).toFixed(0)}%</p>
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-slate-400">Run the blast radius backtest to see false positives and missed spam.</p>
+                <p className="mt-4 text-xs text-slate-400">Run the blast radius backtest to see false positives and missed spam.</p>
               )}
             </Card>
 
@@ -581,10 +581,10 @@ export function RuleStagePage() {
                         </div>
                         <Badge className={cn(
                           item.outcome === 'remove'
-                            ? 'bg-red-400/15 text-red-200 hover:bg-red-400/15'
+                            ? 'bg-red-400/15 text-red-200 hover:bg-red-400/20'
                             : item.outcome === 'report'
-                              ? 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/15'
-                              : 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15'
+                              ? 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/20'
+                              : 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/20'
                         )}>
                           {item.outcome}
                         </Badge>

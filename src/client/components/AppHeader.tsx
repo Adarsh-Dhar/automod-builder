@@ -78,60 +78,61 @@ export default function AppHeader({
   };
 
   return (
-    <header className="h-[60px] bg-[#1A1020] border-b border-white/10 flex items-center px-4 gap-4 shrink-0">
+    <header className="h-[60px] bg-[#1A1020] border-b border-white/10 flex items-center px-2 sm:px-4 gap-2 sm:gap-4 shrink-0 overflow-x-auto">
       {/* Logo */}
-      <div className="flex items-center gap-2 mr-2">
-        <div className="w-8 h-8 rounded-full bg-[#F5C842] flex items-center justify-center">
-          <span className="text-[#1A1020] font-bold text-sm">✳</span>
+      <div className="flex items-center gap-2 mr-0 sm:mr-2 shrink-0">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#F5C842] flex items-center justify-center">
+          <span className="text-[#1A1020] font-bold text-xs sm:text-sm">✳</span>
         </div>
-        <span className="font-bold text-[#1A1020] text-sm tracking-tight">ChaTin</span>
+        <span className="font-bold text-[#1A1020] text-xs sm:text-sm tracking-tight hidden sm:block">ChaTin</span>
       </div>
 
       {/* Mode Tabs */}
-      <div className="flex items-center gap-1 bg-white/8 rounded-full p-1 border border-white/10">
+      <div className="flex items-center gap-1 bg-white/8 rounded-full p-1 border border-white/10 shrink-0">
         {MODES.map((m) => (
           <button
             key={m.id}
             onClick={() => setMode(m.id)}
             data-testid={`tab-${m.id}`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-150 ${
               mode === m.id
                 ? 'bg-[#F5C842] text-[#1A1020] shadow-sm'
                 : 'text-white/50 hover:text-white rounded-full'
             }`}
           >
             <span className="text-xs opacity-80">{m.icon}</span>
-            {m.label}
+            <span className="hidden sm:inline">{m.label}</span>
           </button>
         ))}
       </div>
 
       {/* Rule count */}
-      <span className="text-xs font-mono px-2 py-0.5 rounded border bg-[#58A6FF]/10 text-[#58A6FF] border-[#58A6FF]/30">
+      <span className="text-xs font-mono px-2 py-0.5 rounded border bg-[#58A6FF]/10 text-[#58A6FF] border-[#58A6FF]/30 shrink-0">
         {ruleCount} rule{ruleCount !== 1 ? "s" : ""}
       </span>
 
-      <div className="flex-1" />
+      <div className="flex-1 min-w-[8px]" />
 
       {/* Gemini key status */}
       <button
         onClick={onOpenApiKey}
         data-testid="btn-api-key"
-        className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+        className={`flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-md border transition-colors shrink-0 ${
           geminiApiKey
             ? 'border-[#3FB950]/30 bg-[#3FB950]/10 text-[#3FB950]'
             : 'border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12'
         }`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${geminiApiKey ? "bg-[#3FB950]" : "bg-[#484F58]"}`} />
-        {geminiApiKey ? "AI Ready" : "Add API Key"}
+        <span className="hidden sm:inline">{geminiApiKey ? "AI Ready" : "Add API Key"}</span>
+        <span className="sm:hidden">{geminiApiKey ? "✓" : "+"}</span>
       </button>
 
       {/* History button */}
       <button
         onClick={onToggleHistory}
         data-testid="btn-history"
-        className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+        className={`flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-md border transition-colors shrink-0 ${
           historyActive
             ? 'border-[#BC8CFF]/40 bg-[#BC8CFF]/10 text-[#BC8CFF]'
             : 'border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12'
@@ -142,7 +143,7 @@ export default function AppHeader({
           <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
           <path d="M6 3.5V6L7.5 7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        History
+        <span className="hidden sm:inline">History</span>
         {snapshotCount > 0 && (
           <span className={`text-[10px] font-mono px-1 rounded ${historyActive ? "text-[#BC8CFF]" : "text-[#484F58]"}`}>
             {snapshotCount}
@@ -151,18 +152,18 @@ export default function AppHeader({
       </button>
 
       {/* Export dropdown */}
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative shrink-0" ref={dropdownRef}>
         <button
           onClick={() => setExportOpen((o) => !o)}
           disabled={ruleCount === 0}
           data-testid="btn-export"
-          className="flex items-center gap-1.5 border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12 font-medium px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12 font-medium px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M6.5 1V9M6.5 9L4 6.5M6.5 9L9 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M1 10.5V11.5C1 11.8 1.2 12 1.5 12H11.5C11.8 12 12 11.8 12 11.5V10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          Export
+          <span className="hidden sm:inline">Export</span>
           <svg
             width="10"
             height="10"
@@ -224,7 +225,7 @@ export default function AppHeader({
         onClick={onRunSimulation}
         disabled={isSimulating || ruleCount === 0}
         data-testid="btn-dry-run"
-        className="flex items-center gap-2 bg-[#F5C842] hover:bg-[#e6b93c] text-[#1A1020] font-semibold px-5 py-2 rounded-[14px] text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 bg-[#F5C842] hover:bg-[#e6b93c] text-[#1A1020] font-semibold px-3 sm:px-5 py-2 rounded-[14px] text-xs sm:text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
       >
         {isSimulating ? (
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="animate-spin">
@@ -235,7 +236,8 @@ export default function AppHeader({
             <path d="M2 2L11 6.5L2 11V2Z" fill="currentColor" />
           </svg>
         )}
-        {isSimulating ? "Running..." : "Dry Run"}
+        <span className="hidden sm:inline">{isSimulating ? "Running..." : "Dry Run"}</span>
+        <span className="sm:hidden">{isSimulating ? "..." : "▶"}</span>
       </button>
     </header>
   );
