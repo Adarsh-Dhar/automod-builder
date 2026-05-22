@@ -4,11 +4,14 @@ import DecoderMode from '../components/DecoderMode';
 import EscapeHatchMode from '../components/EscapeHatchMode';
 import DebuggerMode from '../components/DebuggerMode';
 import { useEffect, useState } from 'react';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Textarea } from '../components/ui/textarea';
-import { cn } from '../lib/utils';
+import { Skeleton } from '../components/ui/skeleton';
+import { useToast } from '../hooks/use-toast';
+import { PageTopbar } from '../components/layout/PageTopbar';
+import { ModeTabStrip } from '../components/layout/ModeTabStrip';
+import { RightPanel } from '../components/layout/RightPanel';
 import {
   DEFAULT_AUTOMOD_RULE,
   describeCondition,
@@ -66,8 +69,18 @@ function updateConditionValue(rule: AutomodRule, field: AutomodCondition['field'
   return updateCondition(rule, field, { value });
 }
 
+function getConditionSafely(rule: AutomodRule, index: number): AutomodCondition {
+  const fallback: AutomodCondition = {
+    field: 'title',
+    operator: 'contains',
+    value: '',
+  };
+  return (rule.conditions[index] || DEFAULT_AUTOMOD_RULE.conditions[index] || fallback) as AutomodCondition;
+}
+
 export function RuleStagePage() {
   const { init } = useInit();
+  const { toast } = useToast();
   const [mode, setMode] = useState<RuleStageMode>('code');
   const [rule, setRule] = useState<AutomodRule>(DEFAULT_AUTOMOD_RULE);
   const [draft, setDraft] = useState(() => serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
@@ -77,7 +90,6 @@ export function RuleStagePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -104,7 +116,11 @@ export function RuleStagePage() {
         }
 
         console.error('RuleStage load failed:', loadError);
-        setError('Unable to load saved rule state.');
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Unable to load saved rule state.',
+        });
       } finally {
         if (isActive) {
           setLoading(false);
@@ -117,7 +133,7 @@ export function RuleStagePage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [toast]);
 
   const handleAddChatMessage = (message: ChatMessage) => {
     setChatMessages((current) => [...current, message]);
@@ -150,7 +166,11 @@ export function RuleStagePage() {
       setBlast(data.blast);
     } catch (blastError) {
       console.error('RuleStage blast failed:', blastError);
-      setError('Unable to run the blast radius backtest.');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to run the blast radius backtest.',
+      });
     } finally {
       setBlasting(false);
     }
@@ -183,7 +203,11 @@ export function RuleStagePage() {
       await refreshBlast(nextRule);
     } catch (saveError) {
       console.error('RuleStage save failed:', saveError);
-      setError('Unable to save the current rule.');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to save the current rule.',
+      });
     } finally {
       setSaving(false);
     }
@@ -215,7 +239,11 @@ export function RuleStagePage() {
       setSimulation(data.simulation);
     } catch (simulateError) {
       console.error('RuleStage simulation failed:', simulateError);
-      setError('Unable to run the simulation.');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to run the simulation.',
+      });
     }
   };
 
@@ -231,10 +259,13 @@ export function RuleStagePage() {
       setDraft(serializeAutomodRule(data.rule));
       setSimulation(data.simulation);
       await refreshBlast(data.rule);
-      setError(null);
     } catch (resetError) {
       console.error('RuleStage reset failed:', resetError);
-      setError('Unable to reset RuleStage state.');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to reset RuleStage state.',
+      });
     }
   };
 
@@ -243,236 +274,158 @@ export function RuleStagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-slate-100">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-6">
-        <header className="grid gap-4 rounded-[20px] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:grid-cols-[1.4fr_1fr] md:p-6">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">RuleStage</Badge>
-              <Badge className="bg-white/10 text-white hover:bg-white/10">Automod builder</Badge>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Page Topbar */}
+      <PageTopbar
+        ruleName={rule.name}
+        action={rule.action}
+        saving={saving}
+        yaml={draft}
+        ruleCount={1}
+        onReset={handleReset}
+        onActionChange={handleActionChange}
+      />
+
+      {/* Mode Tab Strip */}
+      <ModeTabStrip mode={mode} setMode={setMode} />
+
+      {/* Three-column workspace */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main content area */}
+        <div className="flex-1 overflow-auto p-4 md:p-6 bg-[#16121F]">
+          {loading && (
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-1/3" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
             </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
-                Build, test, and stage Automod rules without leaving Reddit.
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-                All three modes write into the same rule state.
-                The simulation panel shows exactly what would happen before anything is deployed.
-              </p>
-            </div>
-          </div>
+          )}
 
-          <Card className="border-white/10 bg-slate-950/60 p-4 text-slate-100 shadow-none rounded-[20px]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Current rule</p>
-                <p className="text-lg font-medium">{rule.name}</p>
-              </div>
-              <Badge className="bg-orange-400/15 text-orange-200 hover:bg-orange-400/15">{rule.action}</Badge>
-            </div>
-            <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-              <div className="rounded-2xl bg-white/5 p-3">
-                <p className="text-slate-400">Matches</p>
-                  <p className="font-medium">{simulation.matched} / {simulation.items.length}</p>
-              </div>
-            </div>
-          </Card>
-        </header>
-
-        <nav className="w-full max-w-7xl mx-auto rounded-[20px] border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
-          <div className="flex flex-wrap gap-1">
-            {(Object.keys(modeMeta) as RuleStageMode[]).map((item) => (
-              <Button
-                key={item}
-                variant={mode === item ? 'default' : 'ghost'}
-                className={cn(
-                  'rounded-md px-2 py-1 text-[10px]',
-                  mode === item ? 'bg-white text-slate-950 hover:bg-slate-100' : 'text-slate-200 hover:bg-white/8 hover:text-white'
-                )}
-                onClick={() => setMode(item)}
-              >
-                {modeMeta[item].label}
-              </Button>
-            ))}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1">
-            <Button
-              variant="ghost"
-              className="rounded-md px-2 py-1 text-[10px] text-slate-200 hover:bg-white/8 hover:text-white"
-              onClick={() => {
-                void handleReset();
-              }}
-            >
-              Reset rule
-            </Button>
-            <Button
-              className="rounded-md px-2 py-1 text-[10px] bg-emerald-400 text-slate-950 hover:bg-emerald-300"
-              onClick={runSimulation}
-            >
-              Run Simulation
-            </Button>
-            <Button
-              className="rounded-md px-2 py-1 text-[10px] bg-sky-400 text-slate-950 hover:bg-sky-300"
-              onClick={() => {
-                void refreshBlast(rule);
-              }}
-            >
-              {blasting ? 'Running Blast...' : 'Run Blast Radius'}
-            </Button>
-          </div>
-        </nav>
-
-        {error && (
-          <Card className="border-amber-300/20 bg-amber-400/10 p-4 text-amber-100 shadow-none rounded-[20px]">
-            <p className="text-sm">{error}</p>
-          </Card>
-        )}
-
-        {loading && (
-          <Card className="border-white/10 bg-white/6 p-4 text-slate-200 shadow-none rounded-[20px]">
-            <p className="text-sm">Loading saved rule state...</p>
-          </Card>
-        )}
-
-        <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-          <Card className="overflow-hidden border-white/10 bg-slate-950/55 p-0 text-slate-100 shadow-none rounded-[20px]">
-            <div className="border-b border-white/10 px-5 py-4">
-              <p className="text-sm font-medium text-white">{modeMeta[mode].label} Mode</p>
-              <p className="text-sm text-slate-400">{modeMeta[mode].helper}</p>
-            </div>
-
-            {mode === 'code' && (
-              <div className="grid gap-4 p-5">
-                <Textarea
-                  value={draft}
-                  onChange={(event) => handleDraftChange(event.target.value)}
-                  className="min-h-128 rounded-[1.35rem] border-white/10 bg-slate-900/90 font-mono text-sm text-slate-100 shadow-inner shadow-black/20 focus-visible:ring-emerald-400/40"
-                />
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                  <span>Editing the YAML draft updates the shared rule state immediately.</span>
+          {!loading && (
+            <>
+              {mode === 'code' && (
+                <div className="h-full flex flex-col">
+                  <Textarea
+                    value={draft}
+                    onChange={(event) => handleDraftChange(event.target.value)}
+                    className="flex-1 min-h-0 font-mono text-sm"
+                  />
+                  <div className="flex items-center justify-between mt-2 text-xs text-[--muted-foreground]">
+                    <span>Editing the YAML draft updates the shared rule state immediately.</span>
+                    <span>{draft.split('\n').length} lines</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {mode === 'debug' && (
-              <div className="p-5">
+              {mode === 'debug' && (
                 <DebuggerMode onApplyYaml={handleApplyYaml} />
-              </div>
-            )}
+              )}
 
-            {mode === 'drag' && (
-              <div className="grid gap-4 p-5">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Trigger</p>
-                    <p className="mt-2 text-lg font-medium">{rule.name}</p>
-                    <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0])}</p>
-                  </Card>
-                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Audience</p>
-                    <p className="mt-2 text-lg font-medium">New or low-karma accounts</p>
-                    <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[1] ?? DEFAULT_AUTOMOD_RULE.conditions[1])}</p>
-                    <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[2] ?? DEFAULT_AUTOMOD_RULE.conditions[2])}</p>
-                  </Card>
-                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Action</p>
-                    <p className="mt-2 text-lg font-medium">{rule.action}</p>
-                    <p className="mt-1 text-sm text-slate-400">Comment stickied: {rule.commentStickied ? 'yes' : 'no'}</p>
-                  </Card>
-                </div>
+              {mode === 'drag' && (
+                <div className="grid gap-4">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <Card className="p-4 border-l-4 border-l-[--primary]">
+                      <p className="text-xs uppercase tracking-[0.24em] text-[--muted-foreground]">Trigger</p>
+                      <p className="mt-2 text-lg font-medium text-[--foreground]">{rule.name || 'No trigger set'}</p>
+                      <p className="mt-1 text-sm text-[--muted-foreground]">{describeCondition(getConditionSafely(rule, 0))}</p>
+                    </Card>
+                    <Card className="p-4 border-l-4 border-l-[--info]">
+                      <p className="text-xs uppercase tracking-[0.24em] text-[--muted-foreground]">Audience</p>
+                      <p className="mt-2 text-lg font-medium text-[--foreground]">New or low-karma accounts</p>
+                      <p className="mt-1 text-sm text-[--muted-foreground]">{describeCondition(getConditionSafely(rule, 1))}</p>
+                      <p className="mt-1 text-sm text-[--muted-foreground]">{describeCondition(getConditionSafely(rule, 2))}</p>
+                    </Card>
+                    <Card className="p-4 border-l-4 border-l-[--warning]">
+                      <p className="text-xs uppercase tracking-[0.24em] text-[--muted-foreground]">Action</p>
+                      <p className="mt-2 text-lg font-medium text-[--foreground]">{rule.action}</p>
+                      <p className="mt-1 text-sm text-[--muted-foreground]">Comment stickied: {rule.commentStickied ? 'yes' : 'no'}</p>
+                    </Card>
+                  </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
-                    <p className="text-sm font-medium">Title phrases</p>
-                    <p className="mt-1 text-sm text-slate-400">Edit the phrase list to widen or narrow the match.</p>
-                    <Textarea
-                      value={rule.conditions[0]?.value ?? ''}
-                      onChange={(event) => {
-                        const nextRule = updateConditionValue(rule, 'title', event.target.value);
-                        setRule(nextRule);
-                        setDraft(serializeAutomodRule(nextRule));
-                      }}
-                      className="mt-3 min-h-28 rounded-2xl border-white/10 bg-slate-900/80 text-slate-100"
-                    />
-                  </Card>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="p-4 border-l-4 border-l-[--success]">
+                      <p className="text-sm font-medium text-[--foreground]">Title phrases</p>
+                      <p className="mt-1 text-sm text-[--muted-foreground]">Edit the phrase list to widen or narrow the match.</p>
+                      <Textarea
+                        value={rule.conditions[0]?.value ?? ''}
+                        onChange={(event) => {
+                          const nextRule = updateConditionValue(rule, 'title', event.target.value);
+                          setRule(nextRule);
+                          setDraft(serializeAutomodRule(nextRule));
+                        }}
+                        className="mt-3 min-h-28"
+                      />
+                    </Card>
 
-                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
-                    <p className="text-sm font-medium">Thresholds</p>
-                    <p className="mt-1 text-sm text-slate-400">Adjust the account age and karma gates.</p>
-                    <div className="mt-3 grid gap-3">
-                      <label className="grid gap-2 text-sm text-slate-300">
-                        Account age
-                        <input
-                          className="rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400"
-                          value={rule.conditions[1]?.value ?? ''}
-                          onChange={(event) => {
-                            const nextRule = updateConditionValue(rule, 'account_age', event.target.value);
-                            setRule(nextRule);
-                            setDraft(serializeAutomodRule(nextRule));
-                          }}
-                        />
-                      </label>
-                      <label className="grid gap-2 text-sm text-slate-300">
-                        Combined karma
-                        <input
-                          className="rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-2 text-slate-100 outline-none transition focus:border-emerald-400"
-                          value={rule.conditions[2]?.value ?? ''}
-                          onChange={(event) => {
-                            const nextRule = updateConditionValue(rule, 'combined_karma', event.target.value);
-                            setRule(nextRule);
-                            setDraft(serializeAutomodRule(nextRule));
-                          }}
-                        />
-                      </label>
+                    <Card className="p-4 border-l-4 border-l-[--danger]">
+                      <p className="text-sm font-medium text-[--foreground]">Thresholds</p>
+                      <p className="mt-1 text-sm text-[--muted-foreground]">Adjust the account age and karma gates.</p>
+                      <div className="mt-3 grid gap-3">
+                        <label className="grid gap-2 text-sm text-[--foreground]">
+                          Account age
+                          <input
+                            className="rounded-[--radius] border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none transition focus:border-[--primary]"
+                            value={rule.conditions[1]?.value ?? ''}
+                            onChange={(event) => {
+                              const nextRule = updateConditionValue(rule, 'account_age', event.target.value);
+                              setRule(nextRule);
+                              setDraft(serializeAutomodRule(nextRule));
+                            }}
+                          />
+                        </label>
+                        <label className="grid gap-2 text-sm text-[--foreground]">
+                          Combined karma
+                          <input
+                            className="rounded-[--radius] border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none transition focus:border-[--primary]"
+                            value={rule.conditions[2]?.value ?? ''}
+                            onChange={(event) => {
+                              const nextRule = updateConditionValue(rule, 'combined_karma', event.target.value);
+                              setRule(nextRule);
+                              setDraft(serializeAutomodRule(nextRule));
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <Card className="p-4 border-l-4 border-l-[--primary]">
+                    <p className="text-sm font-medium text-[--foreground]">Action mode</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(['remove', 'report', 'approve'] as AutomodAction[]).map((action) => (
+                        <Button
+                          key={action}
+                          variant={rule.action === action ? 'default' : 'outline'}
+                          onClick={() => handleActionChange(action)}
+                        >
+                          {action}
+                        </Button>
+                      ))}
                     </div>
                   </Card>
                 </div>
+              )}
 
-                <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
-                  <p className="text-sm font-medium">Action mode</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(['remove', 'report', 'approve'] as AutomodAction[]).map((action) => (
-                      <Button
-                        key={action}
-                        variant={rule.action === action ? 'default' : 'outline'}
-                        className={cn(
-                          'rounded-xl',
-                          rule.action === action
-                            ? 'bg-white text-slate-950 hover:bg-slate-100'
-                            : 'border-white/15 bg-transparent text-slate-200 hover:bg-white/8 hover:text-white'
-                        )}
-                        onClick={() => handleActionChange(action)}
-                      >
-                        {action}
-                      </Button>
-                    ))}
-                  </div>
-                </Card>
-              </div>
-            )}
+              {mode === 'chat' && (
+                <div className="h-full flex flex-col bg-[#1E192B]">
+                  <ChatMode
+                    ast={[]}
+                    messages={chatMessages}
+                    onAddMessage={handleAddChatMessage}
+                    onApplyAST={() => {}}
+                    onApplyYaml={handleApplyYaml}
+                    subredditName={init?.subredditName}
+                    contextYaml={draft}
+                  />
+                </div>
+              )}
 
-            {mode === 'chat' && (
-              <div className="p-5">
-                <ChatMode
-                  ast={[]}
-                  messages={chatMessages}
-                  onAddMessage={handleAddChatMessage}
-                  onApplyAST={() => {}}
-                  onApplyYaml={handleApplyYaml}
-                  subredditName={init?.subredditName}
-                  contextYaml={draft}
-                />
-              </div>
-            )}
+              {mode === 'decoder' && (
+                <DecoderMode onApplyYaml={handleApplyYaml} geminiApiKey="" />
+              )}
 
-            {mode === 'decoder' && (
-              <div className="p-5">
-                <DecoderMode onApplyYaml={handleApplyYaml} geminiApiKey={geminiApiKey} />
-              </div>
-            )}
-
-            {mode === 'escape-hatch' && (
-              <div className="p-5">
+              {mode === 'escape-hatch' && (
                 <EscapeHatchMode
                   loading={loading}
                   onAnalyze={async (request: string) => {
@@ -506,97 +459,32 @@ export function RuleStagePage() {
                     };
                   }}
                 />
-              </div>
-            )}
-          </Card>
-
-          <aside className="grid gap-4">
-            <Card className="border-white/10 bg-slate-950/55 p-4 text-slate-100 shadow-none rounded-[20px]">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Simulation summary</p>
-                <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">Dry run</Badge>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">{saving ? 'Saving rule...' : 'Simulation state is saved.'}</p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-white/5 p-3">
-                  <p className="text-slate-400">Removed</p>
-                  <p className="text-2xl font-semibold">{simulation.removed}</p>
-                </div>
-                <div className="rounded-2xl bg-white/5 p-3">
-                  <p className="text-slate-400">Approved</p>
-                  <p className="text-2xl font-semibold">{simulation.approved}</p>
-                </div>
-                <div className="rounded-2xl bg-white/5 p-3">
-                  <p className="text-slate-400">Reported</p>
-                  <p className="text-2xl font-semibold">{simulation.reported}</p>
-                </div>
-                <div className="rounded-2xl bg-white/5 p-3">
-                  <p className="text-slate-400">Matched</p>
-                  <p className="text-2xl font-semibold">{simulation.matched}</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none rounded-[20px]">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium">Blast Radius</p>
-                <Badge className="bg-sky-400/15 text-sky-200 hover:bg-sky-400/15">Backtest</Badge>
-              </div>
-              {blast ? (
-                <div className="mt-4 space-y-2 text-xs text-slate-300">
-                  <p className="font-medium">Tested against {blast.totalTested} cached posts.</p>
-                  <p>Would have caught {blast.wouldCatch} spam posts.</p>
-                  {blast.falsePositives.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="font-medium text-slate-200">False positives:</p>
-                      <ul className="space-y-0.5 pl-4 text-slate-400">
-                        {blast.falsePositives.slice(0, 3).map((post) => (
-                          <li key={post.id}>- {post.title} (u/{post.author})</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p>No false positives detected.</p>
-                  )}
-                  <p>Missed spam: {blast.missedSpam.length}</p>
-                  <p>Catch rate: {(blast.catchRate * 100).toFixed(0)}% | False positive rate: {(blast.falsePositiveRate * 100).toFixed(0)}%</p>
-                </div>
-              ) : (
-                <p className="mt-4 text-xs text-slate-400">Run the blast radius backtest to see false positives and missed spam.</p>
               )}
-            </Card>
+            </>
+          )}
+        </div>
 
-            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none rounded-[20px]">
-              <p className="text-sm font-medium">Recent dry-run items</p>
-              <div className="mt-4 space-y-3">
-                {simulation.items.length === 0 ? (
-                  <p className="text-sm text-slate-400">No simulation items yet. Run a simulation after loading posts.</p>
-                ) : (
-                  simulation.items.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/55 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium">{item.title}</p>
-                          <p className="text-sm text-slate-400">u/{item.author}</p>
-                        </div>
-                        <Badge className={cn(
-                          item.outcome === 'remove'
-                            ? 'bg-red-400/15 text-red-200 hover:bg-red-400/20'
-                            : item.outcome === 'report'
-                              ? 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/20'
-                              : 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/20'
-                        )}>
-                          {item.outcome}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-400">{item.reason}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Card>
-          </aside>
-        </section>
+        {/* Right Panel */}
+        <RightPanel
+          simulation={{
+            removed: simulation.removed,
+            approved: simulation.approved,
+            reported: simulation.reported,
+            matched: simulation.matched,
+            items: simulation.items.map((item) => ({
+              id: item.id,
+              title: item.title,
+              author: item.author,
+              outcome: item.outcome,
+              reason: item.reason,
+            })),
+          }}
+          blast={blast}
+          blasting={blasting}
+          saving={saving}
+          onRunSimulation={runSimulation}
+          onRunBlast={() => void refreshBlast(rule)}
+        />
       </div>
     </div>
   );

@@ -47,7 +47,15 @@ export async function getCurrentRule(): Promise<AutomodRule> {
   }
 
   try {
-    return parseAutomodRuleDraft(raw, DEFAULT_AUTOMOD_RULE);
+    const parsed = parseAutomodRuleDraft(raw, DEFAULT_AUTOMOD_RULE);
+
+    // Check if the saved rule is the old template (has "Rule draft" name)
+    if (parsed.name === 'Rule draft') {
+      // Return empty rule instead of template
+      return DEFAULT_AUTOMOD_RULE;
+    }
+
+    return parsed;
   } catch (error) {
     console.warn('[RuleStage] Failed to parse stored rule, using default.', error);
     return DEFAULT_AUTOMOD_RULE;
@@ -103,7 +111,7 @@ export async function getLiveAutomodYaml(subredditName: string): Promise<string>
 }
 
 export async function resetRuleStageState(): Promise<AutomodRule> {
-  await redis.set(ruleStorageKey(), serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
+  await redis.del(ruleStorageKey());
   await redis.set(postsStorageKey(), JSON.stringify([]));
   return DEFAULT_AUTOMOD_RULE;
 }

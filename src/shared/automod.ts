@@ -221,31 +221,15 @@ export function buildEscapeHatchGenerationPrompt(request: string): string {
 
 export const DEFAULT_AUTOMOD_RULE: AutomodRule = {
   id: 'rule-stage-draft',
-  name: 'Rule draft',
+  name: '',
   type: 'submission',
   enabled: true,
-  conditions: [
-    {
-      field: 'title',
-      comparator: 'includes',
-      value: '',
-    },
-    {
-      field: 'account_age',
-      comparator: '<',
-      value: '30',
-    },
-    {
-      field: 'combined_karma',
-      comparator: '<',
-      value: '50',
-    },
-  ],
+  conditions: [],
   satisfyAnyThreshold: true,
   action: 'remove',
-  comment: 'Your post was removed by AutoModerator. Contact the moderation team if this looks incorrect.',
-  commentStickied: true,
-  modmail: 'AutoModerator removed a post: {{permalink}}\nUser: u/{{author}}\nTitle: {{title}}',
+  comment: '',
+  commentStickied: false,
+  modmail: '',
 };
 
 const CONDITION_FIELD_LABELS: Record<AutomodCondition['field'], string> = {
@@ -309,6 +293,11 @@ function matchesNumericCondition(condition: AutomodCondition, actualValue: numbe
 }
 
 export function serializeAutomodRule(rule: AutomodRule): string {
+  // Don't serialize if the rule is empty (no name, no conditions, no comment)
+  if (!rule.name && rule.conditions.length === 0 && !rule.comment && !rule.modmail) {
+    return '';
+  }
+
   const titleCondition = rule.conditions.find((condition) => condition.field === 'title');
   const bodyCondition = rule.conditions.find((condition) => condition.field === 'body');
   const accountAgeCondition = rule.conditions.find((condition) => condition.field === 'account_age');
@@ -316,7 +305,7 @@ export function serializeAutomodRule(rule: AutomodRule): string {
 
   return [
     '---',
-    `# ${rule.name}`,
+    rule.name ? `# ${rule.name}` : null,
     `type: ${rule.type}`,
     serializeTextCondition('title', titleCondition),
     serializeTextCondition('body', bodyCondition),
@@ -326,10 +315,10 @@ export function serializeAutomodRule(rule: AutomodRule): string {
     karmaCondition ? `  combined_karma: "${karmaCondition.comparator} ${karmaCondition.value}"` : null,
     `action: ${rule.action}`,
     `comment_stickied: ${rule.commentStickied ? 'true' : 'false'}`,
-    'comment: |',
-    ...rule.comment.split('\n').map((line) => `  ${line}`),
-    'modmail: |',
-    ...rule.modmail.split('\n').map((line) => `  ${line}`),
+    rule.comment ? 'comment: |' : null,
+    ...(rule.comment ? rule.comment.split('\n').map((line) => `  ${line}`) : []),
+    rule.modmail ? 'modmail: |' : null,
+    ...(rule.modmail ? rule.modmail.split('\n').map((line) => `  ${line}`) : []),
     '---',
   ]
     .filter((line): line is string => line !== null)

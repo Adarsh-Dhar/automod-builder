@@ -89,6 +89,15 @@ function MessageBubble({
   const yamlValue = yamlMatch?.[1] ?? '';
   const textParts = msg.content.split(/```(?:yaml)?\n[\s\S]*?```/);
 
+  // Check if YAML has actual content (not empty/default/template)
+  const hasRealYaml = yamlValue && !yamlValue.includes("# Rule draft") && !yamlValue.includes("title (includes): ['']") && yamlValue.trim().length > 50;
+
+  // Check if debug result has real YAML - only show card if there's actual YAML to apply
+  const hasRealDebugYaml = debugResult?.aiFixYaml && !debugResult.aiFixYaml.includes("# Rule draft") && !debugResult.aiFixYaml.includes("title (includes): ['']") && debugResult.aiFixYaml.trim().length > 50;
+
+  // Check if the message content itself contains template YAML
+  const hasTemplateYaml = msg.content.includes("# Rule draft") || msg.content.includes("title (includes): ['']");
+
   const handleApply = (yaml: string) => {
     if (!onApply) {
       return;
@@ -101,45 +110,50 @@ function MessageBubble({
 
   const showApplied = justApplied || applied;
 
+  // Don't render the message at all if it contains template YAML
+  if (hasTemplateYaml && !hasRealYaml && !hasRealDebugYaml) {
+    return null;
+  }
+
   return (
     <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
           msg.role === 'user'
             ? 'bg-gradient-to-br from-purple-400 to-pink-400 text-white'
-            : 'bg-white border border-[#EFEFEF] text-[#1A1020] shadow-sm'
+            : 'bg-[#1E192B] border border-[rgba(255,255,255,0.08)] text-[#EDE8F5] shadow-sm'
         }`}
       >
         {msg.role === 'user' ? '👤' : '✳'}
       </div>
       <div
-        className={`max-w-[85%] sm:max-w-[82%] rounded-[16px] sm:rounded-[20px] p-2.5 sm:p-3.5 text-sm ${
+        className={`max-w-[85%] sm:max-w-[82%] rounded-xl p-2.5 sm:p-3.5 text-sm ${
           msg.role === 'user'
-            ? 'bg-[#1A1020] text-white rounded-br-sm'
-            : 'bg-white border border-[#EFEFEF] text-[#1A1020] rounded-bl-sm shadow-sm'
+            ? 'bg-[#F5C842]/15 border border-[#F5C842]/25 text-[#EDE8F5] rounded-br-sm self-end'
+            : 'bg-[#1E192B] border border-[rgba(255,255,255,0.08)] text-[#EDE8F5] rounded-bl-sm self-start shadow-sm'
         }`}
       >
-        {debugResult ? (
+        {hasRealDebugYaml ? (
           <DebugResultCard result={debugResult} onApplyYaml={handleApply} />
         ) : (
           textParts.map((part, index) => (
             <span key={index}>
-              {part && <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1F2937]">{part}</p>}
-              {index === 0 && yamlMatch && (
-                <div className="mt-2 overflow-hidden rounded-xl border border-[#E7EAF1] bg-white">
-                  <div className="flex items-center justify-between bg-[#FBFCFF] px-3 py-1.5">
-                    <span className="font-mono text-[10px] text-[#8B93A5]">yaml</span>
+              {part && <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#EDE8F5]">{part}</p>}
+              {index === 0 && hasRealYaml && (
+                <div className="mt-2 overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16121F]">
+                  <div className="flex items-center justify-between bg-[#1E192B] px-3 py-1.5 border-b border-[rgba(255,255,255,0.08)]">
+                    <span className="font-mono text-[10px] text-[#8B7FA8]">yaml</span>
                     {onApply !== undefined && (
                       <button
                         onClick={() => handleApply(yamlValue)}
                         className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 ${
-                          showApplied ? 'text-[#22A06B]' : 'text-[#FF6B35] hover:text-[#F35B20]'
+                          showApplied ? 'text-[#3FB950]' : 'text-[#F5C842] hover:text-[#F5C842]/80'
                         }`}
                       >
                         {showApplied ? (
                           <>
                             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                              <path d="M1.5 5.5L4.5 8.5L9.5 2.5" stroke="#22A06B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M1.5 5.5L4.5 8.5L9.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                             Applied to Code
                           </>
@@ -154,7 +168,7 @@ function MessageBubble({
                       </button>
                     )}
                   </div>
-                  <pre className="overflow-auto whitespace-pre-wrap wrap-break-word bg-[#FBFCFF] p-3 font-mono text-xs leading-6 text-[#0F766E]">
+                  <pre className="overflow-auto whitespace-pre-wrap wrap-break-word bg-[#16121F] p-3 font-mono text-xs leading-6 text-[#EDE8F5]">
                     {yamlValue}
                   </pre>
                 </div>
@@ -162,7 +176,7 @@ function MessageBubble({
             </span>
           ))
         )}
-        <div className="mt-1.5 text-[10px] text-[#8B93A5]">{new Date(msg.timestamp).toLocaleTimeString()}</div>
+        <div className="mt-1.5 text-[10px] text-[#8B7FA8]">{new Date(msg.timestamp).toLocaleTimeString()}</div>
       </div>
     </div>
   );
@@ -373,18 +387,8 @@ export default function ChatMode({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[20px] sm:rounded-[28px] border border-[#E7E9F0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-      <div className="flex-1 overflow-auto bg-white px-3 sm:px-5 py-3 sm:py-5">
-        {messages.length === 0 && (
-          <div className="flex min-h-60 sm:min-h-72 flex-col items-center justify-center gap-3 text-center text-[#AAAAAA]">
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-[#F5C842] text-[#1A1020] shadow-sm text-xl sm:text-2xl">
-              ✳
-            </div>
-            <p className="text-sm sm:text-base font-semibold text-[#1A1020]">How can I help you today?</p>
-            <p className="max-w-xs text-xs sm:text-sm text-[#AAAAAA]">Ask me anything — I'm powered by ChaTin AI</p>
-          </div>
-        )}
-
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#1E192B]">
+      <div className="flex-1 overflow-auto px-3 sm:px-5 py-3 sm:py-5 bg-[#1E192B]">
         <div className="space-y-4">
           {messages.map((msg) => (
             <MessageBubble
@@ -395,27 +399,8 @@ export default function ChatMode({
             />
           ))}
 
-          {isLoading && (
-            <div className="flex gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white border border-[#EFEFEF] text-[#1A1020] text-sm font-bold shadow-sm">✳</div>
-              <div className="rounded-[20px] rounded-bl-sm border border-[#EFEFEF] bg-white px-4 py-3 shadow-sm">
-                <div className="flex items-center gap-1.5">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="h-1.5 w-1.5 rounded-full bg-[#1A1020]"
-                      style={{
-                        animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {error && (
-            <div className="rounded-2xl border border-[#FECACA] bg-[#FFF1F2] p-3 text-xs text-[#B42318] shadow-sm">
+            <div className="rounded-2xl border border-[#F85149]/30 bg-[#F85149]/15 p-3 text-xs text-[#F85149] shadow-sm">
               Error: {error}
             </div>
           )}
@@ -424,7 +409,7 @@ export default function ChatMode({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[#F0F0F0] bg-white px-3 sm:px-5 py-3 sm:py-4">
+      <div className="shrink-0 border-t border-[rgba(255,255,255,0.08)] bg-[#1E192B] px-3 sm:px-5 py-3 sm:py-4">
         <div className="flex items-end gap-2 sm:gap-3">
           <textarea
             value={input}
@@ -434,20 +419,20 @@ export default function ChatMode({
             placeholder='Write a message... or type "apply" to use the last rule'
             rows={2}
             data-testid="chat-input"
-            className="min-h-13.5 flex-1 resize-none rounded-[16px] border border-[#EBEBEB] bg-[#F4F2F7] px-3 sm:px-4 py-3 text-sm text-[#1A1020] outline-none transition-colors placeholder:text-[#AAAAAA] focus:border-[#F5C842] disabled:opacity-50"
+            className="min-h-13.5 flex-1 resize-none rounded-[--radius] border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 sm:px-4 py-3 text-sm text-[#EDE8F5] outline-none transition-colors placeholder:text-[#5A5070] focus:border-[#F5C842] disabled:opacity-50"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             data-testid="btn-send"
-            className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#F5C842] text-[#1A1020] shadow-[0_8px_20px_rgba(245,200,66,0.35)] transition-colors hover:bg-[#e6b93c] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-[--radius] bg-[#F5C842] text-[#0E0C14] transition-colors hover:bg-[#F5C842]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <path d="M2 7.5L13 2L8.5 13L7 8.5L2 7.5Z" fill="white" />
+              <path d="M2 7.5L13 2L8.5 13L7 8.5L2 7.5Z" fill="currentColor" />
             </svg>
           </button>
         </div>
-        <p className="mt-2 text-[10px] text-[#8B93A5] hidden sm:block">Shift+Enter for new line · Enter to send · type "apply" to use last rule</p>
+        <p className="mt-2 text-[10px] text-[#5A5070] hidden sm:block">Shift+Enter for new line · Enter to send · type "apply" to use last rule</p>
       </div>
 
       <style>{`

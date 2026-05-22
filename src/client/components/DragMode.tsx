@@ -358,31 +358,18 @@ export default function DragMode({ ast, onASTChange }: DragModeProps) {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
-        {ast.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
-            <div className="text-4xl opacity-20">⬡</div>
-            <div className="text-slate-500 text-sm">No rules yet</div>
-            <button
-              onClick={addRule}
-              className="text-sm bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-md transition-colors"
-            >
-              Create your first rule
-            </button>
-          </div>
-        ) : (
-          ast.map((rule, idx) => (
-            <RuleCard
-              key={rule.id}
-              rule={rule}
-              index={idx}
-              total={ast.length}
-              onUpdate={(updated) => updateRule(idx, updated)}
-              onRemove={() => removeRule(idx)}
-              onMoveUp={() => moveUp(idx)}
-              onMoveDown={() => moveDown(idx)}
-            />
-          ))
-        )}
+        {ast.map((rule, idx) => (
+          <RuleCard
+            key={rule.id}
+            rule={rule}
+            index={idx}
+            total={ast.length}
+            onUpdate={(updated) => updateRule(idx, updated)}
+            onRemove={() => removeRule(idx)}
+            onMoveUp={() => moveUp(idx)}
+            onMoveDown={() => moveDown(idx)}
+          />
+        ))}
         {ast.length > 0 && (
           <button
             onClick={addRule}

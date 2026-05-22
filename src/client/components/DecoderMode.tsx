@@ -46,16 +46,17 @@ function tokenizeRegex(pattern: string): HighlightToken[] {
 function confidenceStyles(confidence: DecoderAnalysis['confidence']): string {
   switch (confidence) {
     case 'high':
-      return 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15';
+      return 'bg-[--success]/15 text-[--success] border-[--success]/25';
     case 'medium':
-      return 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/15';
+      return 'bg-[--warning]/15 text-[--warning] border-[--warning]/25';
     default:
-      return 'bg-red-400/15 text-red-200 hover:bg-red-400/15';
+      return 'bg-[--danger]/15 text-[--danger] border-[--danger]/25';
   }
 }
 
 export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModeProps) {
   const [examples, setExamples] = useState(['', '', '']);
+  const [activeTab, setActiveTab] = useState(0);
   const [analysis, setAnalysis] = useState<DecoderAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,84 +135,102 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
 
   return (
     <div className="grid gap-4">
-      <Card className="border-white/10 bg-white/5 p-4 text-slate-100 shadow-none">
+      <Card className="border-[--border] bg-[--surface-2] p-4 text-[--foreground]">
         <div className="space-y-1">
           <p className="text-sm font-medium">Paste three spam examples</p>
-          <p className="text-sm text-slate-400">The decoder looks for shared Unicode tricks and returns a regex plus AutoMod YAML.</p>
+          <p className="text-sm text-[--muted-foreground]">The decoder looks for shared Unicode tricks and returns a regex plus AutoMod YAML.</p>
         </div>
 
-        <div className="mt-4 grid gap-3">
-          {examples.map((example, index) => (
-            <label key={index} className="grid gap-2 text-sm text-slate-300">
-              <span>Example {index + 1}</span>
-              <Textarea
-                value={example}
-                onChange={(event) => updateExample(index, event.target.value)}
-                placeholder="Paste a spam message that slipped through…"
-                className="min-h-28 rounded-2xl border-white/10 bg-slate-900/80 text-slate-100 placeholder:text-slate-500 focus-visible:ring-emerald-400/30"
-              />
-            </label>
-          ))}
+        {/* Tabbed input interface */}
+        <div className="mt-4">
+          <div className="flex gap-1 border-b border-[--border] overflow-x-auto">
+            {[0, 1, 2].map((index) => (
+              <button
+                key={index}
+                onClick={() => setActiveTab(index)}
+                className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
+                  activeTab === index
+                    ? 'text-[--foreground] border-b-2 border-[--primary]'
+                    : 'text-[--muted-foreground] hover:text-[--foreground]'
+                }`}
+              >
+                Example {index + 1}
+                {examples[index] && (
+                  <span className="ml-2 text-[10px] bg-[--success]/15 text-[--success] px-1.5 py-0.5 rounded">
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Textarea
+              value={examples[activeTab]}
+              onChange={(event) => updateExample(activeTab, event.target.value)}
+              placeholder="Paste a spam message that slipped through…"
+              className="min-h-32"
+            />
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
             onClick={handleAnalyze}
             disabled={!canAnalyze}
-            className="rounded-full bg-emerald-400 px-5 text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500"
+            className="bg-[--primary] text-[--primary-foreground] hover:bg-[--primary]/90 disabled:cursor-not-allowed disabled:bg-[--surface-3] disabled:text-[--muted-foreground]"
           >
             {loading ? 'Analyzing…' : 'Analyze'}
           </Button>
           {loading && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300 [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300 [animation-delay:240ms]" />
+            <div className="flex items-center gap-1.5 text-xs text-[--muted-foreground]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[--success]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[--success] [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[--success] [animation-delay:240ms]" />
             </div>
           )}
         </div>
-        <p className="mt-3 text-xs text-slate-400">{apiKeyStatus}</p>
+        <p className="mt-3 text-xs text-[--muted-foreground]">{apiKeyStatus}</p>
       </Card>
 
       {error && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200 shadow-sm">
+        <div className="rounded-lg border border-[--danger]/30 bg-[--danger]/15 p-3 text-xs text-[--danger]">
           Error: {error}
         </div>
       )}
 
       {analysis && (
-        <Card className="border-white/10 bg-slate-950/55 p-4 text-slate-100 shadow-none">
+        <Card className="border-[--border] bg-[--surface-2] p-4 text-[--foreground]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-sm font-medium">Decoder result</p>
-              <p className="text-sm text-slate-400">A shared explanation, regex pattern, and ready-to-apply YAML snippet.</p>
+              <p className="text-sm text-[--muted-foreground]">A shared explanation, regex pattern, and ready-to-apply YAML snippet.</p>
             </div>
-            <Badge className={confidenceStyles(analysis.confidence)}>{analysis.confidence}</Badge>
+            <Badge variant="outline" className={confidenceStyles(analysis.confidence)}>{analysis.confidence}</Badge>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {analysis.tricks.map((trick) => (
-              <Badge key={trick} className="bg-white/10 text-slate-100 hover:bg-white/10">
+              <Badge key={trick} variant="outline" className="bg-[--surface-3] text-[--foreground] border-[--border]">
                 {trick}
               </Badge>
             ))}
           </div>
 
-          <details className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <summary className="cursor-pointer text-sm font-medium text-slate-100">Explanation</summary>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-300">{analysis.explanation}</p>
+          <details className="mt-4 rounded-lg border border-[--border] bg-[--surface-3] p-4">
+            <summary className="cursor-pointer text-sm font-medium text-[--foreground]">Explanation</summary>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[--muted-foreground]">{analysis.explanation}</p>
           </details>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="mt-4 rounded-lg border border-[--border] bg-[--surface-3]">
+            <div className="flex items-center justify-between gap-3 border-b border-[--border] px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Regex pattern</p>
-                <p className="text-xs text-slate-400">Copy this pattern into Code Mode or use it in AutoMod.</p>
+                <p className="text-xs text-[--muted-foreground]">Copy this pattern into Code Mode or use it in AutoMod.</p>
               </div>
               <Button
                 variant="ghost"
                 onClick={handleCopyRegex}
-                className="rounded-full text-slate-200 hover:bg-white/8 hover:text-white"
+                className="text-[--muted-foreground] hover:bg-[--surface-2] hover:text-[--foreground]"
               >
                 {copiedRegex ? 'Copied' : 'Copy'}
               </Button>
@@ -225,20 +244,20 @@ export default function DecoderMode({ onApplyYaml, geminiApiKey }: DecoderModePr
             </pre>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="mt-4 rounded-lg border border-[--border] bg-[--surface-3] overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-[--border] px-4 py-3">
               <div>
                 <p className="text-sm font-medium">AutoMod YAML</p>
-                <p className="text-xs text-slate-400">Apply the generated rule directly to the shared rule state.</p>
+                <p className="text-xs text-[--muted-foreground]">Apply the generated rule directly to the shared rule state.</p>
               </div>
               <Button
                 onClick={handleApplyYaml}
-                className="rounded-full bg-sky-400 px-4 text-slate-950 hover:bg-sky-300"
+                className="bg-[--info] text-[--foreground] hover:bg-[--info]/90"
               >
                 {appliedYaml ? 'Applied' : 'Apply to Rules'}
               </Button>
             </div>
-            <pre className="max-h-64 overflow-auto bg-slate-950/50 px-4 py-3 font-mono text-xs leading-6 text-emerald-200">
+            <pre className="max-h-64 overflow-auto bg-[--surface-2] px-4 py-3 font-mono text-xs leading-6 text-[--success]">
               {analysis.automodYaml}
             </pre>
           </div>
