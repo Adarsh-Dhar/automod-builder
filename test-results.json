@@ -1,0 +1,282 @@
+{
+  "model": "gpt-4o",
+  "timestamp": "2026-05-22T16:22:52.812Z",
+  "results": [
+    {
+      "id": "chat-basic-spam",
+      "group": "chat",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Wrapped in ```yaml code fence"
+        },
+        {
+          "ok": true,
+          "label": "type: submission present"
+        },
+        {
+          "ok": true,
+          "label": "Wrapped in --- delimiters"
+        },
+        {
+          "ok": true,
+          "label": "Uses title (includes) key"
+        },
+        {
+          "ok": true,
+          "label": "action is remove or report"
+        },
+        {
+          "ok": true,
+          "label": "account_age condition present"
+        },
+        {
+          "ok": true,
+          "label": "comment: block present"
+        },
+        {
+          "ok": true,
+          "label": "modmail: block present"
+        },
+        {
+          "ok": true,
+          "label": "Does NOT use invented key title (includes-word)"
+        }
+      ],
+      "rawResponse": "```yaml\n---\n# Block posts with \"buy now\" or \"grab yours\" from new accounts under 30 days old\ntype: submission\ntitle (includes): ['buy now', 'grab yours']\nauthor:\n  satisfy_any_threshold: true\n  account_age: \"< 30 days\"\naction: remove\ncomment: |\n  Your post has been removed because it contains promotional language (\"buy now\" or \"grab yours\") and your account is less than 30 days old. Please review the subreddit rules before posting again.\nmodmail: |\n  A post was removed because it contained promo"
+    },
+    {
+      "id": "chat-karma-threshold",
+      "group": "chat",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "combined_karma condition present"
+        },
+        {
+          "ok": true,
+          "label": "account_age condition present"
+        },
+        {
+          "ok": true,
+          "label": "Numeric conditions nested under author:"
+        },
+        {
+          "ok": true,
+          "label": "action: remove"
+        },
+        {
+          "ok": true,
+          "label": "satisfy_any_threshold key present"
+        }
+      ],
+      "rawResponse": "```yaml\n---\n# Remove posts from new users with low combined karma\ntype: submission\nauthor:\n  satisfy_any_threshold: true\n  account_age: \"< 7 days\"\n  combined_karma: \"< 50\"\naction: remove\ncomment: |\n  Your submission has been removed because your account does not meet the minimum age or karma requirements. Please participate more in the community before posting.\nmodmail: |\n  If you believe this was a mistake, please contact the moderators with any relevant details.\n---\n```"
+    },
+    {
+      "id": "chat-regex-title",
+      "group": "chat",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Uses title (matches) for regex"
+        },
+        {
+          "ok": true,
+          "label": "Regex contains the requested keywords"
+        },
+        {
+          "ok": true,
+          "label": "type: submission present"
+        }
+      ],
+      "rawResponse": "```yaml\n---\n# Flag posts with titles containing crypto, nft, or web3\ntype: submission\ntitle (matches): ['\\\\b(crypto|nft|web3)\\\\b']\naction: report\ncomment: |\n  Your post has been flagged for containing terms related to crypto, NFT, or Web3. Please ensure your post adheres to the subreddit rules.\nmodmail: |\n  A post was flagged for containing terms related to crypto, NFT, or Web3. Please review it to ensure compliance with subreddit guidelines.\n---\n```"
+    },
+    {
+      "id": "decoder-homoglyph",
+      "group": "decoder",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "tricks is an array"
+        },
+        {
+          "ok": true,
+          "label": "Detects homoglyph or look-alike trick"
+        },
+        {
+          "ok": true,
+          "label": "explanation is a non-empty string"
+        },
+        {
+          "ok": true,
+          "label": "regexPattern field present"
+        },
+        {
+          "ok": true,
+          "label": "automodYaml field present"
+        },
+        {
+          "ok": true,
+          "label": "confidence is high/medium/low"
+        }
+      ],
+      "rawResponse": "{\n  \"tricks\": [\"homoglyph\", \"evasive-phrasing\", \"mixed-script\"],\n  \"explanation\": \"Homoglyphs replace Latin characters with visually similar Unicode ones (e.g., 'і' for 'i', 'а' for 'a'). Evasive phrasing avoids direct spam keywords by rewording. Mixed-script combines Latin and Cyrillic to evade detection.\",\n  \"regexPattern\": \"(v[іi][аa]gr[аa]|[сc]lick|l[оo]west|webs[іi]te)\",\n  \"automodYaml\": \"regex: '(v[іi][аa]gr[аa]|[сc]lick|l[оo]west|webs[іi]te)'\",\n  \"confidence\": \"high\"\n}"
+    },
+    {
+      "id": "decoder-zero-width",
+      "group": "decoder",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "Detects zero-width trick"
+        },
+        {
+          "ok": true,
+          "label": "Non-empty regex pattern returned"
+        },
+        {
+          "ok": true,
+          "label": "Valid confidence value"
+        }
+      ],
+      "rawResponse": "{\n  \"tricks\": [\"zero-width\", \"evasive-phrasing\"],\n  \"explanation\": \"Zero-width characters are inserted between letters to bypass detection. Evasive phrasing uses slight variations in wording to avoid exact matches.\",\n  \"regexPattern\": \"f.?r.?e.?e.?\\\\s.*m.?o.?n.?e.?y\",\n  \"automodYaml\": \"pattern: 'f.?r.?e.?e.?\\\\s.*m.?o.?n.?e.?y'\",\n  \"confidence\": \"high\"\n}"
+    },
+    {
+      "id": "escape-yaml-capable",
+      "group": "escape-hatch",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "hasLimitation is boolean"
+        },
+        {
+          "ok": true,
+          "label": "hasLimitation is false (YAML can handle this)"
+        },
+        {
+          "ok": true,
+          "label": "recommendation is yaml"
+        },
+        {
+          "ok": true,
+          "label": "explanation field present"
+        }
+      ],
+      "rawResponse": "```json\n{\n  \"hasLimitation\": false,\n  \"limitation\": null,\n  \"explanation\": \"The request combines title matching with account age thresholds, which are natively supported by AutoModerator YAML.\",\n  \"recommendation\": \"yaml\"\n}\n```"
+    },
+    {
+      "id": "escape-typescript-needed",
+      "group": "escape-hatch",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "hasLimitation is true (YAML cannot handle external API)"
+        },
+        {
+          "ok": true,
+          "label": "recommendation is typescript"
+        },
+        {
+          "ok": true,
+          "label": "limitation is a valid enum value (got: external-api)"
+        }
+      ],
+      "rawResponse": "```json\n{\n  \"hasLimitation\": true,\n  \"limitation\": \"external-api\",\n  \"explanation\": \"AutoModerator YAML cannot query external APIs to check user activity.\",\n  \"recommendation\": \"typescript\"\n}\n```"
+    },
+    {
+      "id": "escape-state-management",
+      "group": "escape-hatch",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "hasLimitation is true (stateful)"
+        },
+        {
+          "ok": true,
+          "label": "recommendation is typescript"
+        }
+      ],
+      "rawResponse": "```json\n{\n  \"hasLimitation\": true,\n  \"limitation\": \"state-management\",\n  \"explanation\": \"AutoModerator YAML cannot track state over time, such as counting posts made by a user within a week.\",\n  \"recommendation\": \"typescript\"\n}\n```"
+    },
+    {
+      "id": "debug-basic-match",
+      "group": "debug",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "explanation is a non-empty string"
+        },
+        {
+          "ok": true,
+          "label": "fixedYaml is present and non-trivial"
+        },
+        {
+          "ok": true,
+          "label": "confidence is valid enum value"
+        },
+        {
+          "ok": true,
+          "label": "Explanation references the matched field/value"
+        }
+      ],
+      "rawResponse": "{\n  \"explanation\": \"The rule fired because the post title includes the word 'bitcoin', which matches the condition in the rule.\",\n  \"fixedYaml\": \"---\\n# Crypto spam guard\\ntype: submission\\ntitle (includes, lowercase): ['bitcoin', 'crypto']\\naction: remove\\ncomment: |\\n  Removed.\\nmodmail: |\\n  Spam: {{permalink}}\\n---\",\n  \"confidence\": \"high\"\n}"
+    },
+    {
+      "id": "debug-no-match",
+      "group": "debug",
+      "status": "pass",
+      "checks": [
+        {
+          "ok": true,
+          "label": "Response is valid JSON"
+        },
+        {
+          "ok": true,
+          "label": "explanation field present"
+        },
+        {
+          "ok": true,
+          "label": "fixedYaml field present (even if empty)"
+        },
+        {
+          "ok": true,
+          "label": "Valid confidence value"
+        }
+      ],
+      "rawResponse": "{\n  \"explanation\": \"No rule was matched, so no explanation or rewrite is necessary.\",\n  \"fixedYaml\": \"\",\n  \"confidence\": \"high\"\n}"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import {
   type YamlLimitationAnalysis,
 } from '../../shared/automod';
 import { getEscapeHatchTemplate } from '../templates/escape-hatch-templates';
-import { resolveServerGeminiApiKey } from './gemini-key.service';
+import { generateJson } from './model-proxy.service';
 
 type GeminiContentPart = {
   text?: string;
@@ -51,37 +51,7 @@ function extractModelText(data: { candidates?: GeminiCandidate[] }): string {
   return data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
 }
 
-async function generateJson<T>(prompt: string, maxOutputTokens: number): Promise<T> {
-  const apiKey = await resolveServerGeminiApiKey();
-
-  if (!apiKey) {
-    throw new Error('Missing server Gemini API key');
-  }
-
-  const response = await fetch(getGeminiUrl(apiKey), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${text}`);
-  }
-
-  const data = (await response.json()) as { candidates?: GeminiCandidate[] };
-  const text = stripCodeFences(extractModelText(data) || JSON.stringify(data));
-  return JSON.parse(text) as T;
-}
+// model-proxy.generateJson is used directly below (imported at top)
 
 export async function analyzeYamlLimitation(request: string): Promise<YamlLimitationAnalysis> {
   const parsed = await generateJson<LimitationDetectionResult>(buildEscapeHatchAnalysisPrompt(request), 512);

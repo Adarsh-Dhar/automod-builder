@@ -11,50 +11,14 @@ import type { DebugResponse } from '../../shared/debug-types';
 import { runDebug } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { analyzeYamlLimitation, generateEscapeHatchTrigger, getRuleStageModContext } from '../services/escape-hatch.service';
-import { resolveServerGeminiApiKey } from '../services/gemini-key.service';
+import { generateText, generateJson } from '../services/model-proxy.service';
 import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
-function stripCodeFences(text: string): string {
-  const trimmed = text.trim();
-  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fencedMatch?.[1]?.trim() ?? trimmed;
-}
+// (previously used to strip fenced code blocks from model output)
 
 async function analyzeObfuscationOnServer(examples: [string, string, string]): Promise<DecoderAnalysis> {
-  const apiKey = await resolveServerGeminiApiKey();
-
-  if (!apiKey) {
-    throw new Error('Missing server Gemini API key');
-  }
-
   const prompt = buildDecoderAnalysisPrompt(examples);
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 1024,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const txt = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${txt}`);
-  }
-
-  const data = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-
-  const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
-  const parsed = JSON.parse(stripCodeFences(text || JSON.stringify(data))) as DecoderAnalysis;
+  const parsed = await generateJson<DecoderAnalysis>(prompt, 1024);
 
   if (!parsed || !Array.isArray(parsed.tricks) || typeof parsed.explanation !== 'string' || typeof parsed.regexPattern !== 'string' || typeof parsed.automodYaml !== 'string') {
     throw new Error('Gemini returned an invalid decoder analysis payload');
@@ -132,72 +96,29 @@ export async function generateChatReplyOnServer(
   history: ChatHistoryMessage[] = [],
   subredditContext?: string
 ): Promise<string> {
-  const apiKey = await resolveServerGeminiApiKey();
-
-  if (!apiKey) {
-    throw new Error('Missing server Gemini API key. Set GEMINI_API_KEY in Devvit app settings.');
-  }
-
-  const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
-
-  contents.push({ role: 'user', parts: [{ text: AUTOMOD_SYSTEM_PROMPT }] });
-  contents.push({ role: 'model', parts: [{ text: 'Understood. I will output only valid AutoModerator YAML.' }] });
+  // Build the prompt text combining system prompt, optional subreddit context, history and user prompt.
+  const parts: string[] = [];
+  parts.push(AUTOMOD_SYSTEM_PROMPT);
+  parts.push('Understood. I will output only valid AutoModerator YAML.');
 
   if (subredditContext?.trim()) {
-    contents.push({ role: 'user', parts: [{ text: subredditContext.trim() }] });
-    contents.push({ role: 'model', parts: [{ text: 'Noted. I will keep this subreddit context in mind.' }] });
+    parts.push(subredditContext.trim());
+    parts.push('Noted. I will keep this subreddit context in mind.');
   }
 
   for (const message of history.slice(-10)) {
-    if (!message?.content?.trim()) {
-      continue;
-    }
-
-    contents.push({
-      role: message.role === 'model' ? 'model' : 'user',
-      parts: [{ text: message.content }],
-    });
+    if (!message?.content?.trim()) continue;
+    parts.push(`${message.role === 'model' ? 'Assistant:' : 'User:'} ${message.content}`);
   }
 
-  contents.push({ role: 'user', parts: [{ text: prompt }] });
+  parts.push(`User: ${prompt}`);
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 1024,
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const txt = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${txt}`);
-  }
-
-  const data = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-
-  const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
+  const combined = parts.join('\n\n');
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 1024 });
   return text || 'I could not generate a response.';
 }
 
 async function analyzeDebugOnServer(result: DebugResponse): Promise<DebugAnalysis> {
-  const apiKey = await resolveServerGeminiApiKey();
-
-  if (!apiKey) {
-    throw new Error('Missing server Gemini API key');
-  }
-
   const prompt = buildDebugPrompt(
     {
       id: result.postId,
@@ -210,32 +131,7 @@ async function analyzeDebugOnServer(result: DebugResponse): Promise<DebugAnalysi
     result.matches
   );
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 1024,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const txt = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${txt}`);
-  }
-
-  const data = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-
-  const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
-  const parsed = JSON.parse(stripCodeFences(text || JSON.stringify(data))) as DebugAnalysis;
+  const parsed = await generateJson<DebugAnalysis>(prompt, 1024);
 
   if (
     !parsed ||
