@@ -69,7 +69,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen bg-[#F4F2F7] p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
         <Button
@@ -83,18 +83,26 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-1 bg-[#EBEBEB] rounded-full p-1 mb-6">
         <Button
-          variant={activeTab === 'leaderboard' ? 'default' : 'outline'}
+          variant={activeTab === 'leaderboard' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('leaderboard')}
-          className="flex-1"
+          className={`flex-1 py-2 rounded-full text-sm text-center ${
+            activeTab === 'leaderboard'
+              ? 'bg-[#F5C842] text-[#1A1020] font-semibold'
+              : 'text-[#888888] hover:text-[#1A1020]'
+          }`}
         >
           Leaderboard
         </Button>
         <Button
-          variant={activeTab === 'history' ? 'default' : 'outline'}
+          variant={activeTab === 'history' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('history')}
-          className="flex-1"
+          className={`flex-1 py-2 rounded-full text-sm text-center ${
+            activeTab === 'history'
+              ? 'bg-[#F5C842] text-[#1A1020] font-semibold'
+              : 'text-[#888888] hover:text-[#1A1020]'
+          }`}
         >
           Level-Ups
         </Button>
@@ -115,15 +123,15 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             leaderboard.map((entry, idx) => (
               <Card
                 key={entry.username}
-                className="p-4 bg-white flex items-center justify-between"
+                className="p-4 bg-white rounded-2xl flex items-center justify-between border-0 mb-2 shadow-sm"
               >
                 <div className="flex items-center gap-4">
-                  <div className="text-2xl font-bold text-slate-400 w-8 text-right">
+                  <div className="text-2xl font-bold text-[#EBEBEB] w-8 text-right">
                     #{idx + 1}
                   </div>
                   <div>
                     <p className="font-semibold">{entry.username}</p>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-[#888888]">
                       Level {entry.level}
                     </p>
                   </div>
@@ -150,12 +158,12 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             </Card>
           ) : (
             history.map((event, idx) => (
-              <Card key={idx} className="p-4 bg-white">
+              <Card key={idx} className="p-4 bg-white rounded-2xl border-0 mb-2 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="text-3xl">{event.badge}</div>
                   <div className="flex-1">
                     <p className="font-semibold">u/{event.username}</p>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-[#888888]">
                       Level {event.oldLevel} → {event.newLevel}
                     </p>
                   </div>

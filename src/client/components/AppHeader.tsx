@@ -78,7 +78,7 @@ export default function AppHeader({
   };
 
   return (
-    <header className="h-[60px] bg-white border-b border-[#F0F0F0] flex items-center px-4 gap-4 shrink-0">
+    <header className="h-[60px] bg-[#1A1020] border-b border-white/10 flex items-center px-4 gap-4 shrink-0">
       {/* Logo */}
       <div className="flex items-center gap-2 mr-2">
         <div className="w-8 h-8 rounded-full bg-[#F5C842] flex items-center justify-center">
@@ -88,7 +88,7 @@ export default function AppHeader({
       </div>
 
       {/* Mode Tabs */}
-      <div className="flex items-center gap-1 bg-[#F4F2F7] rounded-full p-1 border border-[#EBEBEB]">
+      <div className="flex items-center gap-1 bg-white/8 rounded-full p-1 border border-white/10">
         {MODES.map((m) => (
           <button
             key={m.id}
@@ -96,8 +96,8 @@ export default function AppHeader({
             data-testid={`tab-${m.id}`}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 ${
               mode === m.id
-                ? 'bg-white text-[#1A1020] shadow-sm'
-                : 'text-[#AAAAAA] hover:text-[#1A1020] rounded-full'
+                ? 'bg-[#F5C842] text-[#1A1020] shadow-sm'
+                : 'text-white/50 hover:text-white rounded-full'
             }`}
           >
             <span className="text-xs opacity-80">{m.icon}</span>
@@ -119,8 +119,8 @@ export default function AppHeader({
         data-testid="btn-api-key"
         className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
           geminiApiKey
-            ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
-            : 'border-[#EBEBEB] bg-[#F4F2F7] text-[#AAAAAA] hover:text-[#1A1020]'
+            ? 'border-[#3FB950]/30 bg-[#3FB950]/10 text-[#3FB950]'
+            : 'border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12'
         }`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${geminiApiKey ? "bg-[#3FB950]" : "bg-[#484F58]"}`} />
@@ -134,7 +134,7 @@ export default function AppHeader({
         className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
           historyActive
             ? 'border-[#BC8CFF]/40 bg-[#BC8CFF]/10 text-[#BC8CFF]'
-            : 'border-[#EBEBEB] bg-[#F4F2F7] hover:bg-[#EBEBEB] text-[#1A1020] hover:text-[#1A1020]'
+            : 'border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12'
         }`}
         title="Version History"
       >
@@ -156,7 +156,7 @@ export default function AppHeader({
           onClick={() => setExportOpen((o) => !o)}
           disabled={ruleCount === 0}
           data-testid="btn-export"
-          className="flex items-center gap-1.5 bg-[#F4F2F7] hover:bg-[#EBEBEB] border border-[#EBEBEB] text-[#1A1020] font-medium px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 border-white/15 bg-white/8 text-white/60 hover:text-white hover:bg-white/12 font-medium px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M6.5 1V9M6.5 9L4 6.5M6.5 9L9 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -224,7 +224,7 @@ export default function AppHeader({
         onClick={onRunSimulation}
         disabled={isSimulating || ruleCount === 0}
         data-testid="btn-dry-run"
-        className="flex items-center gap-2 bg-[#F5C842] hover:bg-[#e6b93c] text-[#1A1020] font-semibold px-4 py-1.5 rounded-full text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 bg-[#F5C842] hover:bg-[#e6b93c] text-[#1A1020] font-semibold px-5 py-2 rounded-[14px] text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {isSimulating ? (
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="animate-spin">

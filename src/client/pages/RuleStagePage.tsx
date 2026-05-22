@@ -243,9 +243,9 @@ export function RuleStagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_40%),linear-gradient(135deg,#0b1020_0%,#111827_45%,#1e293b_100%)] text-slate-100">
+    <div className="min-h-screen bg-[#F4F2F7] text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-6">
-        <header className="grid gap-4 rounded-4xl border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:grid-cols-[1.4fr_1fr] md:p-6">
+        <header className="grid gap-4 rounded-[20px] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:grid-cols-[1.4fr_1fr] md:p-6">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">RuleStage</Badge>
@@ -262,7 +262,7 @@ export function RuleStagePage() {
             </div>
           </div>
 
-          <Card className="border-white/10 bg-slate-950/60 p-4 text-slate-100 shadow-none">
+          <Card className="border-white/10 bg-slate-950/60 p-4 text-slate-100 shadow-none rounded-[20px]">
             <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Current rule</p>
@@ -279,7 +279,7 @@ export function RuleStagePage() {
           </Card>
         </header>
 
-        <nav className="rounded-3xl border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
+        <nav className="rounded-[20px] border border-white/10 bg-white/6 p-2 backdrop-blur-xl">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {(Object.keys(modeMeta) as RuleStageMode[]).map((item) => (
               <Button
@@ -323,19 +323,19 @@ export function RuleStagePage() {
         </nav>
 
         {error && (
-          <Card className="border-amber-300/20 bg-amber-400/10 p-4 text-amber-100 shadow-none">
+          <Card className="border-amber-300/20 bg-amber-400/10 p-4 text-amber-100 shadow-none rounded-[20px]">
             <p className="text-sm">{error}</p>
           </Card>
         )}
 
         {loading && (
-          <Card className="border-white/10 bg-white/6 p-4 text-slate-200 shadow-none">
+          <Card className="border-white/10 bg-white/6 p-4 text-slate-200 shadow-none rounded-[20px]">
             <p className="text-sm">Loading saved rule state...</p>
           </Card>
         )}
 
         <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-          <Card className="overflow-hidden border-white/10 bg-slate-950/55 p-0 text-slate-100 shadow-none">
+          <Card className="overflow-hidden border-white/10 bg-slate-950/55 p-0 text-slate-100 shadow-none rounded-[20px]">
             <div className="border-b border-white/10 px-5 py-4">
               <p className="text-sm font-medium text-white">{modeMeta[mode].label} Mode</p>
               <p className="text-sm text-slate-400">{modeMeta[mode].helper}</p>
@@ -363,18 +363,18 @@ export function RuleStagePage() {
             {mode === 'drag' && (
               <div className="grid gap-4 p-5">
                 <div className="grid gap-3 md:grid-cols-3">
-                  <Card className="border-white/10 bg-white/5 p-4">
+                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Trigger</p>
                     <p className="mt-2 text-lg font-medium">{rule.name}</p>
                     <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0])}</p>
                   </Card>
-                  <Card className="border-white/10 bg-white/5 p-4">
+                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Audience</p>
                     <p className="mt-2 text-lg font-medium">New or low-karma accounts</p>
                     <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[1] ?? DEFAULT_AUTOMOD_RULE.conditions[1])}</p>
                     <p className="mt-1 text-sm text-slate-400">{describeCondition(rule.conditions[2] ?? DEFAULT_AUTOMOD_RULE.conditions[2])}</p>
                   </Card>
-                  <Card className="border-white/10 bg-white/5 p-4">
+                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Action</p>
                     <p className="mt-2 text-lg font-medium">{rule.action}</p>
                     <p className="mt-1 text-sm text-slate-400">Comment stickied: {rule.commentStickied ? 'yes' : 'no'}</p>
@@ -382,7 +382,7 @@ export function RuleStagePage() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Card className="border-white/10 bg-white/5 p-4">
+                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
                     <p className="text-sm font-medium">Title phrases</p>
                     <p className="mt-1 text-sm text-slate-400">Edit the phrase list to widen or narrow the match.</p>
                     <Textarea
@@ -396,7 +396,7 @@ export function RuleStagePage() {
                     />
                   </Card>
 
-                  <Card className="border-white/10 bg-white/5 p-4">
+                  <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
                     <p className="text-sm font-medium">Thresholds</p>
                     <p className="mt-1 text-sm text-slate-400">Adjust the account age and karma gates.</p>
                     <div className="mt-3 grid gap-3">
@@ -428,7 +428,7 @@ export function RuleStagePage() {
                   </Card>
                 </div>
 
-                <Card className="border-white/10 bg-white/5 p-4">
+                <Card className="border-white/10 bg-white/5 p-4 rounded-[20px]">
                   <p className="text-sm font-medium">Action mode</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(['remove', 'report', 'approve'] as AutomodAction[]).map((action) => (
@@ -511,7 +511,7 @@ export function RuleStagePage() {
           </Card>
 
           <aside className="grid gap-4">
-            <Card className="border-white/10 bg-slate-950/55 p-4 text-slate-100 shadow-none">
+            <Card className="border-white/10 bg-slate-950/55 p-4 text-slate-100 shadow-none rounded-[20px]">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Simulation summary</p>
                 <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">Dry run</Badge>
@@ -537,7 +537,7 @@ export function RuleStagePage() {
               </div>
             </Card>
 
-            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none">
+            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none rounded-[20px]">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium">Blast Radius</p>
                 <Badge className="bg-sky-400/15 text-sky-200 hover:bg-sky-400/15">Backtest</Badge>
@@ -566,7 +566,7 @@ export function RuleStagePage() {
               )}
             </Card>
 
-            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none">
+            <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none rounded-[20px]">
               <p className="text-sm font-medium">Recent dry-run items</p>
               <div className="mt-4 space-y-3">
                 {simulation.items.length === 0 ? (

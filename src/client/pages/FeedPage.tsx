@@ -164,7 +164,7 @@ export function FeedPage({ onNavigate }: FeedPageProps) {
         {posts.map((post, idx) => (
           <Card
             key={`${post.id}-${idx}`}
-            className="p-4 bg-white hover:shadow-md transition-shadow cursor-pointer"
+            className="p-4 bg-white rounded-[20px] hover:shadow-[0_8px_30px_rgba(26,16,32,0.08)] transition-shadow cursor-pointer border-0"
             onClick={() => handlePostClick(post)}
           >
             <div className="flex gap-3">
@@ -184,7 +184,7 @@ export function FeedPage({ onNavigate }: FeedPageProps) {
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-500 mb-1">
+                <p className="text-xs text-[#888888] mb-1">
                   u/{post.author}
                 </p>
                 <h3 className="font-semibold text-sm mb-2 line-clamp-2">
@@ -192,7 +192,7 @@ export function FeedPage({ onNavigate }: FeedPageProps) {
                 </h3>
 
                 {/* Stats */}
-                <div className="flex gap-3 text-xs text-slate-600">
+                <div className="flex gap-3 text-xs text-[#888888]">
                   <span className="flex items-center gap-1">
                     ⬆️ {formatNumber(post.score)}
                   </span>

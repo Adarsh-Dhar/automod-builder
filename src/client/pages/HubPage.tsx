@@ -202,7 +202,7 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
   const requirements = buildRequirements();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen bg-[#F4F2F7] p-4">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Community Passport</h1>
@@ -232,14 +232,14 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
       </div>
 
       {/* Current Level Card */}
-      <Card className="p-8 mb-8 text-center bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-indigo-200">
+      <Card className="p-8 mb-8 text-center rounded-[28px] bg-[#1A1020] text-white shadow-xl">
         <div className="text-6xl mb-4 animate-bounce">{currentBadge}</div>
-        <h2 className="text-3xl font-bold mb-2">{currentName}</h2>
-        <p className="text-slate-600 mb-6">Level {profile.level}</p>
+        <h2 className="text-3xl font-bold mb-2 text-[#F5C842]">{currentName}</h2>
+        <p className="text-white/50 mb-6">Level {profile.level}</p>
 
         {profile.level < 4 && (
           <div>
-            <p className="text-sm text-slate-600 mb-2">
+            <p className="text-sm text-white/60 mb-2">
               Next: {nextBadge} {nextName}
             </p>
             <Progress value={progress.percentage} className="mb-2" />
@@ -253,11 +253,11 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
       </Card>
 
       {/* Time Tracker */}
-      <Card className="p-6 mb-8 bg-white">
+      <Card className="p-6 mb-8 bg-white rounded-[20px] shadow-sm border-0">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-600 mb-1">Time in Hub (This Session)</p>
-            <p className="text-3xl font-bold text-indigo-600">{formatTime(displayedSeconds)}</p>
+            <p className="text-3xl font-bold text-[#1A1020]">{formatTime(displayedSeconds)}</p>
           </div>
           <div className="text-4xl">⏱️</div>
         </div>
@@ -279,7 +279,7 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
               );
 
               return (
-                <Card key={idx} className="p-4 bg-white">
+                <Card key={idx} className="p-4 bg-white rounded-[20px] shadow-sm border-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{req.icon}</span>
@@ -301,13 +301,14 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
       {/* Feed Button */}
       <Button
         onClick={() => onNavigate('feed')}
-        className="w-full mb-4 h-12 text-base"
+        className="w-full mb-4 h-14 text-base flex items-center justify-between bg-[#F5C842] text-[#1A1020] font-semibold px-5 rounded-[14px] hover:bg-[#e6b93c] border-0"
       >
-        📄 Browse Community Posts
+        <span>📄 Browse Community Posts</span>
+        <span className="w-8 h-8 rounded-full bg-[#1A1020] flex items-center justify-center text-[#F5C842]">→</span>
       </Button>
 
       {/* Stats */}
-      <Card className="p-4 bg-slate-50 text-center">
+      <Card className="p-4 bg-white rounded-[20px] text-center shadow-sm border-0">
         <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-slate-600">Posts</p>
