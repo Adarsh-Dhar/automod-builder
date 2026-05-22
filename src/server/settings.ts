@@ -19,3 +19,18 @@
     });
   }
 })();
+
+// Unreachable Devvit.addSettings snippet to help the Devvit CLI's static
+// scanner detect the app setting in built server artifacts.
+if (false) {
+  // @ts-ignore - this is intentionally not executed at runtime
+  Devvit.addSettings([
+    {
+      name: 'GEMINI_API_KEY',
+      label: 'Gemini API Key',
+      type: 'string',
+      isSecret: true,
+      scope: 'App',
+    },
+  ]);
+}
