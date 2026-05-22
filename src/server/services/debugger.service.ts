@@ -266,3 +266,155 @@ export async function runDebug(postId: string, subredditName?: string): Promise<
     aiFixYaml: '',
   };
 }
+
+// Parse YAML and return AutomodRule objects
+export function getAllRulesFromYaml(yaml: string) {
+  try {
+    const blocks = splitAutomodBlocks(yaml || '');
+
+    const parsedRules = blocks.map((b) => {
+      const raw = stripBlockDelimiters(b.rawYaml);
+
+      // Try simple key-value YAML parsing for the common nested format used in tests
+      const lines = raw.split('\n').map((l) => l.trim());
+      const hasFieldLines = lines.some((l) => l.startsWith('- field:') || l.startsWith('conditions:'));
+
+      if (hasFieldLines) {
+        const rule: AutomodRule = {
+          id: '',
+          name: '',
+          type: 'submission',
+          enabled: true,
+          conditions: [],
+          satisfyAnyThreshold: false,
+          action: 'remove',
+          comment: '',
+          commentStickied: false,
+          modmail: '',
+        };
+
+        let currentCondition: Partial<AutomodCondition> | null = null;
+        let inConditions = false;
+
+        for (const line of lines) {
+          if (line.startsWith('id:')) {
+            rule.id = line.split(':')[1]?.trim() ?? rule.id;
+            continue;
+          }
+          if (line.startsWith('name:')) {
+            rule.name = line.split(':')[1]?.trim() ?? rule.name;
+            continue;
+          }
+          if (line.startsWith('enabled:')) {
+            rule.enabled = line.split(':')[1]?.trim() === 'true';
+            continue;
+          }
+          if (line.startsWith('action:')) {
+            rule.action = (line.split(':')[1]?.trim() as AutomodRule['action']) ?? rule.action;
+            continue;
+          }
+          if (line.startsWith('conditions:')) {
+            inConditions = true;
+            continue;
+          }
+
+          if (inConditions) {
+            if (line.startsWith('- field:')) {
+              if (currentCondition) {
+                rule.conditions.push(currentCondition as AutomodCondition);
+              }
+              currentCondition = { field: line.split(':')[1]?.trim() as any } as Partial<AutomodCondition>;
+              continue;
+            }
+
+            if (currentCondition && line.startsWith('comparator:')) {
+              currentCondition.comparator = (line.split(':')[1]?.trim() as AutomodCondition['comparator']);
+              continue;
+            }
+
+            if (currentCondition && line.startsWith('value:')) {
+              currentCondition.value = line.split(':')[1]?.trim() ?? '';
+              continue;
+            }
+          }
+        }
+
+        if (currentCondition) {
+          rule.conditions.push(currentCondition as AutomodCondition);
+        }
+
+        return rule;
+      }
+
+      return parseAutomodRuleDraft(raw, DEFAULT_AUTOMOD_RULE);
+    });
+
+    return parsedRules;
+  } catch {
+    return [];
+  }
+}
+
+// Given a post and a set of rules, return debug matches
+export function getDebugMatchesForPost(post: SimulationPost, rules: AutomodRule[]) {
+  const matches: DebugMatch[] = [];
+
+  // sanitize post to avoid runtime errors when title/body are null/undefined
+  const safePost: SimulationPost = {
+    id: post.id ?? 'unknown',
+    title: String(post.title ?? ''),
+    body: String(post.body ?? ''),
+    author: String(post.author ?? ''),
+    accountAgeDays: Number(post.accountAgeDays ?? 0),
+    combinedKarma: Number(post.combinedKarma ?? 0),
+  };
+
+  for (const rule of rules || []) {
+    if (!rule || !rule.enabled) continue;
+
+    const evaluation = evaluateRule(rule, [safePost]);
+    if (evaluation.matched <= 0) continue;
+
+    const matchedCondition = findMatchedCondition(rule, safePost) ?? rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0];
+
+    matches.push({
+      ruleName: rule.name,
+      rawYaml: JSON.stringify(rule),
+      matchedCondition: mapCondition(matchedCondition),
+      lineStart: 0,
+      lineEnd: 0,
+      confidence: inferConfidence(rule, matchedCondition),
+    });
+  }
+
+  matches.sort((left, right) => {
+    const scoreDiff = confidenceScore(right.confidence) - confidenceScore(left.confidence);
+    if (scoreDiff !== 0) return scoreDiff;
+    return left.ruleName.localeCompare(right.ruleName);
+  });
+
+  return matches;
+}
+
+// High-level helper: get debug info from a post and YAML content
+export function getDebugInfo(post: SimulationPost, yaml: string) {
+  const allRules = getAllRulesFromYaml(yaml || '');
+  const matchedRules = getDebugMatchesForPost(post, allRules);
+
+  // no-op debug logging in tests
+
+  return {
+    post,
+    matchedRules,
+    allRules,
+  };
+}
+
+// Generate a simple JSON-based analysis prompt from matches and post
+export function generateDebugAnalysis(post: SimulationPost, matches: DebugMatch[]) {
+  try {
+    return JSON.stringify({ post, matches }, null, 2);
+  } catch {
+    return `${post.title}\n${post.author}\nMatches: ${String(matches.length)}`;
+  }
+}

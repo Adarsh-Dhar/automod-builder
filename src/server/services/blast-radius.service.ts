@@ -50,7 +50,7 @@ export async function runBlastRadius(rule: AutomodRule): Promise<BlastRadiusResu
   const simulationPosts = posts.map(toSimulationPost);
   const evaluation = evaluateRule(rule, simulationPosts);
   const caughtIds = new Set(evaluation.items.filter((item) => item.outcome === rule.action).map((item) => item.id));
-  const spamPosts = posts.filter((post) => post.wasRemoved);
+  const spamPosts = posts.filter((post) => post.isSpam);
   const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.wasRemoved);
   const missedSpam = spamPosts.filter((post) => !caughtIds.has(post.id));
   const wouldCatch = spamPosts.filter((post) => caughtIds.has(post.id)).length;
@@ -62,5 +62,76 @@ export async function runBlastRadius(rule: AutomodRule): Promise<BlastRadiusResu
     missedSpam,
     catchRate: spamPosts.length > 0 ? wouldCatch / spamPosts.length : 0,
     falsePositiveRate: caughtIds.size > 0 ? falsePositives.length / caughtIds.size : 0,
+  };
+}
+
+// Helper: calculate blast radius from an in-memory list of cached posts (used by tests)
+export function calculateBlastRadius(posts: CachedPost[], rule: AutomodRule): BlastRadiusResult {
+  if (!posts || posts.length === 0) {
+    return {
+      totalTested: 0,
+      wouldCatch: 0,
+      falsePositives: [],
+      missedSpam: [],
+      catchRate: 0,
+      falsePositiveRate: 0,
+    };
+  }
+
+  const simulationPosts = posts.map(toSimulationPost);
+  const evaluation = evaluateRule(rule, simulationPosts);
+  const caughtIds = new Set(evaluation.items.filter((item) => item.outcome === rule.action).map((item) => item.id));
+  const spamPosts = posts.filter((post) => post.isSpam);
+  const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.isSpam);
+  const missedSpam = spamPosts.filter((post) => !caughtIds.has(post.id));
+  const wouldCatch = spamPosts.filter((post) => caughtIds.has(post.id)).length;
+
+  // debug logging removed
+
+  return {
+    totalTested: posts.length,
+    wouldCatch,
+    falsePositives,
+    missedSpam,
+    catchRate: spamPosts.length > 0 ? wouldCatch / spamPosts.length : 0,
+    falsePositiveRate: caughtIds.size > 0 ? falsePositives.length / caughtIds.size : 0,
+  };
+}
+
+// Helper: evaluate a rule against cached posts and return detailed items
+export function evaluateRuleAgainstCachedPosts(posts: CachedPost[], rule: AutomodRule) {
+  const simulationPosts = (posts || []).map(toSimulationPost);
+  const evaluation = evaluateRule(rule, simulationPosts);
+
+  const matchedItems = evaluation.items.filter((i) => i.outcome !== 'approve');
+
+  return {
+    matched: evaluation.matched,
+    removed: posts.filter((p) => p.wasRemoved).length,
+    items: matchedItems,
+  };
+}
+
+// Helper: format a BlastRadiusResult into a presentable object
+export function formatBlastRadiusResult(result: BlastRadiusResult, ruleName: string) {
+  const catchesPercentage = Math.round((result.catchRate ?? 0) * 100);
+  const falsePositivePercentage = Math.round((result.falsePositiveRate ?? 0) * 100);
+
+  return {
+    ruleName,
+    totalTested: result.totalTested,
+    catches: {
+      count: result.wouldCatch,
+      percentage: catchesPercentage,
+    },
+    falsePositives: {
+      count: result.falsePositives.length,
+      percentage: falsePositivePercentage,
+      posts: result.falsePositives,
+    },
+    missedSpam: {
+      count: result.missedSpam.length,
+      posts: result.missedSpam,
+    },
   };
 }

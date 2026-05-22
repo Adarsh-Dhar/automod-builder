@@ -280,10 +280,11 @@ function matchesTextCondition(condition: AutomodCondition, text: string): boolea
     }
   }
 
-  return condition.value
-    .split(',')
-    .map((part) => part.trim().toLowerCase())
-    .some((phrase) => phrase.length > 0 && text.toLowerCase().includes(phrase));
+  const parts = condition.value.split(/[,|]/).map((part) => part.trim().toLowerCase());
+
+  const result = parts.some((phrase) => phrase.length > 0 && text.toLowerCase().includes(phrase));
+
+  return result;
 }
 
 function matchesNumericCondition(condition: AutomodCondition, actualValue: number): boolean {
@@ -516,12 +517,17 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
     const numericConditions = [accountAgeCondition, karmaCondition].filter((condition): condition is AutomodCondition => !!condition);
 
     const textMatch = textConditions.length === 0 ? true : (!titleCondition || titleMatch) && (!bodyCondition || bodyMatch);
+
+    const numericMatches: boolean[] = [];
+    if (accountAgeCondition) numericMatches.push(ageMatch);
+    if (karmaCondition) numericMatches.push(karmaMatch);
+
     const thresholdMatch =
-      numericConditions.length === 0
+      numericMatches.length === 0
         ? true
         : rule.satisfyAnyThreshold
-          ? ageMatch || karmaMatch
-          : ageMatch && karmaMatch;
+          ? numericMatches.some((v) => v)
+          : numericMatches.every((v) => v);
 
     const shouldMatch = textMatch && thresholdMatch;
 
