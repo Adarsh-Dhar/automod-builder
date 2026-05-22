@@ -5,7 +5,11 @@ import { Card } from './ui/card';
 import type { DebugResponse } from '../../shared/debug-types';
 import { parsePostId } from '../utils/debug';
 
-export default function DebuggerMode() {
+type DebuggerModeProps = {
+  onApplyYaml: (yaml: string) => void;
+};
+
+export default function DebuggerMode({ onApplyYaml }: DebuggerModeProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DebugResponse | null>(null);
@@ -61,7 +65,7 @@ export default function DebuggerMode() {
       </Card>
 
       {result && (
-        <DebugResultCard result={result} onApplyYaml={() => { /* no-op here */ }} />
+        <DebugResultCard result={result} onApplyYaml={onApplyYaml} />
       )}
     </div>
   );

@@ -358,7 +358,7 @@ export function RuleStagePage() {
 
             {mode === 'debug' && (
               <div className="p-5">
-                <DebuggerMode />
+                <DebuggerMode onApplyYaml={handleApplyYaml} />
               </div>
             )}
 
