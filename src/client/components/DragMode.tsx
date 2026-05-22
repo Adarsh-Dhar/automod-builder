@@ -317,7 +317,6 @@ export default function DragMode({ ast, onASTChange }: DragModeProps) {
       conditions: [{ id: genId(), type: "karma", operator: "<", value: "10" }],
       conditionCombination: "all",
       actions: [{ id: genId(), type: "remove" }],
-      priority: ast.length,
     };
     onASTChange([...ast, newRule]);
   };
@@ -332,13 +331,13 @@ export default function DragMode({ ast, onASTChange }: DragModeProps) {
   const moveUp = (idx: number) => {
     if (idx === 0) return;
     const next = [...ast];
-    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    [next[idx - 1]!, next[idx]!] = [next[idx]!, next[idx - 1]!];
     onASTChange(next);
   };
   const moveDown = (idx: number) => {
     if (idx === ast.length - 1) return;
     const next = [...ast];
-    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+    [next[idx]!, next[idx + 1]!] = [next[idx + 1]!, next[idx]!];
     onASTChange(next);
   };
 

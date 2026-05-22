@@ -14,8 +14,8 @@ interface ChatModeProps {
   onAddMessage: (msg: ChatMessage) => void;
   onApplyAST: (ast: AutomodAST) => void;
   onApplyYaml: (yaml: string) => void;
-  subredditName?: string;
-  contextYaml?: string;
+  subredditName?: string | undefined;
+  contextYaml?: string | undefined;
 }
 
 function genId(): string {
@@ -104,19 +104,19 @@ function MessageBubble({
   return (
     <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
           msg.role === 'user'
-            ? 'bg-[#FF6B35] text-white'
-            : 'border border-[#E5E8F0] bg-white text-[#6C5CE7] shadow-sm'
+            ? 'bg-gradient-to-br from-purple-400 to-pink-400 text-white'
+            : 'bg-white border border-[#EFEFEF] text-[#1A1020] shadow-sm'
         }`}
       >
-        {msg.role === 'user' ? 'M' : 'AI'}
+        {msg.role === 'user' ? '👤' : '✳'}
       </div>
       <div
-        className={`max-w-[82%] rounded-[20px] p-3 text-sm shadow-sm ${
+        className={`max-w-[82%] rounded-[20px] p-3.5 text-sm ${
           msg.role === 'user'
-            ? 'border border-[#FFD7C4] bg-[#FFF1E9] text-[#1F2937]'
-            : 'border border-[#E7EAF1] bg-white text-[#1F2937]'
+            ? 'bg-[#1A1020] text-white rounded-br-sm'
+            : 'bg-white border border-[#EFEFEF] text-[#1A1020] rounded-bl-sm shadow-sm'
         }`}
       >
         {debugResult ? (
@@ -374,17 +374,14 @@ export default function ChatMode({
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[28px] border border-[#E7E9F0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-      <div className="flex-1 overflow-auto bg-[#FBFCFF] px-4 py-5 sm:px-6 sm:py-6">
+      <div className="flex-1 overflow-auto bg-white px-5 py-5">
         {messages.length === 0 && (
-          <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-[#8B93A5]">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#E7EAF1] bg-white text-[#FF6B35] shadow-sm">
-              ✦
+          <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-[#AAAAAA]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F5C842] text-[#1A1020] shadow-sm text-2xl">
+              ✳
             </div>
-            <p className="max-w-sm text-sm leading-6">
-              Describe what you want to moderate.
-              <br />
-              Gemini will draft AutoModerator rules for you.
-            </p>
+            <p className="text-base font-semibold text-[#1A1020]">How can I help you today?</p>
+            <p className="max-w-xs text-sm text-[#AAAAAA]">Ask me anything — I'm powered by ChaTin AI</p>
           </div>
         )}
 
@@ -400,15 +397,13 @@ export default function ChatMode({
 
           {isLoading && (
             <div className="flex gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E5E8F0] bg-white text-[11px] font-semibold text-[#6C5CE7] shadow-sm">
-                AI
-              </div>
-              <div className="rounded-2xl border border-[#E5E8F0] bg-white px-4 py-3 shadow-sm">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white border border-[#EFEFEF] text-[#1A1020] text-sm font-bold shadow-sm">✳</div>
+              <div className="rounded-[20px] rounded-bl-sm border border-[#EFEFEF] bg-white px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-1.5">
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="h-1.5 w-1.5 rounded-full bg-[#6C5CE7]"
+                      className="h-1.5 w-1.5 rounded-full bg-[#1A1020]"
                       style={{
                         animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
                       }}
@@ -429,7 +424,7 @@ export default function ChatMode({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[#E7E9F0] bg-white px-4 py-4 sm:px-6">
+      <div className="shrink-0 border-t border-[#F0F0F0] bg-white px-5 py-4">
         <div className="flex items-end gap-3">
           <textarea
             value={input}
@@ -439,13 +434,13 @@ export default function ChatMode({
             placeholder='Write a message... or type "apply" to use the last rule'
             rows={2}
             data-testid="chat-input"
-            className="min-h-13.5 flex-1 resize-none rounded-[18px] border border-[#E5E8F0] bg-[#FBFCFF] px-4 py-3 text-sm text-[#1F2937] shadow-sm outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#FFB08A] disabled:opacity-50"
+            className="min-h-13.5 flex-1 resize-none rounded-[16px] border border-[#EBEBEB] bg-[#F4F2F7] px-4 py-3 text-sm text-[#1A1020] outline-none transition-colors placeholder:text-[#AAAAAA] focus:border-[#F5C842] disabled:opacity-50"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             data-testid="btn-send"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[#FF6B35] text-white shadow-[0_12px_24px_rgba(255,107,53,0.25)] transition-colors hover:bg-[#F35B20] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#F5C842] text-[#1A1020] shadow-[0_8px_20px_rgba(245,200,66,0.35)] transition-colors hover:bg-[#e6b93c] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
               <path d="M2 7.5L13 2L8.5 13L7 8.5L2 7.5Z" fill="white" />

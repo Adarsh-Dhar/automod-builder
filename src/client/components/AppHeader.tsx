@@ -78,33 +78,26 @@ export default function AppHeader({
   };
 
   return (
-    <header className="h-[60px] bg-[#090D13] border-b border-[#21262D] flex items-center px-4 gap-4 shrink-0">
+    <header className="h-[60px] bg-white border-b border-[#F0F0F0] flex items-center px-4 gap-4 shrink-0">
       {/* Logo */}
       <div className="flex items-center gap-2 mr-2">
-        <div className="w-7 h-7 rounded-md bg-[#FF4500] flex items-center justify-center">
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-            <rect x="2" y="2" width="5" height="5" rx="1" fill="white" opacity="0.95" />
-            <rect x="8.5" y="2" width="4.5" height="4.5" rx="1" fill="white" opacity="0.6" />
-            <rect x="2" y="8.5" width="4.5" height="4.5" rx="1" fill="white" opacity="0.6" />
-            <rect x="8.5" y="8.5" width="4.5" height="4.5" rx="1" fill="white" opacity="0.25" />
-          </svg>
+        <div className="w-8 h-8 rounded-full bg-[#F5C842] flex items-center justify-center">
+          <span className="text-[#1A1020] font-bold text-sm">✳</span>
         </div>
-        <span className="font-semibold text-[#E6EDF3] text-sm tracking-tight">
-          RuleStage
-        </span>
+        <span className="font-bold text-[#1A1020] text-sm tracking-tight">ChaTin</span>
       </div>
 
       {/* Mode Tabs */}
-      <div className="flex items-center gap-1 bg-[#0D1117] rounded-lg p-1 border border-[#21262D]">
+      <div className="flex items-center gap-1 bg-[#F4F2F7] rounded-full p-1 border border-[#EBEBEB]">
         {MODES.map((m) => (
           <button
             key={m.id}
             onClick={() => setMode(m.id)}
             data-testid={`tab-${m.id}`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 ${
               mode === m.id
-                ? "bg-[#161B22] text-[#E6EDF3] shadow-sm"
-                : "text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#21262D]/50"
+                ? 'bg-white text-[#1A1020] shadow-sm'
+                : 'text-[#AAAAAA] hover:text-[#1A1020] rounded-full'
             }`}
           >
             <span className="text-xs opacity-80">{m.icon}</span>
@@ -126,8 +119,8 @@ export default function AppHeader({
         data-testid="btn-api-key"
         className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
           geminiApiKey
-            ? "border-[#3FB950]/30 bg-[#3FB950]/10 text-[#3FB950] hover:bg-[#3FB950]/20"
-            : "border-[#21262D] text-[#484F58] hover:text-[#8B949E] hover:border-[#484F58]"
+            ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
+            : 'border-[#EBEBEB] bg-[#F4F2F7] text-[#AAAAAA] hover:text-[#1A1020]'
         }`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${geminiApiKey ? "bg-[#3FB950]" : "bg-[#484F58]"}`} />
@@ -140,8 +133,8 @@ export default function AppHeader({
         data-testid="btn-history"
         className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
           historyActive
-            ? "border-[#BC8CFF]/40 bg-[#BC8CFF]/10 text-[#BC8CFF]"
-            : "border-[#21262D] bg-[#161B22] hover:bg-[#21262D] text-[#8B949E] hover:text-[#E6EDF3]"
+            ? 'border-[#BC8CFF]/40 bg-[#BC8CFF]/10 text-[#BC8CFF]'
+            : 'border-[#EBEBEB] bg-[#F4F2F7] hover:bg-[#EBEBEB] text-[#1A1020] hover:text-[#1A1020]'
         }`}
         title="Version History"
       >
@@ -163,7 +156,7 @@ export default function AppHeader({
           onClick={() => setExportOpen((o) => !o)}
           disabled={ruleCount === 0}
           data-testid="btn-export"
-          className="flex items-center gap-1.5 bg-[#161B22] hover:bg-[#21262D] border border-[#21262D] text-[#E6EDF3] font-medium px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 bg-[#F4F2F7] hover:bg-[#EBEBEB] border border-[#EBEBEB] text-[#1A1020] font-medium px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M6.5 1V9M6.5 9L4 6.5M6.5 9L9 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -182,43 +175,31 @@ export default function AppHeader({
         </button>
 
         {exportOpen && (
-          <div className="absolute right-0 top-full mt-1 w-56 bg-[#161B22] border border-[#21262D] rounded-lg shadow-xl z-50 overflow-hidden">
-            <div className="px-3 py-2 border-b border-[#21262D]">
-              <p className="text-[10px] text-[#484F58] font-semibold uppercase tracking-wider">
-                Export {ruleCount} rule{ruleCount !== 1 ? "s" : ""}
-              </p>
+          <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-[#EBEBEB] rounded-lg shadow-xl z-50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-[#EBEBEB]">
+              <p className="text-[10px] text-[#666666] font-semibold uppercase tracking-wider">Export {ruleCount} rule{ruleCount !== 1 ? 's' : ''}</p>
             </div>
 
-            <button
-              onClick={handleCopy}
-              data-testid="btn-copy-yaml"
-              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#21262D] transition-colors text-left"
-            >
+            <button onClick={handleCopy} data-testid="btn-copy-yaml" className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#F4F4F4] transition-colors text-left">
               <div className="w-7 h-7 rounded-md bg-[#58A6FF]/10 border border-[#58A6FF]/20 flex items-center justify-center shrink-0">
-                {copyState === "copied" ? (
+                {copyState === 'copied' ? (
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                     <path d="M2 7L5 10L11 3" stroke="#3FB950" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : (
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                     <rect x="4" y="1" width="8" height="9" rx="1.5" stroke="#58A6FF" strokeWidth="1.2" />
-                    <rect x="1" y="3" width="8" height="9" rx="1.5" fill="#161B22" stroke="#58A6FF" strokeWidth="1.2" />
+                    <rect x="1" y="3" width="8" height="9" rx="1.5" fill="#FFFFFF" stroke="#58A6FF" strokeWidth="1.2" />
                   </svg>
                 )}
               </div>
               <div>
-                <div className={`text-sm font-medium ${copyState === "copied" ? "text-[#3FB950]" : "text-[#E6EDF3]"}`}>
-                  {copyState === "copied" ? "Copied!" : "Copy to Clipboard"}
-                </div>
-                <div className="text-[10px] text-[#484F58]">Paste into Reddit's AutoMod wiki</div>
+                <div className={`text-sm font-medium ${copyState === 'copied' ? 'text-[#3FB950]' : 'text-[#1A1020]'}`}>{copyState === 'copied' ? 'Copied!' : 'Copy to Clipboard'}</div>
+                <div className="text-[10px] text-[#666666]">Paste into Reddit's AutoMod wiki</div>
               </div>
             </button>
 
-            <button
-              onClick={handleDownload}
-              data-testid="btn-download-yaml"
-              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#21262D] transition-colors text-left"
-            >
+            <button onClick={handleDownload} data-testid="btn-download-yaml" className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#F4F4F4] transition-colors text-left">
               <div className="w-7 h-7 rounded-md bg-[#3FB950]/10 border border-[#3FB950]/20 flex items-center justify-center shrink-0">
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                   <path d="M6.5 1V8M6.5 8L4 5.5M6.5 8L9 5.5" stroke="#3FB950" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -226,16 +207,13 @@ export default function AppHeader({
                 </svg>
               </div>
               <div>
-                <div className="text-sm font-medium text-[#E6EDF3]">Download .yaml</div>
-                <div className="text-[10px] text-[#484F58]">automoderator-config.yaml</div>
+                <div className="text-sm font-medium text-[#1A1020]">Download .yaml</div>
+                <div className="text-[10px] text-[#666666]">automoderator-config.yaml</div>
               </div>
             </button>
 
-            <div className="px-3 py-2 border-t border-[#21262D] bg-[#0D1117]">
-              <p className="text-[10px] text-[#484F58] leading-relaxed">
-                Paste into{" "}
-                <span className="font-mono">r/yoursubreddit/wiki/config/automoderator</span>
-              </p>
+            <div className="px-3 py-2 border-t border-[#EBEBEB] bg-white">
+              <p className="text-[10px] text-[#666666] leading-relaxed">Paste into <span className="font-mono">r/yoursubreddit/wiki/config/automoderator</span></p>
             </div>
           </div>
         )}
@@ -246,7 +224,7 @@ export default function AppHeader({
         onClick={onRunSimulation}
         disabled={isSimulating || ruleCount === 0}
         data-testid="btn-dry-run"
-        className="flex items-center gap-2 bg-[#161B22] hover:bg-[#21262D] border border-[#21262D] text-[#E6EDF3] font-medium px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 bg-[#F5C842] hover:bg-[#e6b93c] text-[#1A1020] font-semibold px-4 py-1.5 rounded-full text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {isSimulating ? (
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="animate-spin">

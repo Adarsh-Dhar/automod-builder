@@ -1,4 +1,5 @@
 import './index.css';
+import './styles/globals.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { InitProvider } from './contexts/init-context';

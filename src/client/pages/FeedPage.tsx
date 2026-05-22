@@ -131,18 +131,31 @@ export function FeedPage({ onNavigate }: FeedPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen bg-[#F4F2F7] p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate('hub')}
-          >
-            ← Back
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onNavigate('hub')}>← Back</Button>
           <h1 className="text-2xl font-bold">Community Posts</h1>
+        </div>
+      </div>
+
+      {/* Hero Card */}
+      <div className="mb-6">
+        <div className="rounded-[28px] bg-[#1A1020] text-white p-8 min-h-[160px] flex flex-col justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-[#F5C842] flex items-center justify-center">
+              <span className="text-[#1A1020] font-bold text-sm">✳</span>
+            </div>
+            <span className="font-bold text-sm">ChaTin</span>
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold leading-tight">The best AI chatbot in the world with a fun concept</h1>
+            <button className="mt-6 flex items-center justify-between w-full sm:w-64 bg-[#F5C842] text-[#1A1020] font-semibold px-5 py-3.5 rounded-[14px]">
+              Let's chat now
+              <span className="w-8 h-8 rounded-full bg-[#1A1020] flex items-center justify-center text-[#F5C842]">→</span>
+            </button>
+          </div>
         </div>
       </div>
 

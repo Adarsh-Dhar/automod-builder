@@ -1,5 +1,6 @@
 import React from 'react';
 import ChatMode from '../components/ChatMode';
+import type { ChatMessage } from '../types';
 
 type Message = { id: string; author: string; text: string; time?: string; me?: boolean };
 type Conversation = { id: string; title: string; last: string; unread?: number };
@@ -52,8 +53,8 @@ export function ChatPage() {
   }, []);
 
   // Chat messages shaped for ChatMode: { id, role: 'user'|'assistant', content, timestamp }
-  const [chatMessages, setChatMessages] = React.useState(() =>
-    messages.map((m) => ({ id: m.id, role: m.me ? 'user' : 'assistant', content: m.text, timestamp: Date.now() }))
+  const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>(() =>
+    messages.map((m) => ({ id: m.id, role: (m.me ? 'user' : 'assistant') as 'user' | 'assistant', content: m.text, timestamp: Date.now() }))
   );
 
   const handleAddChatMessage = (msg: { id: string; role: 'user' | 'assistant'; content: string; timestamp: number }) => {
@@ -68,38 +69,69 @@ export function ChatPage() {
   // API key is sourced from environment; no UI modal to save keys.
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#efe9ff] via-[#f3f1ff] to-[#eef5ff] px-3 py-4 sm:px-6 lg:p-8">
+    <div className="min-h-screen bg-[#F4F2F7] px-3 py-4 sm:px-6 lg:p-8">
       <div className="mx-auto w-full max-w-7xl">
         <div className="rounded-4xl bg-transparent p-0 sm:p-3 lg:p-6">
           <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
-            <aside className="hidden rounded-2xl bg-linear-to-b from-[#1F0E2C] to-[#2C163E] p-4 text-white shadow-xl lg:col-span-3 lg:block">
+            <aside className="hidden rounded-[28px] bg-[#1A1020] p-5 text-white shadow-xl lg:col-span-3 lg:block">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-sm bg-[#FF6B6B]" />
+                <div className="w-10 h-10 rounded-full bg-[#F5C842] flex items-center justify-center">
+                  <span className="text-[#1A1020] text-lg font-bold">✳</span>
                 </div>
                 <div>
-                  <div className="text-sm font-semibold">Attmosfire</div>
-                  <div className="text-xs text-white/60">Available for work</div>
+                  <div className="text-sm font-bold tracking-tight">ChaTin</div>
+                  <div className="text-xs text-white/50">AI Chatbot</div>
                 </div>
               </div>
 
-              <nav className="space-y-2 mt-4">
-                <button className="w-full text-left px-3 py-2 rounded-md bg-white/6 flex items-center justify-between">All</button>
-                <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/4">Assigned to Me</button>
-                <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/4">Unassigned</button>
-                <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/4">Blocked</button>
-              </nav>
+              <button className="mt-5 w-full flex items-center justify-between bg-[#F5C842] hover:bg-[#e6b93c] text-[#1A1020] font-semibold px-4 py-3 rounded-[14px] text-sm transition-colors">
+                New Chat
+                <span className="w-6 h-6 rounded-full bg-[#1A1020] flex items-center justify-center text-[#F5C842] text-xs">→</span>
+              </button>
 
-              <div className="mt-6 bg-white/6 p-3 rounded-2xl">
-                <div className="text-xs text-white/60">Pro Plan</div>
-                <div className="mt-2 font-semibold text-white">$189 / month</div>
-                <button className="mt-3 w-full bg-white text-[#2c163e] rounded-full py-2 text-sm">Get Pro Plan</button>
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Chat history</span>
+                  <button className="text-xs text-white/50 hover:text-white">See All</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {['What is a wild animal?', 'Give an example', 'Meaning of white rose', 'UI/UX'].map((tag) => (
+                    <button key={tag} className="text-xs bg-white/8 hover:bg-white/12 text-white/70 px-3 py-1.5 rounded-full transition-colors">{tag}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Popular Prompt</span>
+                  <button className="text-xs text-white/50 hover:text-white">See All</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[#FCEEF5] rounded-[16px] p-3 flex flex-col justify-between min-h-[110px]">
+                    <p className="text-xs font-semibold text-[#1A1020] leading-snug">Explain about Sushi Roll receipt</p>
+                    <div>
+                      <p className="text-[10px] text-[#1A1020]/50 mt-2">Generate by Kanny.low</p>
+                      <button className="mt-2 w-full text-xs bg-white text-[#1A1020] font-medium py-1.5 rounded-full">Use this prompt</button>
+                    </div>
+                  </div>
+                  <div className="bg-[#E8F8EC] rounded-[16px] p-3 flex flex-col justify-between min-h-[110px]">
+                    <p className="text-xs font-semibold text-[#1A1020] leading-snug">Give the best resolution for 2024</p>
+                    <div>
+                      <p className="text-[10px] text-[#1A1020]/50 mt-2">Generate by Jon jenny</p>
+                      <button className="mt-2 w-full text-xs bg-white text-[#1A1020] font-medium py-1.5 rounded-full">Use this prompt</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </aside>
 
-            <section className="hidden overflow-hidden rounded-2xl bg-white p-3 shadow-md lg:col-span-3 lg:block">
-              <div className="px-2 py-2 border-b">
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Search" />
+            <section className="hidden overflow-hidden rounded-[28px] bg-white shadow-md lg:col-span-3 lg:block">
+              <div className="p-4 border-b border-gray-100">
+                <h2 className="font-bold text-[#1A1020] text-base mb-3">Explore knowledge<br/>with AI chat</h2>
+                <input
+                  className="w-full rounded-full border border-gray-200 bg-[#F4F2F7] px-4 py-2 text-sm outline-none focus:border-[#F5C842] placeholder:text-gray-400"
+                  placeholder="Search..."
+                />
               </div>
               <div className="mt-3 space-y-2 overflow-auto p-2 lg:h-140">
                 {conversations.map((c) => (
@@ -114,23 +146,22 @@ export function ChatPage() {
               </div>
             </section>
 
-            <main className="flex min-h-136 flex-col rounded-3xl bg-white p-4 shadow-2xl sm:p-6 lg:col-span-4">
-              <div className="flex items-center gap-3 border-b pb-4 sm:gap-4">
-                <button
-                  className="mr-1 inline-flex items-center justify-center rounded-md bg-slate-100 p-2 text-slate-700 lg:hidden"
-                  onClick={() => setShowConversations(true)}
-                  aria-label="Open conversations"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+            <main className="flex min-h-136 flex-col rounded-[28px] bg-white p-0 shadow-2xl overflow-hidden lg:col-span-6">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <button className="w-9 h-9 rounded-full bg-[#F4F2F7] flex items-center justify-center text-[#1A1020]">
+                  ☰
                 </button>
-                <div className="w-12 h-12 rounded-full bg-slate-100/60 flex items-center justify-center">A</div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{currentConversation?.title ?? 'Conversation'}</div>
-                  <div className="text-xs text-slate-700">Active now</div>
-                </div>
-                <div className="shrink-0 text-xs text-slate-500 sm:text-sm">Oct 12, 2022</div>
+                <button className="flex items-center gap-2 bg-[#F4F2F7] px-4 py-2 rounded-full text-sm font-semibold text-[#1A1020]">
+                  Chatin 1.4
+                  <span className="text-gray-400">▾</span>
+                </button>
+                <button className="w-9 h-9 rounded-full bg-[#F4F2F7] flex items-center justify-center text-[#1A1020]">
+                  ✏️
+                </button>
+              </div>
+
+              <div className="px-5 pt-5">
+                <h1 className="text-[22px] font-bold text-[#1A1020] leading-tight">{currentConversation?.title ?? 'New Conversation'}</h1>
               </div>
 
               <div className="flex-1 p-0">
@@ -144,21 +175,7 @@ export function ChatPage() {
                 />
               </div>
             </main>
-
-            <aside className="rounded-2xl bg-white p-4 shadow-md lg:col-span-2 hidden lg:block">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-slate-500">General info</div>
-                  <div className="font-medium">Mary Franci</div>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">M</div>
-              </div>
-
-              <div className="mt-4 text-sm text-slate-600">
-                <p>Email: mary_franci@gmail.com</p>
-                <p className="mt-2">Date Created: Oct 12, 2022</p>
-              </div>
-            </aside>
+            {/* right aside removed to match ChaTin 3-column layout */}
           </div>
         </div>
       </div>
