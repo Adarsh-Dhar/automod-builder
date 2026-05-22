@@ -1,9 +1,17 @@
 import { Hono } from 'hono';
 import { context } from '@devvit/web/server';
-import { DEFAULT_AUTOMOD_RULE, buildDebugPrompt, buildDecoderAnalysisPrompt, type DecoderAnalysis } from '../../shared/automod';
+import {
+  DEFAULT_AUTOMOD_RULE,
+  buildDebugPrompt,
+  buildDecoderAnalysisPrompt,
+  type DecoderAnalysis,
+  type EscapeHatchCode,
+  type YamlLimitationAnalysis,
+} from '../../shared/automod';
 import type { DebugResponse } from '../../shared/debug-types';
 import { runDebug } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
+import { analyzeYamlLimitation, generateEscapeHatchTrigger, getRuleStageModContext } from '../services/escape-hatch.service';
 import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
 function stripCodeFences(text: string): string {
@@ -200,6 +208,33 @@ ruleStage.post('/decoder/analyze', async (c) => {
   } catch (error) {
     console.error('[RuleStage] decoder analyze failed:', error);
     return c.json({ status: 'error', message: 'Failed to analyze obfuscation' }, 500);
+  }
+});
+
+ruleStage.post('/escape-hatch/analyze', async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => null)) as { request?: unknown } | null;
+    const request = typeof body?.request === 'string' ? body.request.trim() : '';
+
+    if (!request) {
+      return c.json({ status: 'error', message: 'Request description is required' }, 400);
+    }
+
+    const limitation = await analyzeYamlLimitation(request);
+    let escapeHatch: EscapeHatchCode | null = null;
+
+    if (limitation.hasLimitation) {
+      escapeHatch = await generateEscapeHatchTrigger(request, getRuleStageModContext(), limitation);
+    }
+
+    return c.json({
+      status: 'success',
+      limitation,
+      escapeHatch,
+    });
+  } catch (error) {
+    console.error('[RuleStage] escape-hatch analyze failed:', error);
+    return c.json({ status: 'error', message: 'Failed to analyze request' }, 500);
   }
 });
 

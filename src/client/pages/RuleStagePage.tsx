@@ -1,6 +1,7 @@
 import { useInit } from '../contexts/init-context';
 import ChatMode from '../components/ChatMode';
 import DecoderMode from '../components/DecoderMode';
+import EscapeHatchMode from '../components/EscapeHatchMode';
 import { useEffect, useState } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -32,6 +33,7 @@ const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
   drag: { label: 'Drag', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
   chat: { label: 'Chat', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
   decoder: { label: 'Decoder', helper: 'Feed 3 spam examples; get a Regex that traps the campaign.' },
+  'escape-hatch': { label: 'Escape Hatch', helper: 'When AutoMod cannot handle it, generate a custom TypeScript trigger.' },
 };
 
 type ChatMessage = {
@@ -461,6 +463,44 @@ export function RuleStagePage() {
             {mode === 'decoder' && (
               <div className="p-5">
                 <DecoderMode onApplyYaml={handleApplyYaml} geminiApiKey={geminiApiKey} />
+              </div>
+            )}
+
+            {mode === 'escape-hatch' && (
+              <div className="p-5">
+                <EscapeHatchMode
+                  loading={loading}
+                  onAnalyze={async (request: string) => {
+                    const response = await fetch('/api/rule-stage/escape-hatch/analyze', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ request }),
+                    });
+
+                    if (!response.ok) {
+                      throw new Error('Failed to analyze request');
+                    }
+
+                    return (await response.json()) as {
+                      status: 'success';
+                      limitation: {
+                        hasLimitation: boolean;
+                        limitation: string | null;
+                        explanation: string;
+                        recommendation: 'yaml' | 'typescript';
+                      };
+                      escapeHatch: {
+                        triggerCode: string;
+                        description: string;
+                        limitations: string[];
+                        installationSteps: string[];
+                        confidence: 'high' | 'medium' | 'low';
+                      } | null;
+                    };
+                  }}
+                />
               </div>
             )}
           </Card>
