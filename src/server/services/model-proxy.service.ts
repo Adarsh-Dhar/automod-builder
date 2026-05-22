@@ -32,7 +32,9 @@ export async function generateText(input: string, opts: GenerateOptions = {}): P
 
   if (isProd) {
     // Gemini path — use existing Gemini REST API
-    const apiKey = (process.env.GEMINI_API_KEY ?? '').trim() || (await settings.get<string>('GEMINI_API_KEY')) ?? '';
+    const envKey = (process.env.GEMINI_API_KEY ?? '').trim();
+    const storedKey = (await settings.get<string>('GEMINI_API_KEY')) ?? '';
+    const apiKey = envKey || (storedKey ?? '');
 
     if (!apiKey) {
       throw new Error('Missing GEMINI_API_KEY for production');
@@ -68,55 +70,78 @@ export async function generateText(input: string, opts: GenerateOptions = {}): P
   }
 
   // Dev path: GitHub model — require endpoint and API key
-  const endpoint = (process.env.GITHUB_MODEL_ENDPOINT ?? '').trim();
-  const modelId = (process.env.GITHUB_MODEL_ID ?? 'gpt-4o').trim();
-
-  if (!endpoint) {
-    throw new Error('GITHUB_MODEL_ENDPOINT is not configured. Set GITHUB_MODEL_ENDPOINT to the GitHub model API URL.');
-  }
+  const endpoint = (process.env.GITHUB_MODEL_ENDPOINT ?? '').trim() || 'https://models.github.ai/inference/chat/completions';
+  const modelIdRaw = (process.env.GITHUB_MODEL_ID ?? 'gpt-4o').trim();
+  const modelId = modelIdRaw.includes('/') ? modelIdRaw : `openai/${modelIdRaw}`;
 
   const apiKey = await resolveGithubApiKey();
   if (!apiKey) {
     throw new Error('Missing GITHUB_API_KEY for dev GitHub model usage');
   }
 
-  // Generic POST to user-provided GitHub-compatible endpoint.
-  // Body shape is intentionally flexible; users can set GITHUB_MODEL_ENDPOINT to a compatible URL.
+  // Build Chat-style messages payload
+  const messages: Array<{ role: string; content: string }> = [];
+  if (opts.systemPrompt) messages.push({ role: 'system', content: opts.systemPrompt });
+  if (Array.isArray(opts.history)) {
+    for (const h of opts.history) {
+      messages.push({ role: h.role === 'model' ? 'assistant' : 'user', content: h.content });
+    }
+  }
+  messages.push({ role: 'user', content: input });
+
   const payload: any = {
     model: modelId,
-    input: input,
+    messages,
     temperature: opts.temperature ?? 0.2,
-    max_output_tokens: opts.maxOutputTokens ?? 1024,
+    max_tokens: opts.maxOutputTokens ?? 1024,
   };
 
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${apiKey}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    body: JSON.stringify(payload),
+  });
 
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`GitHub model API error ${res.status}: ${txt}`);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`GitHub model API error ${res.status}: ${txt}`);
+  }
+
+  const data = await res.json().catch(() => null);
+
+  // Robust extraction of textual content from multiple potential shapes
+  const extractText = (d: any): string => {
+    if (!d) return '';
+    // New GitHub Models: choices[].message (string) or choices[].message.content
+    if (Array.isArray(d.choices) && d.choices.length) {
+      const choice = d.choices[0];
+      if (typeof choice === 'string') return choice;
+      if (choice?.message) {
+        if (typeof choice.message === 'string') return choice.message;
+        if (typeof choice.message?.content === 'string') return choice.message.content;
+        // message.content might be an array/parts
+        if (Array.isArray(choice.message?.content)) return choice.message.content.join('');
+      }
+      if (typeof choice.text === 'string') return choice.text;
     }
 
-    const data = await res.json().catch(() => null);
+    // Old shapes or other providers
+    if (typeof d.output_text === 'string') return d.output_text;
+    if (d?.result && typeof d.result.output_text === 'string') return d.result.output_text;
+    if (typeof d.output === 'string') return d.output;
+    if (Array.isArray(d.output)) return d.output.map((o: any) => (o?.content ?? o?.text ?? '')).join('\n');
 
-    // Attempt to extract text conservatively from common fields
-    const text =
-      (data?.output_text as string) ||
-      (data?.result?.output_text as string) ||
-      (Array.isArray(data?.choices) && (data.choices[0].text ?? data.choices[0].message?.content)) ||
-      JSON.stringify(data || {});
+    // Fallback: stringify
+    return JSON.stringify(d || {});
+  };
 
-    return typeof text === 'string' ? text : JSON.stringify(text);
-  } catch (err) {
-    throw err;
-  }
+  const text = extractText(data);
+  return text;
 }
 
 export async function generateJson<T>(prompt: string, maxOutputTokens = 1024): Promise<T> {
