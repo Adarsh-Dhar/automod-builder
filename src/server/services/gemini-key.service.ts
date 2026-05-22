@@ -1,9 +1,71 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { settings } from '@devvit/web/server';
 
-export async function resolveServerGeminiApiKey(): Promise<string> {
-  const envKey = process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY ?? '';
+function loadLocalEnvValue(key: string): string {
+  const envFilePath = resolve(process.cwd(), '.env');
 
-  if (envKey.trim()) {
+  if (!existsSync(envFilePath)) {
+    return '';
+  }
+
+  const contents = readFileSync(envFilePath, 'utf8');
+
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf('=');
+
+    if (separatorIndex < 0) {
+      continue;
+    }
+
+    const lineKey = line.slice(0, separatorIndex).trim();
+
+    if (lineKey !== key) {
+      continue;
+    }
+
+    const value = line.slice(separatorIndex + 1).trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      return value.slice(1, -1).trim();
+    }
+
+    return value;
+  }
+
+  return '';
+}
+
+function firstNonEmpty(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const trimmed = value?.trim() ?? '';
+
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return '';
+}
+
+export async function resolveServerGeminiApiKey(): Promise<string> {
+  const envKey = firstNonEmpty(
+    process.env.GEMINI_API_KEY,
+    process.env.VITE_GEMINI_API_KEY,
+    loadLocalEnvValue('GEMINI_API_KEY'),
+    loadLocalEnvValue('VITE_GEMINI_API_KEY')
+  );
+
+  if (envKey) {
     return envKey;
   }
 

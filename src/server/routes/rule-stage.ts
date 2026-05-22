@@ -30,7 +30,7 @@ async function analyzeObfuscationOnServer(examples: [string, string, string]): P
 
   const prompt = buildDecoderAnalysisPrompt(examples);
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ async function generateChatReplyOnServer(
   contents.push({ role: 'user', parts: [{ text: prompt }] });
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: {
@@ -158,7 +158,7 @@ async function analyzeDebugOnServer(result: DebugResponse): Promise<DebugAnalysi
     result.matches
   );
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

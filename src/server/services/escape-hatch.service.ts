@@ -44,7 +44,7 @@ function stripCodeFences(text: string): string {
 }
 
 function getGeminiUrl(apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
 
 function extractModelText(data: { candidates?: GeminiCandidate[] }): string {

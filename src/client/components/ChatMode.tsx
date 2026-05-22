@@ -1,12 +1,12 @@
-import { useState, useRef, useEffect } from "react";
-import type { AutomodAST, ChatMessage } from "../types";
-import { astToYaml } from "../utils/yaml-ast";
-import { buildSubredditContextPrompt, fetchSubredditContext } from "../utils/reddit";
-import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft } from "../../shared/automod";
-import type { BlastRadiusResult } from "../../shared/blast-types";
-import type { DebugResponse } from "../../shared/debug-types";
-import DebugResultCard from "./DebugResultCard";
-import { formatDebugMessage, parsePostId } from "../utils/debug";
+import { useEffect, useRef, useState } from 'react';
+import type { AutomodAST, ChatMessage } from '../types';
+import { astToYaml } from '../utils/yaml-ast';
+import { buildSubredditContextPrompt, fetchSubredditContext } from '../utils/reddit';
+import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft } from '../../shared/automod';
+import type { BlastRadiusResult } from '../../shared/blast-types';
+import type { DebugResponse } from '../../shared/debug-types';
+import DebugResultCard from './DebugResultCard';
+import { formatDebugMessage, parsePostId } from '../utils/debug';
 
 interface ChatModeProps {
   ast: AutomodAST;
@@ -18,54 +18,60 @@ interface ChatModeProps {
   contextYaml?: string;
 }
 
-  function genId(): string {
-    return Math.random().toString(36).slice(2, 9);
-  }
-
-  // const QUICK_PROMPTS = []; // Removed empty prompt array
+function genId(): string {
+  return Math.random().toString(36).slice(2, 9);
+}
 
 const APPLY_INTENT_RE =
-  /^\s*(yeah[,\s]*(good[,\s]*)?)?(ok[,\s]*|yes[,\s]*|sure[,\s]*|looks?\s+good[,\s]*|perfect[,\s]*|great[,\s]*|awesome[,\s]*)?(apply|use\s+(this|these|it)|add\s+(this|these|it)|implement\s+(this|it)|do\s+it|go\s+ahead|use\s+this\s+rule)\s*[.!]?\s*$/i;
+  /^\s*(yeah[\,\s]*(good[\,\s]*)?)?(ok[\,\s]*|yes[\,\s]*|sure[\,\s]*|looks?\s+good[\,\s]*|perfect[\,\s]*|great[\,\s]*|awesome[\,\s]*)?(apply|use\s+(this|these|it)|add\s+(this|these|it)|implement\s+(this|it)|do\s+it|go\s+ahead|use\s+this\s+rule)\s*[.!]?\s*$/i;
 
 function extractLastYaml(messages: ChatMessage[]): string | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== "assistant") continue;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const msg = messages[index];
+
+    if (!msg || msg.role !== 'assistant') {
+      continue;
+    }
+
     const match = msg.content.match(/```(?:yaml)?\n([\s\S]*?)```/);
-    if (match) return match[1].trim();
+    if (match?.[1]) {
+      return match[1].trim();
+    }
   }
+
   return null;
 }
 
 function extractYamlBlock(content: string): string | null {
   const match = content.match(/```(?:yaml)?\n([\s\S]*?)```/);
-  return match ? match[1].trim() : null;
+  return match?.[1] ? match[1].trim() : null;
 }
 
 function detectDebugIntent(text: string): string | null {
   const postId = parsePostId(text);
   const intentRe = /why.*(removed|flagged|filtered)|what.*(rule|automod).*(got|hit|caught|removed)|debug.*post/i;
+
   return intentRe.test(text) && postId ? postId : null;
 }
 
 function formatBlastMessage(result: BlastRadiusResult): string {
   if (result.totalTested === 0) {
-    return "⚡ **Blast Radius**: No cached posts yet. This rule will be backtested once the subreddit has history.";
+    return '⚡ **Blast Radius**: No cached posts yet. This rule will be backtested once the subreddit has history.';
   }
 
   const falsePositiveLines = result.falsePositives
     .slice(0, 3)
-    .map((post) => `- \"${post.title}\" (u/${post.author})`)
-    .join("\n");
+    .map((post) => `- "${post.title}" (u/${post.author})`)
+    .join('\n');
 
   return [
     `⚡ **Blast Radius** (tested against last ${result.totalTested} posts)`,
     `✅ Would have caught **${result.wouldCatch} spam posts**`,
     result.falsePositives.length > 0
       ? `⚠️ Would have **falsely flagged ${result.falsePositives.length} legitimate posts**:\n${falsePositiveLines}`
-      : "✅ No false positives detected",
+      : '✅ No false positives detected',
     `Catch rate: ${(result.catchRate * 100).toFixed(0)}% | False positive rate: ${(result.falsePositiveRate * 100).toFixed(0)}%`,
-  ].join("\n\n");
+  ].join('\n\n');
 }
 
 function MessageBubble({
@@ -74,16 +80,20 @@ function MessageBubble({
   applied,
 }: {
   msg: ChatMessage;
-  onApply?: (yaml: string) => void;
+  onApply: ((yaml: string) => void) | undefined;
   applied: boolean;
 }) {
   const [justApplied, setJustApplied] = useState(false);
   const debugResult = msg.debugResult;
   const yamlMatch = msg.content.match(/```(?:yaml)?\n([\s\S]*?)```/);
+  const yamlValue = yamlMatch?.[1] ?? '';
   const textParts = msg.content.split(/```(?:yaml)?\n[\s\S]*?```/);
 
   const handleApply = (yaml: string) => {
-    if (!onApply) return;
+    if (!onApply) {
+      return;
+    }
+
     onApply(yaml);
     setJustApplied(true);
     setTimeout(() => setJustApplied(false), 3000);
@@ -92,42 +102,38 @@ function MessageBubble({
   const showApplied = justApplied || applied;
 
   return (
-    <div className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+    <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${
-          msg.role === "user"
-            ? "bg-[#FF6B35] text-white"
-            : "bg-white border border-[#E5E8F0] text-[#6C5CE7] shadow-sm"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+          msg.role === 'user'
+            ? 'bg-[#FF6B35] text-white'
+            : 'border border-[#E5E8F0] bg-white text-[#6C5CE7] shadow-sm'
         }`}
       >
-        {msg.role === "user" ? "M" : "AI"}
+        {msg.role === 'user' ? 'M' : 'AI'}
       </div>
       <div
         className={`max-w-[82%] rounded-[20px] p-3 text-sm shadow-sm ${
-          msg.role === "user"
-            ? "bg-[#FFF1E9] border border-[#FFD7C4] text-[#1F2937]"
-            : "bg-white border border-[#E7EAF1] text-[#1F2937]"
+          msg.role === 'user'
+            ? 'border border-[#FFD7C4] bg-[#FFF1E9] text-[#1F2937]'
+            : 'border border-[#E7EAF1] bg-white text-[#1F2937]'
         }`}
       >
         {debugResult ? (
           <DebugResultCard result={debugResult} onApplyYaml={handleApply} />
         ) : (
-          textParts.map((part, i) => (
-            <span key={i}>
-              {part && (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1F2937]">{part}</p>
-              )}
-              {i === 0 && yamlMatch && (
+          textParts.map((part, index) => (
+            <span key={index}>
+              {part && <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1F2937]">{part}</p>}
+              {index === 0 && yamlMatch && (
                 <div className="mt-2 overflow-hidden rounded-xl border border-[#E7EAF1] bg-white">
                   <div className="flex items-center justify-between bg-[#FBFCFF] px-3 py-1.5">
                     <span className="font-mono text-[10px] text-[#8B93A5]">yaml</span>
-                    {onApply && (
+                    {onApply !== undefined && (
                       <button
-                        onClick={() => handleApply(yamlMatch[1])}
+                        onClick={() => handleApply(yamlValue)}
                         className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 ${
-                          showApplied
-                            ? "text-[#22A06B]"
-                            : "text-[#FF6B35] hover:text-[#F35B20]"
+                          showApplied ? 'text-[#22A06B]' : 'text-[#FF6B35] hover:text-[#F35B20]'
                         }`}
                       >
                         {showApplied ? (
@@ -148,17 +154,15 @@ function MessageBubble({
                       </button>
                     )}
                   </div>
-                  <pre className="max-h-48 overflow-auto bg-[#FBFCFF] p-3 font-mono text-xs text-[#0F766E]">
-                    {yamlMatch[1]}
+                  <pre className="overflow-auto whitespace-pre-wrap wrap-break-word bg-[#FBFCFF] p-3 font-mono text-xs leading-6 text-[#0F766E]">
+                    {yamlValue}
                   </pre>
                 </div>
               )}
             </span>
           ))
         )}
-        <div className="mt-1.5 text-[10px] text-[#8B93A5]">
-          {new Date(msg.timestamp).toLocaleTimeString()}
-        </div>
+        <div className="mt-1.5 text-[10px] text-[#8B93A5]">{new Date(msg.timestamp).toLocaleTimeString()}</div>
       </div>
     </div>
   );
@@ -173,15 +177,15 @@ export default function ChatMode({
   subredditName,
   contextYaml,
 }: ChatModeProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
-  const [subredditContext, setSubredditContext] = useState("");
+  const [subredditContext, setSubredditContext] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
   useEffect(() => {
@@ -189,7 +193,7 @@ export default function ChatMode({
 
     const loadSubredditContext = async () => {
       if (!subredditName) {
-        setSubredditContext("");
+        setSubredditContext('');
         return;
       }
 
@@ -200,7 +204,7 @@ export default function ChatMode({
         }
       } catch {
         if (isActive) {
-          setSubredditContext("");
+          setSubredditContext('');
         }
       }
     };
@@ -223,31 +227,30 @@ export default function ChatMode({
     const trimmed = text.trim();
     const debugPostId = detectDebugIntent(trimmed);
 
-    // Detect apply-intent: user says "apply", "yes apply it", "yeah good now apply", etc.
     if (APPLY_INTENT_RE.test(trimmed)) {
       const lastYaml = extractLastYaml(messages);
+
       if (lastYaml) {
         const userMsg: ChatMessage = {
           id: genId(),
-          role: "user",
+          role: 'user',
           content: trimmed,
           timestamp: Date.now(),
         };
-        const lastAiMsg = [...messages].reverse().find(
-          (m) => m.role === "assistant" && m.content.includes("```")
-        );
+        const lastAiMsg = [...messages].reverse().find((message) => message.role === 'assistant' && message.content.includes('```'));
         const confirmMsg: ChatMessage = {
           id: genId(),
-          role: "assistant",
-          content:
-            "Done! The rules have been applied to your Code editor. Switch to **Code** or **Drag** mode to see them.",
+          role: 'assistant',
+          content: 'Done! The rules have been applied to your Code editor. Switch to **Code** or **Drag** mode to see them.',
           timestamp: Date.now(),
         };
         onAddMessage(userMsg);
         onApplyYaml(lastYaml);
-        if (lastAiMsg) setAppliedMsgId(lastAiMsg.id);
+        if (lastAiMsg) {
+          setAppliedMsgId(lastAiMsg.id);
+        }
         onAddMessage(confirmMsg);
-        setInput("");
+        setInput('');
         return;
       }
     }
@@ -255,12 +258,12 @@ export default function ChatMode({
     setError(null);
     const userMsg: ChatMessage = {
       id: genId(),
-      role: "user",
+      role: 'user',
       content: trimmed,
       timestamp: Date.now(),
     };
     onAddMessage(userMsg);
-    setInput("");
+    setInput('');
     setIsLoading(true);
 
     try {
@@ -290,9 +293,9 @@ export default function ChatMode({
         return;
       }
 
-      const history = messages.map((m) => ({
-        role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
-        content: m.content,
+      const history = messages.map((message) => ({
+        role: (message.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+        content: message.content,
       }));
 
       let contextual = trimmed;
@@ -320,9 +323,10 @@ export default function ChatMode({
 
       const chatData = (await chatResponse.json()) as { status: 'success'; response: string };
       const response = chatData.response;
+
       onAddMessage({
         id: genId(),
-        role: "assistant",
+        role: 'assistant',
         content: response,
         timestamp: Date.now(),
       });
@@ -354,23 +358,22 @@ export default function ChatMode({
           console.warn('Blast Radius backtest failed:', blastError);
         }
       }
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (caughtError) {
+      setError((caughtError as Error).message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       void sendMessage(input);
     }
   };
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[28px] border border-[#E7E9F0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-
       <div className="flex-1 overflow-auto bg-[#FBFCFF] px-4 py-5 sm:px-6 sm:py-6">
         {messages.length === 0 && (
           <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-[#8B93A5]">
@@ -391,11 +394,7 @@ export default function ChatMode({
               key={msg.id}
               msg={msg}
               applied={appliedMsgId === msg.id}
-              onApply={
-                msg.role === "assistant"
-                  ? (yaml) => handleApplyYaml(yaml, msg.id)
-                  : undefined
-              }
+              onApply={msg.role === 'assistant' ? (yaml) => handleApplyYaml(yaml, msg.id) : undefined}
             />
           ))}
 
@@ -434,10 +433,10 @@ export default function ChatMode({
         <div className="flex items-end gap-3">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            placeholder={'Write a message... or type "apply" to use the last rule'}
+            placeholder='Write a message... or type "apply" to use the last rule'
             rows={2}
             data-testid="chat-input"
             className="min-h-13.5 flex-1 resize-none rounded-[18px] border border-[#E5E8F0] bg-[#FBFCFF] px-4 py-3 text-sm text-[#1F2937] shadow-sm outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#FFB08A] disabled:opacity-50"
@@ -453,9 +452,7 @@ export default function ChatMode({
             </svg>
           </button>
         </div>
-        <p className="mt-2 text-[10px] text-[#8B93A5]">
-          Shift+Enter for new line · Enter to send · type "apply" to use last rule
-        </p>
+        <p className="mt-2 text-[10px] text-[#8B93A5]">Shift+Enter for new line · Enter to send · type "apply" to use last rule</p>
       </div>
 
       <style>{`
