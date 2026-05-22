@@ -220,20 +220,20 @@ export function buildEscapeHatchGenerationPrompt(request: string): string {
 }
 
 export const DEFAULT_AUTOMOD_RULE: AutomodRule = {
-  id: 'drop-shipping-spam',
-  name: 'Drop-shipping spam guard',
+  id: 'rule-stage-draft',
+  name: 'Rule draft',
   type: 'submission',
   enabled: true,
   conditions: [
     {
       field: 'title',
       comparator: 'includes',
-      value: 'look what i got, just arrived, grab yours here',
+      value: '',
     },
     {
       field: 'account_age',
       comparator: '<',
-      value: '30 days',
+      value: '30',
     },
     {
       field: 'combined_karma',
@@ -243,11 +243,9 @@ export const DEFAULT_AUTOMOD_RULE: AutomodRule = {
   ],
   satisfyAnyThreshold: true,
   action: 'remove',
-  comment:
-    'Your post was automatically removed by our anti-spam filter. Please contact the moderators if you think this was a mistake.',
+  comment: 'Your post was removed by AutoModerator. Contact the moderation team if this looks incorrect.',
   commentStickied: true,
-  modmail:
-    'Potential drop-shipping spam removed: {{permalink}}\nUser: u/{{author}}\nTitle: {{title}}',
+  modmail: 'AutoModerator removed a post: {{permalink}}\nUser: u/{{author}}\nTitle: {{title}}',
 };
 
 const CONDITION_FIELD_LABELS: Record<AutomodCondition['field'], string> = {

@@ -10,7 +10,6 @@ import { Card } from '../components/ui/card';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
 import {
-  createDefaultSimulationPosts,
   DEFAULT_AUTOMOD_RULE,
   describeCondition,
   evaluateRule,
@@ -72,10 +71,9 @@ export function RuleStagePage() {
   const [mode, setMode] = useState<RuleStageMode>('code');
   const [rule, setRule] = useState<AutomodRule>(DEFAULT_AUTOMOD_RULE);
   const [draft, setDraft] = useState(() => serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
-  const [simulation, setSimulation] = useState(() => evaluateRule(DEFAULT_AUTOMOD_RULE, createDefaultSimulationPosts()));
+  const [simulation, setSimulation] = useState(() => evaluateRule(DEFAULT_AUTOMOD_RULE, []));
   const [blast, setBlast] = useState<BlastRadiusResult | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [geminiApiKey] = useState(() => (import.meta as any).env?.VITE_GEMINI_API_KEY ?? '');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
@@ -275,7 +273,7 @@ export function RuleStagePage() {
             <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
               <div className="rounded-2xl bg-white/5 p-3">
                 <p className="text-slate-400">Matches</p>
-                <p className="font-medium">{simulation.matched} / {createDefaultSimulationPosts().length}</p>
+                  <p className="font-medium">{simulation.matched} / {simulation.items.length}</p>
               </div>
             </div>
           </Card>
@@ -461,7 +459,6 @@ export function RuleStagePage() {
                   onAddMessage={handleAddChatMessage}
                   onApplyAST={() => {}}
                   onApplyYaml={handleApplyYaml}
-                  geminiApiKey={geminiApiKey}
                   subredditName={init?.subredditName}
                   contextYaml={draft}
                 />
@@ -519,7 +516,7 @@ export function RuleStagePage() {
                 <p className="text-sm font-medium">Simulation summary</p>
                 <Badge className="bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15">Dry run</Badge>
               </div>
-              <p className="mt-2 text-xs text-slate-400">{saving ? 'Saving rule...' : 'Saved to Redis-backed RuleStage state.'}</p>
+              <p className="mt-2 text-xs text-slate-400">{saving ? 'Saving rule...' : 'Simulation state is saved.'}</p>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-white/5 p-3">
                   <p className="text-slate-400">Removed</p>
@@ -572,26 +569,30 @@ export function RuleStagePage() {
             <Card className="border-white/10 bg-white/6 p-4 text-slate-100 shadow-none">
               <p className="text-sm font-medium">Recent dry-run items</p>
               <div className="mt-4 space-y-3">
-                {simulation.items.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/55 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium">{item.title}</p>
-                        <p className="text-sm text-slate-400">u/{item.author}</p>
+                {simulation.items.length === 0 ? (
+                  <p className="text-sm text-slate-400">No simulation items yet. Run a simulation after loading posts.</p>
+                ) : (
+                  simulation.items.map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/55 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.title}</p>
+                          <p className="text-sm text-slate-400">u/{item.author}</p>
+                        </div>
+                        <Badge className={cn(
+                          item.outcome === 'remove'
+                            ? 'bg-red-400/15 text-red-200 hover:bg-red-400/15'
+                            : item.outcome === 'report'
+                              ? 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/15'
+                              : 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15'
+                        )}>
+                          {item.outcome}
+                        </Badge>
                       </div>
-                      <Badge className={cn(
-                        item.outcome === 'remove'
-                          ? 'bg-red-400/15 text-red-200 hover:bg-red-400/15'
-                          : item.outcome === 'report'
-                            ? 'bg-amber-400/15 text-amber-200 hover:bg-amber-400/15'
-                            : 'bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/15'
-                      )}>
-                        {item.outcome}
-                      </Badge>
+                      <p className="mt-2 text-sm text-slate-400">{item.reason}</p>
                     </div>
-                    <p className="mt-2 text-sm text-slate-400">{item.reason}</p>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
           </aside>

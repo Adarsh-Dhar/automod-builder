@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import type { AutomodAST, ChatMessage } from "../types";
-import { callGemini } from "../utils/gemini";
 import { astToYaml } from "../utils/yaml-ast";
 import { buildSubredditContextPrompt, fetchSubredditContext } from "../utils/reddit";
 import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft } from "../../shared/automod";
@@ -15,7 +14,6 @@ interface ChatModeProps {
   onAddMessage: (msg: ChatMessage) => void;
   onApplyAST: (ast: AutomodAST) => void;
   onApplyYaml: (yaml: string) => void;
-  geminiApiKey: string;
   subredditName?: string;
   contextYaml?: string;
 }
@@ -172,7 +170,6 @@ export default function ChatMode({
   onAddMessage,
   onApplyAST: _onApplyAST,
   onApplyYaml,
-  geminiApiKey,
   subredditName,
   contextYaml,
 }: ChatModeProps) {
@@ -293,10 +290,6 @@ export default function ChatMode({
         return;
       }
 
-      if (!geminiApiKey) {
-        throw new Error('Missing Gemini API key in environment');
-      }
-
       const history = messages.map((m) => ({
         role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
         content: m.content,
@@ -308,7 +301,25 @@ export default function ChatMode({
         contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
       }
 
-      const response = await callGemini(geminiApiKey, contextual, history, subredditContext);
+      const chatResponse = await fetch('/api/rule-stage/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: contextual,
+          history,
+          subredditContext,
+        }),
+      });
+
+      if (!chatResponse.ok) {
+        const payload = (await chatResponse.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || 'Failed to fetch chat response');
+      }
+
+      const chatData = (await chatResponse.json()) as { status: 'success'; response: string };
+      const response = chatData.response;
       onAddMessage({
         id: genId(),
         role: "assistant",
@@ -425,19 +436,15 @@ export default function ChatMode({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isLoading || !geminiApiKey}
-            placeholder={
-              geminiApiKey
-                ? `Write a message… or type "apply" to use the last rule`
-                : "Add Gemini API key to use Chat mode"
-            }
+            disabled={isLoading}
+            placeholder={'Write a message... or type "apply" to use the last rule'}
             rows={2}
             data-testid="chat-input"
             className="min-h-13.5 flex-1 resize-none rounded-[18px] border border-[#E5E8F0] bg-[#FBFCFF] px-4 py-3 text-sm text-[#1F2937] shadow-sm outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#FFB08A] disabled:opacity-50"
           />
           <button
             onClick={() => sendMessage(input)}
-            disabled={!input.trim() || isLoading || !geminiApiKey}
+            disabled={!input.trim() || isLoading}
             data-testid="btn-send"
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[#FF6B35] text-white shadow-[0_12px_24px_rgba(255,107,53,0.25)] transition-colors hover:bg-[#F35B20] disabled:cursor-not-allowed disabled:opacity-40"
           >

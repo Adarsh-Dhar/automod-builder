@@ -12,6 +12,7 @@ import type { DebugResponse } from '../../shared/debug-types';
 import { runDebug } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { analyzeYamlLimitation, generateEscapeHatchTrigger, getRuleStageModContext } from '../services/escape-hatch.service';
+import { resolveServerGeminiApiKey } from '../services/gemini-key.service';
 import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
 function stripCodeFences(text: string): string {
@@ -21,7 +22,7 @@ function stripCodeFences(text: string): string {
 }
 
 async function analyzeObfuscationOnServer(examples: [string, string, string]): Promise<DecoderAnalysis> {
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY ?? '';
+  const apiKey = await resolveServerGeminiApiKey();
 
   if (!apiKey) {
     throw new Error('Missing server Gemini API key');
@@ -73,8 +74,73 @@ type DebugAnalysis = {
   confidence: 'high' | 'medium' | 'low';
 };
 
+type ChatHistoryMessage = {
+  role: 'user' | 'model';
+  content: string;
+};
+
+async function generateChatReplyOnServer(
+  prompt: string,
+  history: ChatHistoryMessage[] = [],
+  subredditContext?: string
+): Promise<string> {
+  const apiKey = await resolveServerGeminiApiKey();
+
+  if (!apiKey) {
+    throw new Error('Missing server Gemini API key. Set GEMINI_API_KEY in Devvit app settings.');
+  }
+
+  const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+  if (subredditContext?.trim()) {
+    contents.push({ role: 'user', parts: [{ text: subredditContext.trim() }] });
+  }
+
+  for (const message of history) {
+    if (!message?.content?.trim()) {
+      continue;
+    }
+
+    contents.push({
+      role: message.role === 'model' ? 'model' : 'user',
+      parts: [{ text: message.content }],
+    });
+  }
+
+  contents.push({ role: 'user', parts: [{ text: prompt }] });
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents,
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 1024,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const txt = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${txt}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+
+  const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
+  return text || 'I could not generate a response.';
+}
+
 async function analyzeDebugOnServer(result: DebugResponse): Promise<DebugAnalysis> {
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY ?? '';
+  const apiKey = await resolveServerGeminiApiKey();
 
   if (!apiKey) {
     throw new Error('Missing server Gemini API key');
@@ -208,6 +274,39 @@ ruleStage.post('/decoder/analyze', async (c) => {
   } catch (error) {
     console.error('[RuleStage] decoder analyze failed:', error);
     return c.json({ status: 'error', message: 'Failed to analyze obfuscation' }, 500);
+  }
+});
+
+ruleStage.post('/chat', async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => null)) as {
+      prompt?: unknown;
+      history?: unknown;
+      subredditContext?: unknown;
+    } | null;
+
+    const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
+    const historyInput = Array.isArray(body?.history) ? body.history : [];
+    const subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
+
+    if (!prompt) {
+      return c.json({ status: 'error', message: 'Prompt is required' }, 400);
+    }
+
+    const history: ChatHistoryMessage[] = historyInput
+      .filter((entry): entry is { role: unknown; content: unknown } => !!entry && typeof entry === 'object')
+      .map((entry) => ({
+        role: entry.role === 'model' ? 'model' : 'user',
+        content: typeof entry.content === 'string' ? entry.content : '',
+      }))
+      .filter((entry) => entry.content.trim().length > 0)
+      .slice(-20);
+
+    const response = await generateChatReplyOnServer(prompt, history, subredditContext);
+    return c.json({ status: 'success', response });
+  } catch (error) {
+    console.error('[RuleStage] chat failed:', error);
+    return c.json({ status: 'error', message: (error as Error).message || 'Failed to run chat' }, 500);
   }
 });
 

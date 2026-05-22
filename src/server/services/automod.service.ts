@@ -1,6 +1,5 @@
 import { context, redis, reddit } from '@devvit/web/server';
 import {
-  createDefaultSimulationPosts,
   DEFAULT_AUTOMOD_RULE,
   evaluateRule,
   parseAutomodRuleDraft,
@@ -65,18 +64,18 @@ export async function getMockSimulationPosts(): Promise<SimulationPost[]> {
   const raw = await redis.get(postsStorageKey());
 
   if (!raw) {
-    const defaults = createDefaultSimulationPosts();
-    await redis.set(postsStorageKey(), JSON.stringify(defaults));
-    return defaults;
+    const empty: SimulationPost[] = [];
+    await redis.set(postsStorageKey(), JSON.stringify(empty));
+    return empty;
   }
 
   try {
     return JSON.parse(raw) as SimulationPost[];
   } catch (error) {
-    console.warn('[RuleStage] Failed to parse stored simulation posts, reseeding defaults.', error);
-    const defaults = createDefaultSimulationPosts();
-    await redis.set(postsStorageKey(), JSON.stringify(defaults));
-    return defaults;
+    console.warn('[RuleStage] Failed to parse stored simulation posts, resetting to empty.', error);
+    const empty: SimulationPost[] = [];
+    await redis.set(postsStorageKey(), JSON.stringify(empty));
+    return empty;
   }
 }
 
@@ -105,6 +104,6 @@ export async function getLiveAutomodYaml(subredditName: string): Promise<string>
 
 export async function resetRuleStageState(): Promise<AutomodRule> {
   await redis.set(ruleStorageKey(), serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
-  await redis.set(postsStorageKey(), JSON.stringify(createDefaultSimulationPosts()));
+  await redis.set(postsStorageKey(), JSON.stringify([]));
   return DEFAULT_AUTOMOD_RULE;
 }

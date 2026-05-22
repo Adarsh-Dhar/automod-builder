@@ -7,6 +7,7 @@ import { menu } from './routes/menu';
 import { triggers } from './routes/triggers';
 import { rank } from './routes/rank';
 import { ruleStage } from './routes/rule-stage';
+import './settings';
 
 const app = new Hono();
 const internal = new Hono();

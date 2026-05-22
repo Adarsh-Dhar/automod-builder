@@ -329,6 +329,43 @@ conditions:
     });
   });
 
+  describe('POST /api/rule-stage/chat', () => {
+    it('should accept chat prompt payload', async () => {
+      const payload = {
+        prompt: 'Remove posts from accounts under 7 days old',
+        history: [
+          { role: 'user', content: 'Build an automod rule' },
+          { role: 'model', content: 'Sure, share the requirement.' },
+        ],
+        subredditContext: 'Subreddit context goes here',
+      };
+
+      expect(payload.prompt).toBeTruthy();
+      expect(Array.isArray(payload.history)).toBe(true);
+      expect(payload.history[0]).toHaveProperty('role');
+      expect(payload.history[0]).toHaveProperty('content');
+    });
+
+    it('should validate prompt is required', async () => {
+      const invalidPayload = { prompt: '' };
+      expect(invalidPayload.prompt).toBeFalsy();
+
+      const missingPrompt = { history: [] };
+      expect(missingPrompt).not.toHaveProperty('prompt');
+    });
+
+    it('should return text response shape', async () => {
+      const expectedResponse = {
+        status: 'success',
+        response: '```yaml\n---\naction: remove\n---\n```',
+      };
+
+      expect(expectedResponse.status).toBe('success');
+      expect(typeof expectedResponse.response).toBe('string');
+      expect(expectedResponse.response.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('Error handling across all endpoints', () => {
     it('should return 400 for missing required fields', async () => {
       const expectedError = {

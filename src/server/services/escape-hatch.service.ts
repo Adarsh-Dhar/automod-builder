@@ -7,6 +7,7 @@ import {
   type YamlLimitationAnalysis,
 } from '../../shared/automod';
 import { getEscapeHatchTemplate } from '../templates/escape-hatch-templates';
+import { resolveServerGeminiApiKey } from './gemini-key.service';
 
 type GeminiContentPart = {
   text?: string;
@@ -42,10 +43,6 @@ function stripCodeFences(text: string): string {
   return fencedMatch?.[1]?.trim() ?? trimmed;
 }
 
-function getGeminiApiKey(): string {
-  return process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY ?? '';
-}
-
 function getGeminiUrl(apiKey: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
@@ -55,7 +52,7 @@ function extractModelText(data: { candidates?: GeminiCandidate[] }): string {
 }
 
 async function generateJson<T>(prompt: string, maxOutputTokens: number): Promise<T> {
-  const apiKey = getGeminiApiKey();
+  const apiKey = await resolveServerGeminiApiKey();
 
   if (!apiKey) {
     throw new Error('Missing server Gemini API key');

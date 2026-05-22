@@ -25,10 +25,6 @@ export function ChatPage() {
     setShowConversations(false);
   };
 
-  // Gemini API key loaded from environment (Vite .env via VITE_GEMINI_API_KEY)
-  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ?? '';
-  const [geminiApiKey] = React.useState<string>(envKey);
-
   React.useEffect(() => {
     let isActive = true;
 
@@ -144,7 +140,6 @@ export function ChatPage() {
                   onAddMessage={(m) => handleAddChatMessage(m)}
                   onApplyAST={() => {}}
                   onApplyYaml={(yaml) => handleApplyYaml(yaml)}
-                  geminiApiKey={geminiApiKey}
                   subredditName={subredditName}
                 />
               </div>
