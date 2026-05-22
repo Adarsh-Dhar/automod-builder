@@ -6,7 +6,6 @@ import {
   buildDecoderAnalysisPrompt,
   type DecoderAnalysis,
   type EscapeHatchCode,
-  type YamlLimitationAnalysis,
 } from '../../shared/automod';
 import type { DebugResponse } from '../../shared/debug-types';
 import { runDebug } from '../services/debugger.service';
@@ -79,7 +78,56 @@ type ChatHistoryMessage = {
   content: string;
 };
 
-async function generateChatReplyOnServer(
+const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant for Reddit. Your ONLY job is to output a single, complete AutoModerator YAML rule block in response to the user's request.
+
+STRICT RULES:
+1. Always output exactly ONE rule wrapped in --- delimiters.
+2. Never include or repeat previous rules - write a fresh standalone rule each time.
+3. type must always be: submission
+4. For text matching use ONLY these exact keys:
+   title (includes): ['phrase1', 'phrase2']
+   title (matches): ['regex']
+   body (includes): ['phrase']
+   body (matches): ['regex']
+   Never invent other keys like "title (includes-word)" or "report_reason".
+5. Numeric author conditions go nested under author: block:
+   author:
+     satisfy_any_threshold: true
+     account_age: "< 30 days"
+     combined_karma: "< 50"
+6. action must be one of: remove, approve, report
+7. Always include comment: | and modmail: | as block literals.
+8. The rule name is a comment on the line after the first ---:
+   ---
+   # Rule name here
+   type: submission
+   ...
+   ---
+9. Do not add any prose, explanation, or markdown outside the yaml code fence.
+10. Wrap the YAML in a code fence: \`\`\`yaml ... \`\`\`
+
+Example of a perfectly formatted rule:
+\`\`\`yaml
+---
+# New account spam guard
+type: submission
+title (includes): ['buy now', 'grab yours']
+author:
+  satisfy_any_threshold: true
+  account_age: "< 30 days"
+  combined_karma: "< 50"
+action: remove
+comment_stickied: true
+comment: |
+  Your post was removed by AutoModerator. Contact the mods if this is a mistake.
+modmail: |
+  Removed post: {{permalink}}
+  User: u/{{author}}
+  Title: {{title}}
+---
+\`\`\``;
+
+export async function generateChatReplyOnServer(
   prompt: string,
   history: ChatHistoryMessage[] = [],
   subredditContext?: string
@@ -92,11 +140,15 @@ async function generateChatReplyOnServer(
 
   const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
+  contents.push({ role: 'user', parts: [{ text: AUTOMOD_SYSTEM_PROMPT }] });
+  contents.push({ role: 'model', parts: [{ text: 'Understood. I will output only valid AutoModerator YAML.' }] });
+
   if (subredditContext?.trim()) {
     contents.push({ role: 'user', parts: [{ text: subredditContext.trim() }] });
+    contents.push({ role: 'model', parts: [{ text: 'Noted. I will keep this subreddit context in mind.' }] });
   }
 
-  for (const message of history) {
+  for (const message of history.slice(-10)) {
     if (!message?.content?.trim()) {
       continue;
     }
@@ -119,7 +171,7 @@ async function generateChatReplyOnServer(
       body: JSON.stringify({
         contents,
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0.1,
           maxOutputTokens: 1024,
         },
       }),
@@ -293,9 +345,9 @@ ruleStage.post('/chat', async (c) => {
       return c.json({ status: 'error', message: 'Prompt is required' }, 400);
     }
 
-    const history: ChatHistoryMessage[] = historyInput
+    const history = historyInput
       .filter((entry): entry is { role: unknown; content: unknown } => !!entry && typeof entry === 'object')
-      .map((entry) => ({
+      .map((entry): ChatHistoryMessage => ({
         role: entry.role === 'model' ? 'model' : 'user',
         content: typeof entry.content === 'string' ? entry.content : '',
       }))
