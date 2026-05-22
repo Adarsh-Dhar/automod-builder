@@ -54,12 +54,39 @@ export default function SimulationPanel({
 
   useEffect(() => {
     if (!isSimulating) return undefined;
-    const timer = setTimeout(() => {
+    let cancelled = false;
+
+    const runRemoteSimulation = async () => {
+      try {
+        const response = await fetch('/api/rule-stage/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rule: ast }),
+        });
+
+        if (!response.ok) throw new Error('Simulation API failed');
+
+        const data = (await response.json()) as { status: string; simulation?: any };
+        if (cancelled) return;
+        if (data && data.simulation) {
+          onSimulationComplete(data.simulation as SimulationDiff);
+          return;
+        }
+      } catch {
+        // fallback to local simulation if API is unavailable
+      }
+
+      if (cancelled) return;
       const posts = generateMockPosts(1000);
       const result = runSimulation(ast, posts);
       onSimulationComplete(result);
-    }, 800);
-    return () => clearTimeout(timer);
+    };
+
+    void runRemoteSimulation();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isSimulating, ast, onSimulationComplete]);
 
   const tabData = diff

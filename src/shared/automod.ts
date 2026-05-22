@@ -1,6 +1,6 @@
 import type { DebugMatch } from './debug-types';
 
-export type RuleStageMode = 'code' | 'drag' | 'chat' | 'decoder' | 'escape-hatch';
+export type RuleStageMode = 'code' | 'drag' | 'chat' | 'decoder' | 'escape-hatch' | 'debug';
 
 export type YamlLimitation =
   | 'external-api'

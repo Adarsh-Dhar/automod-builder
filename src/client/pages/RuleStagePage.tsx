@@ -2,6 +2,7 @@ import { useInit } from '../contexts/init-context';
 import ChatMode from '../components/ChatMode';
 import DecoderMode from '../components/DecoderMode';
 import EscapeHatchMode from '../components/EscapeHatchMode';
+import DebuggerMode from '../components/DebuggerMode';
 import { useEffect, useState } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -34,6 +35,7 @@ const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
   chat: { label: 'Chat', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
   decoder: { label: 'Decoder', helper: 'Feed 3 spam examples; get a Regex that traps the campaign.' },
   'escape-hatch': { label: 'Escape Hatch', helper: 'When AutoMod cannot handle it, generate a custom TypeScript trigger.' },
+  debug: { label: 'Debugger', helper: 'Inspect a specific post and get suggested YAML fixes.' },
 };
 
 type ChatMessage = {
@@ -351,6 +353,12 @@ export function RuleStagePage() {
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
                   <span>Editing the YAML draft updates the shared rule state immediately.</span>
                 </div>
+              </div>
+            )}
+
+            {mode === 'debug' && (
+              <div className="p-5">
+                <DebuggerMode />
               </div>
             )}
 

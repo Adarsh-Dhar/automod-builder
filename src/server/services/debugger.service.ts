@@ -256,6 +256,46 @@ export async function runDebug(postId: string, subredditName?: string): Promise<
     return left.lineStart - right.lineStart;
   });
 
+  // Build a deterministic suggested YAML rewrite based on matched conditions.
+  const suggestedBlocks = matches.map((m) => {
+    const condition = m.matchedCondition;
+    const lines: string[] = [];
+    lines.push('---');
+    lines.push(`# Suggested fix for ${m.ruleName}`);
+    lines.push('type: submission');
+
+    if (condition.field === 'title' || condition.field === 'body') {
+      // prefer a regex 'matches' condition to tighten the match
+      const safeValue = condition.value.replace(/\|/g, '|' ).trim();
+      lines.push(`${condition.field} (matches): ['${safeValue}']`);
+    }
+
+    if (condition.field === 'account_age' || condition.field === 'combined_karma') {
+      const num = Number.parseInt(String(condition.value).replace(/[^0-9]/g, ''), 10) || 1;
+      const tightened = Math.max(1, Math.floor(num / 2));
+      const comparator = condition.comparator || '<';
+      lines.push('author:');
+      lines.push(`  satisfy_any_threshold: true`);
+      if (condition.field === 'account_age') {
+        lines.push(`  account_age: "${comparator} ${tightened}"`);
+      } else {
+        lines.push(`  combined_karma: "${comparator} ${tightened}"`);
+      }
+    }
+
+    lines.push('action: remove');
+    lines.push('comment_stickied: false');
+    lines.push('comment: |');
+    lines.push('  Suggested tighter rule to reduce false positives');
+    lines.push('modmail: |');
+    lines.push('  Automated suggestion');
+    lines.push('---');
+
+    return lines.join('\n');
+  });
+
+  const aiFixYaml = suggestedBlocks.join('\n\n');
+
   return {
     postId: post.id,
     subredditName,
@@ -263,7 +303,7 @@ export async function runDebug(postId: string, subredditName?: string): Promise<
     postBody: post.body,
     postAuthor: post.author,
     matches,
-    aiFixYaml: '',
+    aiFixYaml,
   };
 }
 
