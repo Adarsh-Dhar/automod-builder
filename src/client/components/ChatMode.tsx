@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AutomodAST, ChatMessage } from '../types';
 import { astToYaml } from '../utils/yaml-ast';
-import { buildSubredditContextPrompt, fetchSubredditContext } from '../utils/reddit';
-import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft } from '../../shared/automod';
+import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft, buildRichContextPrompt, type RichContext } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
 import type { DebugResponse } from '../../shared/debug-types';
 import DebugResultCard from './DebugResultCard';
@@ -23,7 +22,7 @@ function genId(): string {
 }
 
 const APPLY_INTENT_RE =
-  /^\s*(yeah[\,\s]*(good[\,\s]*)?)?(ok[\,\s]*|yes[\,\s]*|sure[\,\s]*|looks?\s+good[\,\s]*|perfect[\,\s]*|great[\,\s]*|awesome[\,\s]*)?(apply|use\s+(this|these|it)|add\s+(this|these|it)|implement\s+(this|it)|do\s+it|go\s+ahead|use\s+this\s+rule)\s*[.!]?\s*$/i;
+  /^\s*(yeah[\s,]*(good[\s,]*)?)?(ok[\s,]*|yes[\s,]*|sure[\s,]*|looks?\s+good[\s,]*|perfect[\s,]*|great[\s,]*|awesome[\s,]*)?(apply|use\s+(this|these|it)|add\s+(this|these|it)|implement\s+(this|it)|do\s+it|go\s+ahead|use\s+this\s+rule)\s*[.!]?\s*$/i;
 
 function extractLastYaml(messages: ChatMessage[]): string | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -196,6 +195,7 @@ export default function ChatMode({
   const [error, setError] = useState<string | null>(null);
   const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
   const [subredditContext, setSubredditContext] = useState('');
+  const [blastContext, setBlastContext] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -212,9 +212,22 @@ export default function ChatMode({
       }
 
       try {
-        const ctx = await fetchSubredditContext(subredditName);
-        if (isActive) {
-          setSubredditContext(buildSubredditContextPrompt(ctx));
+        const response = await fetch('/api/rule-stage/context');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'success' && isActive) {
+            const richContext: RichContext = {
+              subredditName: data.subredditName,
+              subscribers: data.subscribers ?? 0,
+              rules: data.rules ?? [],
+              liveYaml: data.liveYaml ?? '',
+              postFlairs: data.postFlairs ?? [],
+              userFlairs: data.userFlairs ?? [],
+              removalReasons: data.removalReasons ?? [],
+              moderators: data.moderators ?? [],
+            };
+            setSubredditContext(buildRichContextPrompt(richContext));
+          }
         }
       } catch {
         if (isActive) {
@@ -327,6 +340,7 @@ export default function ChatMode({
           prompt: contextual,
           history,
           subredditContext,
+          blastContext,
         }),
       });
 
@@ -360,6 +374,12 @@ export default function ChatMode({
           if (blastResponse.ok) {
             const blastData = (await blastResponse.json()) as { status: 'success'; blast: BlastRadiusResult };
             if (blastData.status === 'success') {
+              const blastSummary = blastData.blast.totalTested > 0
+                ? `catch rate ${(blastData.blast.catchRate * 100).toFixed(0)}%, false positive rate ${(blastData.blast.falsePositiveRate * 100).toFixed(0)}% on ${blastData.blast.totalTested} posts`
+                : null;
+              if (blastSummary) {
+                setBlastContext(blastSummary);
+              }
               onAddMessage({
                 id: genId(),
                 role: 'assistant',

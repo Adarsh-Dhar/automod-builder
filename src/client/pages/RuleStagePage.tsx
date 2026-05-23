@@ -82,6 +82,7 @@ export function RuleStagePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -89,6 +90,22 @@ export function RuleStagePage() {
     const load = async () => {
       try {
         setLoading(true);
+        // First try to load the live wiki YAML
+        const liveRes = await fetch('/api/rule-stage/live-yaml');
+        if (liveRes.ok) {
+          const liveData = await liveRes.json() as { status: string; yaml: string };
+          if (liveData.status === 'success' && liveData.yaml?.trim()) {
+            const parsed = parseAutomodRuleDraft(liveData.yaml, DEFAULT_AUTOMOD_RULE);
+            if (isActive) {
+              setRule(parsed);
+              setDraft(liveData.yaml);
+              setSimulation(evaluateRule(parsed, []));
+              setLoading(false);
+              return;
+            }
+          }
+        }
+        // Fall back to Redis draft via existing init endpoint
         const response = await fetch('/api/rule-stage/init');
         if (!response.ok) {
           throw new Error('Failed to load RuleStage state');
@@ -129,6 +146,24 @@ export function RuleStagePage() {
 
   const handleAddChatMessage = (message: ChatMessage) => {
     setChatMessages((current) => [...current, message]);
+  };
+
+  const publishToWiki = async () => {
+    try {
+      setPublishing(true);
+      const response = await fetch('/api/rule-stage/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yaml: draft }),
+      });
+      if (!response.ok) throw new Error('Publish failed');
+      toast({ title: 'Published', description: 'AutoModerator wiki updated successfully.' });
+    } catch (err) {
+      console.error('Publish failed:', err);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to publish to subreddit wiki.' });
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const handleApplyYaml = (yaml: string) => {
@@ -272,10 +307,12 @@ export function RuleStagePage() {
         ruleName={rule.name}
         action={rule.action}
         saving={saving}
+        publishing={publishing}
         yaml={draft}
         ruleCount={1}
         onReset={handleReset}
         onActionChange={handleActionChange}
+        onPublish={publishToWiki}
       />
 
       {/* Mode Tab Strip */}

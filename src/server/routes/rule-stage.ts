@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { context } from '@devvit/web/server';
+import { context, redis, reddit } from '@devvit/web/server';
 import {
   DEFAULT_AUTOMOD_RULE,
   buildDebugPrompt,
@@ -12,7 +12,7 @@ import { runDebug } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { analyzeYamlLimitation, generateEscapeHatchTrigger, getRuleStageModContext } from '../services/escape-hatch.service';
 import { generateText, generateJson } from '../services/model-proxy.service';
-import { getCurrentRule, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
+import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
 
 // (previously used to strip fenced code blocks from model output)
 
@@ -69,6 +69,10 @@ STRICT RULES:
    ---
 9. Do not add any prose, explanation, or markdown outside the yaml code fence.
 10. Wrap the YAML in a code fence: \`\`\`yaml ... \`\`\`
+11. Use the provided post flair names exactly when writing link_flair conditions.
+12. Use the provided removal reason text verbatim in comment: blocks.
+13. Do not create rules that duplicate existing rule names shown in the context.
+14. If the live config is provided, generate rules that are compatible with the existing YAML — use the same type, indentation style, and action patterns.
 
 Example of a perfectly formatted rule:
 \`\`\`yaml
@@ -231,14 +235,20 @@ ruleStage.post('/chat', async (c) => {
       prompt?: unknown;
       history?: unknown;
       subredditContext?: unknown;
+      blastContext?: unknown;
     } | null;
 
     const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
     const historyInput = Array.isArray(body?.history) ? body.history : [];
-    const subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
+    let subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
+    const blastContext = typeof body?.blastContext === 'string' ? body.blastContext : null;
 
     if (!prompt) {
       return c.json({ status: 'error', message: 'Prompt is required' }, 400);
+    }
+
+    if (blastContext) {
+      subredditContext = (subredditContext ?? '') + `\n\nLast blast radius: ${blastContext}`;
     }
 
     const history = historyInput
@@ -323,5 +333,126 @@ ruleStage.post('/reset', async (c) => {
   } catch (error) {
     console.error('[RuleStage] reset failed:', error);
     return c.json({ status: 'error', message: 'Failed to reset RuleStage' }, 500);
+  }
+});
+
+ruleStage.get('/live-yaml', async (c) => {
+  try {
+    const yaml = await getLiveAutomodYaml(context.subredditName ?? '');
+    return c.json({ status: 'success', yaml });
+  } catch (error) {
+    console.error('[RuleStage] live-yaml fetch failed:', error);
+    return c.json({ status: 'error', message: 'Failed to fetch live YAML' }, 500);
+  }
+});
+
+ruleStage.post('/publish', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => null);
+    const yaml = typeof body?.yaml === 'string' ? body.yaml : null;
+    if (!yaml) {
+      return c.json({ status: 'error', message: 'yaml is required' }, 400);
+    }
+    await pushYamlToWiki(yaml);
+    // also update Redis so the next load is consistent
+    const ruleStorageKey = `rulestage:rule:current:${context.subredditName ?? 'default'}`;
+    await redis.set(ruleStorageKey, yaml);
+    return c.json({ status: 'success' });
+  } catch (error) {
+    console.error('[RuleStage] publish failed:', error);
+    return c.json({ status: 'error', message: 'Failed to publish to wiki' }, 500);
+  }
+});
+
+ruleStage.get('/context', async (c) => {
+  try {
+    const sub = context.subredditName ?? '';
+    if (!sub) {
+      return c.json({ status: 'error', message: 'No subreddit context' }, 400);
+    }
+
+    const [
+      wikiPageResult,
+      flairTemplatesResult,
+      userFlairsResult,
+      moderatorsResult,
+    ] = await Promise.allSettled([
+      reddit.getWikiPage(sub, 'config/automoderator'),
+      reddit.getPostFlairTemplates(sub),
+      reddit.getUserFlairTemplates(sub),
+      (async () => {
+        const mods: string[] = [];
+        for await (const m of reddit.getModerators({ subredditName: sub })) {
+          mods.push(m.username);
+          if (mods.length >= 50) break;
+        }
+        return mods;
+      })(),
+    ]);
+
+    // Extract wiki content
+    function extractWikiContent(page: unknown): string {
+      if (typeof page === 'string') {
+        return page;
+      }
+      if (page && typeof page === 'object') {
+        const record = page as Record<string, unknown>;
+        const content = record.content_md ?? record.content ?? record.wikitext ?? record.body ?? record.md;
+        if (typeof content === 'string') {
+          return content;
+        }
+      }
+      return '';
+    }
+
+    const liveYaml = wikiPageResult.status === 'fulfilled' ? extractWikiContent(wikiPageResult.value) : '';
+    const postFlairs = flairTemplatesResult.status === 'fulfilled' ? flairTemplatesResult.value.map((f: any) => f.text) : [];
+    const userFlairs = userFlairsResult.status === 'fulfilled' ? userFlairsResult.value.map((f: any) => f.text) : [];
+    const moderators = moderatorsResult.status === 'fulfilled' ? moderatorsResult.value : [];
+    const removalReasons: string[] = [];
+
+    // Fetch subreddit info from public API as fallback for subscribers and rules
+    let subscribers = 0;
+    let rules: { short_name: string; description?: string }[] = [];
+    try {
+      const aboutRes = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/about.json`);
+      if (aboutRes.ok) {
+        const about = await aboutRes.json();
+        subscribers = about?.data?.subscribers ?? 0;
+      }
+    } catch (e) {
+      // ignore network errors
+    }
+
+    try {
+      const rulesRes = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/about/rules.json`);
+      if (rulesRes.ok) {
+        const rulesJson = await rulesRes.json();
+        const rulesArray = rulesJson?.rules ?? rulesJson?.data?.rules ?? [];
+        rules = Array.isArray(rulesArray)
+          ? rulesArray.map((r: any) => ({
+              short_name: r.short_name ?? r.shortName ?? r.shortname ?? (r.short ?? 'rule'),
+              description: r.description ?? r.short_description ?? '',
+            }))
+          : [];
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return c.json({
+      status: 'success',
+      liveYaml,
+      postFlairs,
+      userFlairs,
+      removalReasons,
+      moderators,
+      subredditName: sub,
+      subscribers,
+      rules,
+    });
+  } catch (error) {
+    console.error('[RuleStage] context fetch failed:', error);
+    return c.json({ status: 'error', message: 'Failed to fetch context' }, 500);
   }
 });

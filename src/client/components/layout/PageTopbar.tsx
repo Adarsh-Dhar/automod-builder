@@ -7,13 +7,15 @@ interface PageTopbarProps {
   ruleName: string;
   action: AutomodAction;
   saving: boolean;
+  publishing?: boolean;
   yaml: string;
   ruleCount: number;
   onReset: () => void;
   onActionChange: (action: AutomodAction) => void;
+  onPublish?: () => void;
 }
 
-export function PageTopbar({ ruleName, action, saving, yaml, ruleCount, onReset, onActionChange }: PageTopbarProps) {
+export function PageTopbar({ ruleName, action, saving, publishing, yaml, ruleCount, onReset, onActionChange, onPublish }: PageTopbarProps) {
   const actions: AutomodAction[] = ['remove', 'report', 'approve'];
   const [exportOpen, setExportOpen] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
@@ -103,6 +105,16 @@ export function PageTopbar({ ruleName, action, saving, yaml, ruleCount, onReset,
       <div className="flex items-center gap-1 sm:gap-2">
         {saving && (
           <RefreshCw className="w-4 h-4 text-[--muted-foreground] animate-spin shrink-0" />
+        )}
+        
+        {onPublish && (
+          <button
+            onClick={onPublish}
+            disabled={publishing || saving}
+            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {publishing ? 'Publishing…' : 'Publish to Wiki'}
+          </button>
         )}
         
         {/* Export Dropdown */}

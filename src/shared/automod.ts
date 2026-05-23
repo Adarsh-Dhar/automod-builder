@@ -561,3 +561,60 @@ export function describeCondition(condition: AutomodCondition): string {
 
   return `${CONDITION_FIELD_LABELS[condition.field]} ${condition.comparator} ${condition.value}`;
 }
+
+export type RichContext = {
+  subredditName: string;
+  subscribers: number;
+  rules: { short_name: string; description?: string }[];
+  liveYaml: string;
+  postFlairs: string[];
+  userFlairs: string[];
+  removalReasons: string[];
+  moderators: string[];
+  blastSummary?: string;
+};
+
+export function buildRichContextPrompt(ctx: RichContext): string {
+  const parts: string[] = [];
+
+  parts.push(`Subreddit: r/${ctx.subredditName} (${ctx.subscribers.toLocaleString()} subscribers)`);
+
+  if (ctx.rules.length > 0) {
+    parts.push('\nCommunity rules:');
+    ctx.rules.slice(0, 10).forEach((r) => {
+      parts.push(`- ${r.short_name}${r.description ? ': ' + r.description.slice(0, 120) : ''}`);
+    });
+  }
+
+  if (ctx.postFlairs.length > 0) {
+    parts.push(`\nAvailable post flairs: ${ctx.postFlairs.join(', ')}`);
+  }
+
+  if (ctx.userFlairs.length > 0) {
+    parts.push(`Available user flairs: ${ctx.userFlairs.join(', ')}`);
+  }
+
+  if (ctx.removalReasons.length > 0) {
+    parts.push('\nStandard removal reasons (use these verbatim in AutoMod comments):');
+    ctx.removalReasons.slice(0, 5).forEach((r) => parts.push(`- ${r}`));
+  }
+
+  if (ctx.liveYaml.trim()) {
+    // Send only the rule names from live YAML, not the full text, to save tokens
+    const ruleNames = ctx.liveYaml
+      .split('---')
+      .map((block) => block.match(/^#\s*(.+)$/m)?.[1]?.trim())
+      .filter(Boolean);
+    if (ruleNames.length > 0) {
+      parts.push(`\nExisting AutoMod rules (${ruleNames.length} total): ${ruleNames.join(', ')}`);
+    }
+    // Include full live YAML so agent can avoid conflicts
+    parts.push(`\nFull live AutoMod config:\n\`\`\`yaml\n${ctx.liveYaml.slice(0, 4000)}\n\`\`\``);
+  }
+
+  if (ctx.blastSummary) {
+    parts.push(`\nLast blast radius result: ${ctx.blastSummary}`);
+  }
+
+  return parts.join('\n');
+}

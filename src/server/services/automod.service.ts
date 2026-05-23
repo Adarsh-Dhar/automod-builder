@@ -40,31 +40,29 @@ function extractWikiContent(page: unknown): string {
 }
 
 export async function getCurrentRule(): Promise<AutomodRule> {
-  const raw = await redis.get(ruleStorageKey());
-
-  if (!raw) {
-    return DEFAULT_AUTOMOD_RULE;
+  try {
+    const liveYaml = await getLiveAutomodYaml(getSubredditKey());
+    if (liveYaml.trim()) {
+      return parseAutomodRuleDraft(liveYaml, DEFAULT_AUTOMOD_RULE);
+    }
+  } catch {
+    // fall through to Redis draft
   }
 
+  const raw = await redis.get(ruleStorageKey());
+  if (!raw) return DEFAULT_AUTOMOD_RULE;
   try {
-    const parsed = parseAutomodRuleDraft(raw, DEFAULT_AUTOMOD_RULE);
-
-    // Check if the saved rule is the old template (has "Rule draft" name)
-    if (parsed.name === 'Rule draft') {
-      // Return empty rule instead of template
-      return DEFAULT_AUTOMOD_RULE;
-    }
-
-    return parsed;
-  } catch (error) {
-    console.warn('[RuleStage] Failed to parse stored rule, using default.', error);
+    return parseAutomodRuleDraft(raw, DEFAULT_AUTOMOD_RULE);
+  } catch {
     return DEFAULT_AUTOMOD_RULE;
   }
 }
 
 export async function saveCurrentRule(rule: AutomodRule): Promise<AutomodRule> {
   const normalized = parseAutomodRuleDraft(serializeAutomodRule(rule), rule);
-  await redis.set(ruleStorageKey(), serializeAutomodRule(normalized));
+  const yaml = serializeAutomodRule(normalized);
+  await redis.set(ruleStorageKey(), yaml);     // keep Redis as draft cache
+  await pushYamlToWiki(yaml);                  // push to live wiki
   return normalized;
 }
 
@@ -108,6 +106,19 @@ export async function getLiveAutomodYaml(subredditName: string): Promise<string>
 
   const draft = await redis.get(ruleStorageKey());
   return draft?.trim() ? draft : serializeAutomodRule(DEFAULT_AUTOMOD_RULE);
+}
+
+export async function pushYamlToWiki(yaml: string): Promise<void> {
+  const subredditName = getSubredditKey();
+  if (!subredditName || subredditName === 'default') {
+    throw new Error('No subreddit context available');
+  }
+  await reddit.updateWikiPage({
+    subredditName,
+    page: 'config/automoderator',
+    content: yaml,
+    reason: 'Updated via AutoMod Builder app',
+  });
 }
 
 export async function resetRuleStageState(): Promise<AutomodRule> {
