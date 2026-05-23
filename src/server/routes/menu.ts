@@ -32,9 +32,11 @@ menu.post('/post-create', async (c) => {
  */
 menu.post('/rank-settings', async (c) => {
   try {
+    const post = await createPost();
+
     return c.json<UiResponse>(
       {
-        showToast: `Opening RuleStage on r/${context.subredditName}.`,
+        navigateTo: `https://reddit.com/r/${context.subredditName}/comments/${post.id}`,
       },
       200
     );
