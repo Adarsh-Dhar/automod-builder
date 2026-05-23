@@ -37,7 +37,11 @@ describe('generateChatReplyOnServer', () => {
     expect(response).toContain('# generated rule');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const firstCall = fetchMock.mock.calls[0] as [unknown, RequestInit] | undefined;
+    if (!firstCall || !firstCall[1]) {
+      throw new Error('fetchMock was not called correctly');
+    }
+    const requestInit = firstCall[1];
     const body = JSON.parse(String(requestInit.body)) as {
       contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>;
       generationConfig: { temperature: number; maxOutputTokens: number };

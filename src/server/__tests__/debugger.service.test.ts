@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getDebugInfo,
   getAllRulesFromYaml,
@@ -6,7 +6,7 @@ import {
   generateDebugAnalysis,
 } from '../services/debugger.service';
 import type { SimulationPost, AutomodRule } from '../../shared/automod';
-import type { DebugMatch, DebugResult } from '../../shared/debug-types';
+import type { DebugMatch } from '../../shared/debug-types';
 
 describe('DebuggerService', () => {
   let mockPost: SimulationPost;
@@ -334,7 +334,7 @@ conditions:
       const matches = getDebugMatchesForPost(legitimatePost, [spamKeywordRule]);
 
       expect(matches.length).toBeGreaterThan(0);
-      expect(matches[0].ruleName).toBe('Spam keyword filter');
+      expect(matches[0]?.ruleName).toBe('Spam keyword filter');
     });
 
     it('should debug a complex multi-condition rule', () => {
@@ -358,7 +358,7 @@ conditions:
       const matches = getDebugMatchesForPost(mockPost, [complexRule]);
 
       if (matches.length > 0) {
-        expect(matches[0].matchedCondition).toBeDefined();
+        expect(matches[0]?.matchedCondition).toBeDefined();
       }
     });
 
@@ -376,7 +376,10 @@ conditions:
   describe('Edge cases and error handling', () => {
     it('should handle regex patterns in conditions', () => {
       const regexRule: AutomodRule = {
-        ...mockRules[0],
+        id: 'regex_rule',
+        name: 'Regex rule',
+        type: 'submission',
+        enabled: true,
         conditions: [
           {
             field: 'title',
@@ -384,6 +387,11 @@ conditions:
             value: '^(buy|sell).*crypto',
           },
         ],
+        satisfyAnyThreshold: false,
+        action: 'remove',
+        comment: '',
+        commentStickied: false,
+        modmail: '',
       };
 
       const matches = getDebugMatchesForPost(mockPost, [regexRule]);
@@ -414,8 +422,16 @@ conditions:
 
     it('should handle disabled rules', () => {
       const disabledRule: AutomodRule = {
-        ...mockRules[0],
+        id: 'disabled_rule',
+        name: 'Disabled rule',
+        type: 'submission',
         enabled: false,
+        conditions: mockRules[0]?.conditions ?? [],
+        satisfyAnyThreshold: false,
+        action: 'remove',
+        comment: '',
+        commentStickied: false,
+        modmail: '',
       };
 
       const matches = getDebugMatchesForPost(mockPost, [disabledRule]);
@@ -441,10 +457,17 @@ conditions:
 
   describe('Performance', () => {
     it('should handle large rule sets efficiently', () => {
-      const largeRuleSet = Array.from({ length: 100 }, (_, i) => ({
-        ...mockRules[0],
+      const largeRuleSet: AutomodRule[] = Array.from({ length: 100 }, (_, i) => ({
         id: `rule_${i}`,
         name: `Rule ${i}`,
+        type: 'submission',
+        enabled: true,
+        conditions: mockRules[0]?.conditions ?? [],
+        satisfyAnyThreshold: false,
+        action: 'remove',
+        comment: '',
+        commentStickied: false,
+        modmail: '',
       }));
 
       const startTime = performance.now();

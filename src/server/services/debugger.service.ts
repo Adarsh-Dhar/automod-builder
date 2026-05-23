@@ -215,7 +215,8 @@ function mapCondition(condition: AutomodCondition): DebugCondition {
 }
 
 export async function runDebug(postId: string, subredditName?: string): Promise<DebugResponse> {
-  const rawPost = (await reddit.getPostById(postId)) as RedditPost | null;
+  const normalizedPostId = (postId.startsWith('t3_') ? postId : `t3_${postId}`) as `t3_${string}`;
+  const rawPost = (await reddit.getPostById(normalizedPostId)) as RedditPost | null;
   const post = normalizePost(rawPost ?? {}, postId);
   const liveYaml = await getLiveAutomodYaml(subredditName ?? '');
   const blocks = splitAutomodBlocks(liveYaml);
@@ -236,6 +237,7 @@ export async function runDebug(postId: string, subredditName?: string): Promise<
     }
 
     const matchedCondition = findMatchedCondition(rule, post) ?? rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0];
+    if (!matchedCondition) continue;
 
     matches.push({
       ruleName: rule.name,
@@ -416,6 +418,7 @@ export function getDebugMatchesForPost(post: SimulationPost, rules: AutomodRule[
     if (evaluation.matched <= 0) continue;
 
     const matchedCondition = findMatchedCondition(rule, safePost) ?? rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0];
+    if (!matchedCondition) continue;
 
     matches.push({
       ruleName: rule.name,

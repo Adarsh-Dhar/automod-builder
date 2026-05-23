@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('End-to-End Feature Tests', () => {
   describe('Blast Radius Simulator - Complete Workflow', () => {
@@ -26,31 +26,6 @@ describe('End-to-End Feature Tests', () => {
         commentStickied: false,
         modmail: 'Spam: {{permalink}}',
       };
-
-      const cachedPosts = [
-        {
-          id: 'post_1',
-          title: 'Amazing Bitcoin opportunity!',
-          body: 'Click here to invest',
-          author: 'spammer_bot',
-          accountAgeDays: 2,
-          combinedKarma: 5,
-          createdAt: Date.now() / 1000,
-          isSpam: true,
-          wasRemoved: false,
-        },
-        {
-          id: 'post_2',
-          title: 'Discussion about cryptocurrency technology',
-          body: 'Technical analysis of blockchain',
-          author: 'expert_user',
-          accountAgeDays: 365,
-          combinedKarma: 50000,
-          createdAt: Date.now() / 1000,
-          isSpam: false,
-          wasRemoved: false,
-        },
-      ];
 
       const expectedResult = {
         ruleName: 'Crypto spam detector',
@@ -105,12 +80,6 @@ describe('End-to-End Feature Tests', () => {
 
   describe('Obfuscation Decoder - Complete Workflow', () => {
     it('should identify spam campaign and generate regex', async () => {
-      const spamExamples: [string, string, string] = [
-        'Get ƒREE Bitcoin now!!!',
-        'Claim your FREE Bitco!n today',
-        'FREE B1TC01N waiting for you',
-      ];
-
       const expectedAnalysis = {
         tricks: [
           'homoglyph',
@@ -130,12 +99,6 @@ describe('End-to-End Feature Tests', () => {
     });
 
     it('should detect multiple obfuscation layers', () => {
-      const complexSpamExamples: [string, string, string] = [
-        '🚀 G3T r1ch qu1ck!',
-        'M4k3 M0n3y FAST!!!',
-        '💰 E4rn $$$ N0W',
-      ];
-
       const expectedTricks = [
         'mixed-script',
         'look-alike',
@@ -150,12 +113,6 @@ describe('End-to-End Feature Tests', () => {
     });
 
     it('should handle zero-width character obfuscation', () => {
-      const advancedSpam: [string, string, string] = [
-        'FREE​​MONEY',
-        'Get_Rich‌Now',
-        'C​rypto​Deal',
-      ];
-
       const expectedAnalysis = {
         tricks: ['zero-width'],
         explanation: 'Contains invisible Unicode characters to bypass filters',
@@ -168,15 +125,6 @@ describe('End-to-End Feature Tests', () => {
 
   describe('Debugger - Complete Workflow', () => {
     it('should debug why legitimate post was removed', () => {
-      const legitimatePost = {
-        id: 'post_abc123',
-        title: 'How to avoid spam techniques',
-        body: 'Learn about cryptocurrency security best practices',
-        author: 'security_expert',
-        accountAgeDays: 500,
-        combinedKarma: 15000,
-      };
-
       const matchedRules = [
         {
           ruleName: 'Crypto spam filter',
@@ -202,20 +150,11 @@ describe('End-to-End Feature Tests', () => {
 
       expect(suggestedFix.fixedYaml).toBeTruthy();
       expect(suggestedFix.fixedYaml.length).toBeGreaterThan(
-        matchedRules[0].rawYaml.length
+        matchedRules[0]?.rawYaml.length ?? 0
       );
     });
 
     it('should show all matching rules for a complex post', () => {
-      const complexPost = {
-        id: 'post_xyz',
-        title: 'Check out this new crypto investment',
-        body: 'Limited offer, act now',
-        author: 'new_user',
-        accountAgeDays: 3,
-        combinedKarma: 10,
-      };
-
       const allMatches = [
         {
           ruleName: 'Crypto spam filter',
@@ -274,9 +213,6 @@ describe('End-to-End Feature Tests', () => {
 
   describe('TypeScript Escape Hatch - Complete Workflow', () => {
     it('should generate custom trigger for unsupported requirement', () => {
-      const requirement =
-        'Check if user email domain is in our approved corporate email list before allowing posts';
-
       const analysis = {
         hasLimitation: true,
         limitation: 'database-check',
@@ -325,9 +261,6 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
     });
 
     it('should provide fallback template for common patterns', () => {
-      const request =
-        'Check Redis database for users on the ban list';
-
       const templateMatch = {
         limitation: 'database-check',
         template: 'Redis Ban Check',
@@ -380,8 +313,6 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
     });
 
     it('should help moderator transition from YAML to TypeScript', () => {
-      const question = 'Check if the post URL is in a database of blocked domains';
-
       const response = {
         canYamlDo: false,
         explanation:
@@ -433,16 +364,7 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
     });
 
     it('should prevent spam ring detection with combined tools', () => {
-      const spamExamples: [string, string, string] = [
-        'Spam example 1',
-        'Spam example 2',
-        'Spam example 3',
-      ];
-
-      const escapeHatchRequest =
-        'Check if multiple accounts have same IP address or device fingerprint';
-
-      expect(spamExamples.length).toBe(3);
+      expect(true).toBe(true);
     });
   });
 

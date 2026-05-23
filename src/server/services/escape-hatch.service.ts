@@ -9,16 +9,6 @@ import {
 import { getEscapeHatchTemplate } from '../templates/escape-hatch-templates';
 import { generateJson } from './model-proxy.service';
 
-type GeminiContentPart = {
-  text?: string;
-};
-
-type GeminiCandidate = {
-  content?: {
-    parts?: GeminiContentPart[];
-  };
-};
-
 type LimitationDetectionResult = {
   hasLimitation: boolean;
   limitation: YamlLimitation | null;
@@ -36,20 +26,6 @@ type CodeGenerationResult = {
 type ModContext = {
   subredditName?: string;
 };
-
-function stripCodeFences(text: string): string {
-  const trimmed = text.trim();
-  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fencedMatch?.[1]?.trim() ?? trimmed;
-}
-
-function getGeminiUrl(apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-}
-
-function extractModelText(data: { candidates?: GeminiCandidate[] }): string {
-  return data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim() ?? '';
-}
 
 // model-proxy.generateJson is used directly below (imported at top)
 

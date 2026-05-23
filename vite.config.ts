@@ -21,8 +21,8 @@ const stripUseClientPlugin = {
 
 const rewriteRelativeHtmlAssetsPlugin = {
   name: 'rewrite-relative-html-assets',
-  enforce: 'post',
-  transformIndexHtml(html) {
+  enforce: 'post' as const,
+  transformIndexHtml(html: string) {
     return html
       .replace(/(src|href)="\/(default|game|index)\.(js|css)"/g, '$1="./$2.$3"')
       .replace(/(src|href)="\/(assets\/[^\"]+)"/g, '$1="./$2"');
@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: mode === 'production' ? './' : '/',
     experimental: {
-      renderBuiltUrl(filename, { hostType, type }) {
+      renderBuiltUrl(_filename, { hostType, type }) {
         if (hostType === 'html' && (type === 'asset' || type === 'public')) {
           return { relative: true };
         }

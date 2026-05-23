@@ -9,18 +9,33 @@ export type AutomodConditionType =
   | 'url_regex'
   | 'is_top_level';
 
+export type ExtConditionType = AutomodConditionType |
+  'combined_karma'
+  | 'author_flair'
+  | 'crosspost_subreddit'
+  | 'post_type'
+  | 'link_flair'
+  | 'num_comments';
+
 export type AutomodActionType = 'remove' | 'spam' | 'approve' | 'report' | 'lock' | 'set_flair';
+
+export type ExtActionType = AutomodActionType |
+  'add_moderator_report'
+  | 'set_suggested_sort'
+  | 'reply'
+  | 'ignore_reports'
+  | 'stickied';
 
 export type AutomodCondition = {
   id: string;
-  type: AutomodConditionType;
+  type: ExtConditionType;
   operator: '<' | '<=' | '>' | '>=' | '==';
   value: string;
 };
 
 export type AutomodAction = {
   id: string;
-  type: AutomodActionType;
+  type: ExtActionType;
   value?: string;
 };
 
@@ -39,7 +54,7 @@ export type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
-  debugResult?: import('../../shared/debug-types').DebugResponse;
+  debugResult?: any;
 };
 
 export type SimulationResult = {

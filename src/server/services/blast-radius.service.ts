@@ -8,7 +8,7 @@ function getCacheKey(): string {
   return `${BLAST_CACHE_KEY}:${context.subredditName ?? 'default'}`;
 }
 
-function parseCachedPosts(raw: string | null): CachedPost[] {
+function parseCachedPosts(raw: string | null | undefined): CachedPost[] {
   if (!raw) {
     return [];
   }

@@ -21,7 +21,7 @@ function getBlastCacheKey(): string {
   return `blast:posts:${context.subredditName ?? 'default'}`;
 }
 
-function parseCachedPosts(raw: string | null): CachedPost[] {
+function parseCachedPosts(raw: string | null | undefined): CachedPost[] {
   if (!raw) {
     return [];
   }

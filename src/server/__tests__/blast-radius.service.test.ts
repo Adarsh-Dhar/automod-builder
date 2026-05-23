@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   calculateBlastRadius,
   evaluateRuleAgainstCachedPosts,
   formatBlastRadiusResult,
 } from '../services/blast-radius.service';
-import type { BlastRadiusResult, CachedPost } from '../../shared/blast-types';
+import type { CachedPost } from '../../shared/blast-types';
 import type { AutomodRule } from '../../shared/automod';
 
 describe('BlastRadiusService', () => {

@@ -108,8 +108,8 @@ describe('Shared Utilities Tests', () => {
       it('should include matched rule information', () => {
         const prompt = buildDebugPrompt(mockPost, mockMatches);
 
-        expect(prompt).toContain(mockMatches[0].ruleName);
-        expect(prompt).toContain(mockMatches[0].rawYaml);
+        expect(prompt).toContain(mockMatches[0]?.ruleName);
+        expect(prompt).toContain(mockMatches[0]?.rawYaml);
       });
 
       it('should request JSON output for fix suggestions', () => {

@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   analyzeYamlLimitation,
   generateEscapeHatchTrigger,
   getRuleStageModContext,
 } from '../services/escape-hatch.service';
-import type { YamlLimitationAnalysis, EscapeHatchCode } from '../../shared/automod';
 
 // Mock Gemini API
 vi.mock('node-fetch', () => ({

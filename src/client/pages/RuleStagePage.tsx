@@ -22,6 +22,7 @@ import {
   type AutomodCondition,
   type AutomodRule,
   type RuleStageMode,
+  type YamlLimitation,
 } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
 
@@ -29,15 +30,6 @@ type RuleStageInitResponse = {
   status: 'success';
   rule: AutomodRule;
   simulation: ReturnType<typeof evaluateRule>;
-};
-
-const modeMeta: Record<RuleStageMode, { label: string; helper: string }> = {
-  code: { label: 'Code', helper: 'Edit raw YAML and keep the rule source of truth in sync.' },
-  drag: { label: 'Drag', helper: 'Tweak the rule as blocks and thresholds without leaving the builder.' },
-  chat: { label: 'Chat', helper: 'Ask for a rule rewrite and apply the AI suggestion to the same rule.' },
-  decoder: { label: 'Decoder', helper: 'Feed 3 spam examples; get a Regex that traps the campaign.' },
-  'escape-hatch': { label: 'Escape Hatch', helper: 'When AutoMod cannot handle it, generate a custom TypeScript trigger.' },
-  debug: { label: 'Debugger', helper: 'Inspect a specific post and get suggested YAML fixes.' },
 };
 
 type ChatMessage = {
@@ -72,7 +64,7 @@ function updateConditionValue(rule: AutomodRule, field: AutomodCondition['field'
 function getConditionSafely(rule: AutomodRule, index: number): AutomodCondition {
   const fallback: AutomodCondition = {
     field: 'title',
-    operator: 'contains',
+    comparator: 'includes',
     value: '',
   };
   return (rule.conditions[index] || DEFAULT_AUTOMOD_RULE.conditions[index] || fallback) as AutomodCondition;
@@ -445,7 +437,7 @@ export function RuleStagePage() {
                       status: 'success';
                       limitation: {
                         hasLimitation: boolean;
-                        limitation: string | null;
+                        limitation: YamlLimitation | null;
                         explanation: string;
                         recommendation: 'yaml' | 'typescript';
                       };

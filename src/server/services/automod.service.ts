@@ -96,7 +96,7 @@ export async function runSimulation(rule?: AutomodRule) {
 
 export async function getLiveAutomodYaml(subredditName: string): Promise<string> {
   try {
-    const wikiPage = await reddit.getWikiPage({ subredditName, page: 'config/automoderator' });
+    const wikiPage = await reddit.getWikiPage(subredditName, 'config/automoderator');
     const liveYaml = extractWikiContent(wikiPage);
 
     if (liveYaml.trim()) {

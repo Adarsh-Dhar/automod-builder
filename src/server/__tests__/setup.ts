@@ -24,7 +24,7 @@ if (typeof (globalThis as any).performance === 'undefined') {
 }
 
 // Mock global fetch (Gemini API) to avoid network calls in tests.
-vi.stubGlobal('fetch', vi.fn(async (url: string, options: any) => {
+vi.stubGlobal('fetch', vi.fn(async (_url: string, options: any) => {
   const body = options?.body ? JSON.parse(options.body) : null;
   const promptText = body?.contents?.[0]?.parts?.[0]?.text ?? '';
   const lower = String(promptText).toLowerCase();

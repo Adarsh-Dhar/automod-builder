@@ -501,7 +501,6 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
     const karmaMatch = karmaCondition ? matchesNumericCondition(karmaCondition, post.combinedKarma) : false;
 
     const textConditions = [titleCondition, bodyCondition].filter((condition): condition is AutomodCondition => !!condition);
-    const numericConditions = [accountAgeCondition, karmaCondition].filter((condition): condition is AutomodCondition => !!condition);
 
     const textMatch = textConditions.length === 0 ? true : (!titleCondition || titleMatch) && (!bodyCondition || bodyMatch);
 

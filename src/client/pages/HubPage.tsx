@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import type { RankProfile, RankLevel, ProgressRequirement, RankThresholdConfig } from '../../shared/rank-types';
+import type { RankProfile, RankLevel, ProgressRequirement } from '../../shared/rank-types';
 import { LEVEL_BADGES, LEVEL_NAMES } from '../../shared/rank-types';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { useToast } from '../hooks/use-toast';
-import { ModSettingsModal } from '../components/ModSettingsModal';
+// import { ModSettingsModal } from '../components/ModSettingsModal';
 
 interface HubPageProps {
   onNavigate: (page: string) => void;
@@ -29,9 +29,9 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
   const { toast } = useToast();
 
   // Fetch initial profile
-  const [isModerator, setIsModerator] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [modSettings, setModSettings] = useState<RankThresholdConfig | null>(null);
+  // const [isModerator, setIsModerator] = useState(false);
+  // const [settingsOpen, setSettingsOpen] = useState(false);
+  // const [modSettings, setModSettings] = useState<RankThresholdConfig | null>(null);
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -53,15 +53,15 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
           setProgress(data.progress);
         }
         // also fetch general init to determine moderator status
-        try {
-          const initResp = await fetch('/api/init');
-          if (initResp.ok) {
-            const initData = await initResp.json();
-            setIsModerator(Boolean(initData.isModerator));
-          }
-        } catch (err) {
-          console.warn('Failed to fetch moderator status', err);
-        }
+        // try {
+        //   const initResp = await fetch('/api/init');
+        //   if (initResp.ok) {
+        //     const initData = await initResp.json();
+        //     setIsModerator(Boolean(initData.isModerator));
+        //   }
+        // } catch (err) {
+        //   console.warn('Failed to fetch moderator status', err);
+        // }
       } catch (error) {
         console.error('Error fetching profile:', error);
         toast({
@@ -207,7 +207,7 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Community Passport</h1>
           <div className="flex items-center gap-2">
-            {isModerator && (
+            {/* {isModerator && (
               <Button variant="ghost" size="sm" onClick={async () => {
                 setSettingsOpen(true);
                 try {
@@ -220,7 +220,7 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
                   console.warn('Failed to load mod settings', err);
                 }
               }}>⚙️</Button>
-            )}
+            )} */}
             <Button
               variant="ghost"
               size="sm"
@@ -324,14 +324,14 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
           </div>
         </div>
       </Card>
-        {settingsOpen && (
+        {/* {settingsOpen && (
           <ModSettingsModal
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
             currentSettings={modSettings}
             onSettingsUpdated={(s) => setModSettings(s)}
           />
-        )}
+        )} */}
     </div>
   );
 }
