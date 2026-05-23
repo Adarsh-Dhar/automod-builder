@@ -243,92 +243,6 @@ conditions:
     });
   });
 
-  describe('POST /api/rule-stage/escape-hatch/analyze', () => {
-    it('should accept moderation requirement description', async () => {
-      const payload = {
-        request: 'Check if user is in our banned database',
-      };
-
-      expect(payload.request).toBeTruthy();
-      expect(typeof payload.request).toBe('string');
-    });
-
-    it('should return limitation analysis', async () => {
-      const expectedResponse = {
-        status: 'success',
-        limitation: {
-          hasLimitation: true,
-          limitation: 'database-check',
-          explanation: 'AutoModerator cannot query databases natively',
-          recommendation: 'typescript',
-        },
-        escapeHatch: {
-          triggerCode: 'export const onPostSubmit = async (...) => { ... }',
-          description: 'Check user against Redis ban list',
-          limitations: ['Requires Redis access'],
-          installationSteps: ['1. Copy code', '2. Create file', '3. Deploy'],
-          confidence: 'high',
-        },
-      };
-
-      expect(expectedResponse.limitation).toHaveProperty('hasLimitation');
-      expect(expectedResponse.limitation).toHaveProperty('recommendation');
-    });
-
-    it('should return null escapeHatch if YAML capable', async () => {
-      const response = {
-        status: 'success',
-        limitation: {
-          hasLimitation: false,
-          limitation: null,
-          explanation: 'YAML can handle this',
-          recommendation: 'yaml',
-        },
-        escapeHatch: null,
-      };
-
-      expect(response.escapeHatch).toBeNull();
-    });
-
-    it('should generate TypeScript code when needed', async () => {
-      const response = {
-        status: 'success',
-        limitation: {
-          hasLimitation: true,
-          limitation: 'external-api',
-          explanation: '',
-          recommendation: 'typescript',
-        },
-        escapeHatch: {
-          triggerCode: 'export const onPostSubmit = async (...) => { ... }',
-          description: '',
-          limitations: [],
-          installationSteps: [],
-          confidence: 'high',
-        },
-      };
-
-      expect(response.escapeHatch).not.toBeNull();
-      expect(response.escapeHatch?.triggerCode).toContain('onPostSubmit');
-    });
-
-    it('should validate request is not empty', async () => {
-      const emptyRequest = { request: '' };
-      expect(emptyRequest.request).toBeFalsy();
-
-      const validRequest = { request: 'Check database' };
-      expect(validRequest.request).toBeTruthy();
-    });
-
-    it('should handle long requests', async () => {
-      const longRequest = {
-        request: 'a'.repeat(5000),
-      };
-
-      expect(longRequest.request.length).toBeGreaterThan(1000);
-    });
-  });
-
   describe('POST /api/rule-stage/chat', () => {
     it('should accept chat prompt payload', async () => {
       const payload = {
@@ -481,7 +395,6 @@ conditions:
         '/api/rule-stage/blast/analyze',
         '/api/rule-stage/decoder/analyze',
         '/api/rule-stage/debug',
-        '/api/rule-stage/escape-hatch/analyze',
       ];
 
       endpoints.forEach((endpoint) => {

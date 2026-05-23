@@ -3,12 +3,12 @@ import { context, redis, reddit } from '@devvit/web/server';
 import {
   DEFAULT_AUTOMOD_RULE,
   buildDebugPrompt,
-  type EscapeHatchCode,
+  buildUnifiedAnalysisPrompt,
+  type UnifiedAnalysis,
 } from '../../shared/automod';
 import type { DebugResponse, MockPostDebugRequest } from '../../shared/debug-types';
 import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
-import { analyzeYamlLimitation, generateEscapeHatchTrigger, getRuleStageModContext } from '../services/escape-hatch.service';
 import { generateText, generateJson } from '../services/model-proxy.service';
 import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule } from '../services/automod.service';
 
@@ -235,30 +235,58 @@ ruleStage.post('/chat', async (c) => {
   }
 });
 
-ruleStage.post('/escape-hatch/analyze', async (c) => {
+ruleStage.post('/chat-unified', async (c) => {
   try {
-    const body = (await c.req.json().catch(() => null)) as { request?: unknown } | null;
-    const request = typeof body?.request === 'string' ? body.request.trim() : '';
+    const body = await c.req.json().catch(() => null) as {
+      prompt?: unknown;
+      history?: unknown;
+      subredditContext?: unknown;
+    } | null;
 
-    if (!request) {
-      return c.json({ status: 'error', message: 'Request description is required' }, 400);
+    const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
+    const historyInput = Array.isArray(body?.history) ? body.history : [];
+    const subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
+
+    if (!prompt) {
+      return c.json({ status: 'error', message: 'Prompt is required' }, 400);
     }
 
-    const limitation = await analyzeYamlLimitation(request);
-    let escapeHatch: EscapeHatchCode | null = null;
+    // Step 1: Analyze whether this needs YAML, TypeScript, or both
+    const analysis = await generateJson<UnifiedAnalysis>(
+      buildUnifiedAnalysisPrompt(prompt),
+      512
+    );
 
-    if (limitation.hasLimitation) {
-      escapeHatch = await generateEscapeHatchTrigger(request, getRuleStageModContext(), limitation);
+    const history = historyInput
+      .filter((e): e is { role: unknown; content: unknown } => !!e && typeof e === 'object')
+      .map((e) => ({
+        role: (e.role === 'model' ? 'model' : 'user') as 'user' | 'model',
+        content: typeof e.content === 'string' ? e.content : '',
+      }))
+      .filter((e) => e.content.trim().length > 0)
+      .slice(-20);
+
+    // Step 2: Generate YAML if needed
+    let yamlResponse: string | null = null;
+    if (analysis.needsYaml) {
+      const yamlPrompt = analysis.needsTypeScript
+        ? `${prompt}\n\nNote: Only generate the YAML portion. The part requiring code will be handled separately: ${analysis.typescriptPart}`
+        : prompt;
+      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext);
     }
+
+    // Step 3: Generate TypeScript trigger if needed (disabled - escape-hatch removed)
+    // TypeScript trigger generation has been removed along with Advanced Mode
 
     return c.json({
       status: 'success',
-      limitation,
-      escapeHatch,
+      analysis,
+      yamlResponse,
+      escapeHatch: null,
     });
   } catch (error) {
-    console.error('[RuleStage] escape-hatch analyze failed:', error);
-    return c.json({ status: 'error', message: 'Failed to analyze request' }, 500);
+    console.error('[RuleStage] chat-unified failed:', error);
+    return c.json({ status: 'error', message: 'Failed to process unified request' }, 500);
   }
 });
 

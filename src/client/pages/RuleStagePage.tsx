@@ -1,6 +1,5 @@
 import { useInit } from '../contexts/init-context';
 import ChatMode from '../components/ChatMode';
-import EscapeHatchMode from '../components/EscapeHatchMode';
 import DebuggerMode from '../components/DebuggerMode';
 import { useEffect, useState } from 'react';
 import { Textarea } from '../components/ui/textarea';
@@ -294,42 +293,6 @@ export function RuleStagePage() {
                     contextYaml={draft}
                   />
                 </div>
-              )}
-
-              {mode === 'escape-hatch' && (
-                <EscapeHatchMode
-                  loading={loading}
-                  onAnalyze={async (request: string) => {
-                    const response = await fetch('/api/rule-stage/escape-hatch/analyze', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ request }),
-                    });
-
-                    if (!response.ok) {
-                      throw new Error('Failed to analyze request');
-                    }
-
-                    return (await response.json()) as {
-                      status: 'success';
-                      limitation: {
-                        hasLimitation: boolean;
-                        limitation: YamlLimitation | null;
-                        explanation: string;
-                        recommendation: 'yaml' | 'typescript';
-                      };
-                      escapeHatch: {
-                        triggerCode: string;
-                        description: string;
-                        limitations: string[];
-                        installationSteps: string[];
-                        confidence: 'high' | 'medium' | 'low';
-                      } | null;
-                    };
-                  }}
-                />
               )}
             </>
           )}

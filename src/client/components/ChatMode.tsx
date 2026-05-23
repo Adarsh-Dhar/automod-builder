@@ -7,6 +7,27 @@ import type { DebugResponse } from '../../shared/debug-types';
 import DebugResultCard from './DebugResultCard';
 import { formatDebugMessage, parsePostId } from '../utils/debug';
 
+type EscapeHatchResult = {
+  triggerCode: string;
+  description: string;
+  limitations: string[];
+  installationSteps: string[];
+  confidence: 'high' | 'medium' | 'low';
+};
+
+type UnifiedResponse = {
+  status: 'success';
+  analysis: {
+    needsYaml: boolean;
+    needsTypeScript: boolean;
+    yamlPart: string;
+    typescriptPart: string;
+    explanation: string;
+  };
+  yamlResponse: string | null;
+  escapeHatch: EscapeHatchResult | null;
+};
+
 interface ChatModeProps {
   ast: AutomodAST;
   messages: ChatMessage[];
@@ -73,6 +94,55 @@ function formatBlastMessage(result: BlastRadiusResult): string {
   ].join('\n\n');
 }
 
+function TypeScriptTriggerCard({ escapeHatch }: { escapeHatch: EscapeHatchResult }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(escapeHatch.triggerCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-[rgba(255,200,0,0.2)] bg-[#1E192B]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(255,255,255,0.08)]">
+        <span className="text-xs font-medium text-[#F5C842]">
+          ⚡ TypeScript Trigger Required
+        </span>
+        <span className={`text-xs px-2 py-0.5 rounded-full border ${
+          escapeHatch.confidence === 'high'
+            ? 'bg-green-500/15 text-green-400 border-green-500/25'
+            : escapeHatch.confidence === 'medium'
+            ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25'
+            : 'bg-red-500/15 text-red-400 border-red-500/25'
+        }`}>
+          {escapeHatch.confidence} confidence
+        </span>
+      </div>
+      <div className="p-3">
+        <p className="text-xs text-[#8B7FA8] mb-2">{escapeHatch.description}</p>
+        <pre className="max-h-48 overflow-auto rounded-lg bg-[#16121F] p-3 font-mono text-xs leading-5 text-[#EDE8F5]">
+          {escapeHatch.triggerCode}
+        </pre>
+        <button
+          onClick={handleCopy}
+          className="mt-2 text-xs text-[#F5C842] hover:text-[#F5C842]/80 transition-colors"
+        >
+          {copied ? '✓ Copied' : 'Copy trigger code'}
+        </button>
+        {escapeHatch.limitations.length > 0 && (
+          <div className="mt-2 text-xs text-[#8B7FA8]">
+            <p className="font-medium mb-1">Limitations:</p>
+            {escapeHatch.limitations.map((l, i) => (
+              <p key={i}>— {l}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({
   msg,
   onApply,
@@ -112,6 +182,27 @@ function MessageBubble({
   // Don't render the message at all if it contains template YAML
   if (hasTemplateYaml && !hasRealYaml && !hasRealDebugYaml) {
     return null;
+  }
+
+  // Render escape hatch card if present
+  if (msg.escapeHatch) {
+    return (
+      <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            msg.role === 'user'
+              ? 'bg-gradient-to-br from-purple-400 to-pink-400 text-white'
+              : 'bg-[#1E192B] border border-[rgba(255,255,255,0.08)] text-[#EDE8F5] shadow-sm'
+          }`}
+        >
+          {msg.role === 'user' ? '👤' : '✳'}
+        </div>
+        <div className="max-w-[85%] sm:max-w-[82%]">
+          <TypeScriptTriggerCard escapeHatch={msg.escapeHatch} />
+          <div className="mt-1.5 text-[10px] text-[#8B7FA8]">{new Date(msg.timestamp).toLocaleTimeString()}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -195,7 +286,6 @@ export default function ChatMode({
   const [error, setError] = useState<string | null>(null);
   const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
   const [subredditContext, setSubredditContext] = useState('');
-  const [blastContext, setBlastContext] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -331,7 +421,7 @@ export default function ChatMode({
         contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
       }
 
-      const chatResponse = await fetch('/api/rule-stage/chat', {
+      const chatResponse = await fetch('/api/rule-stage/chat-unified', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -340,7 +430,6 @@ export default function ChatMode({
           prompt: contextual,
           history,
           subredditContext,
-          blastContext,
         }),
       });
 
@@ -349,48 +438,67 @@ export default function ChatMode({
         throw new Error(payload?.message || 'Failed to fetch chat response');
       }
 
-      const chatData = (await chatResponse.json()) as { status: 'success'; response: string };
-      const response = chatData.response;
+      const unified = await chatResponse.json() as UnifiedResponse;
 
-      onAddMessage({
-        id: genId(),
-        role: 'assistant',
-        content: response,
-        timestamp: Date.now(),
-      });
+      // Show YAML response if present
+      if (unified.yamlResponse) {
+        const msgId = genId();
+        onAddMessage({
+          id: msgId,
+          role: 'assistant',
+          content: unified.yamlResponse,
+          timestamp: Date.now(),
+        });
 
-      const yamlInReply = extractYamlBlock(response);
-      if (yamlInReply) {
-        try {
-          const parsedRule = parseAutomodRuleDraft(yamlInReply, DEFAULT_AUTOMOD_RULE);
-          const blastResponse = await fetch('/api/rule-stage/blast', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ rule: parsedRule }),
-          });
+        // Run blast radius on the YAML as before
+        const yamlInReply = extractYamlBlock(unified.yamlResponse);
+        if (yamlInReply) {
+          try {
+            const parsedRule = parseAutomodRuleDraft(yamlInReply, DEFAULT_AUTOMOD_RULE);
+            const blastResponse = await fetch('/api/rule-stage/blast', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ rule: parsedRule }),
+            });
 
-          if (blastResponse.ok) {
-            const blastData = (await blastResponse.json()) as { status: 'success'; blast: BlastRadiusResult };
-            if (blastData.status === 'success') {
-              const blastSummary = blastData.blast.totalTested > 0
-                ? `catch rate ${(blastData.blast.catchRate * 100).toFixed(0)}%, false positive rate ${(blastData.blast.falsePositiveRate * 100).toFixed(0)}% on ${blastData.blast.totalTested} posts`
-                : null;
-              if (blastSummary) {
-                setBlastContext(blastSummary);
+            if (blastResponse.ok) {
+              const blastData = (await blastResponse.json()) as { status: 'success'; blast: BlastRadiusResult };
+              if (blastData.status === 'success') {
+                onAddMessage({
+                  id: genId(),
+                  role: 'assistant',
+                  content: formatBlastMessage(blastData.blast),
+                  timestamp: Date.now(),
+                });
               }
-              onAddMessage({
-                id: genId(),
-                role: 'assistant',
-                content: formatBlastMessage(blastData.blast),
-                timestamp: Date.now(),
-              });
             }
+          } catch (blastError) {
+            console.warn('Blast Radius backtest failed:', blastError);
           }
-        } catch (blastError) {
-          console.warn('Blast Radius backtest failed:', blastError);
         }
+      }
+
+      // Show TypeScript trigger inline if present
+      if (unified.escapeHatch) {
+        onAddMessage({
+          id: genId(),
+          role: 'assistant',
+          content: '__escape_hatch__',
+          timestamp: Date.now(),
+          escapeHatch: unified.escapeHatch,
+        });
+      }
+
+      // If only TypeScript needed (no YAML), show a note explaining why
+      if (!unified.analysis.needsYaml && unified.escapeHatch) {
+        onAddMessage({
+          id: genId(),
+          role: 'assistant',
+          content: `ℹ️ This requirement cannot be handled by AutoMod YAML. ${unified.analysis.explanation} A TypeScript trigger has been generated above — deploy it via \`npm run deploy\`.`,
+          timestamp: Date.now(),
+        });
       }
     } catch (caughtError) {
       setError((caughtError as Error).message);

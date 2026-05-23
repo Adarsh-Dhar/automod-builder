@@ -55,6 +55,13 @@ export type ChatMessage = {
   content: string;
   timestamp: number;
   debugResult?: any;
+  escapeHatch?: {
+    triggerCode: string;
+    description: string;
+    limitations: string[];
+    installationSteps: string[];
+    confidence: 'high' | 'medium' | 'low';
+  };
 };
 
 export type SimulationResult = {
