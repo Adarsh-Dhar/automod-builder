@@ -15,7 +15,10 @@
     "prettier": "prettier --write .",
     "test": "vitest run",
     "test:all": "vitest -c vitest.config.integration.ts run",
-    "type-check": "tsc --build"
+    "type-check": "tsc --build",
+    "test:context": "vitest src/server/__tests__/context-integration.test.ts",
+    "test:context:watch": "vitest src/server/__tests__/context-integration.test.ts --watch",
+    "test:context:coverage": "vitest src/server/__tests__/context-integration.test.ts --coverage"
   },
   "engines": {
     "node": ">=22.2.0"
