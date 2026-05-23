@@ -29,6 +29,21 @@ function toSimulationPost(post: CachedPost): SimulationPost {
     author: post.author,
     accountAgeDays: post.accountAgeDays,
     combinedKarma: post.combinedKarma,
+    linkKarma: 0,
+    commentKarma: 0,
+    subreddit: '',
+    domain: '',
+    url: '',
+    isSelf: false,
+    over18: false,
+    spoiler: false,
+    stickied: false,
+    numComments: 0,
+    score: 0,
+    upvoteRatio: 1,
+    authorFlairText: '',
+    linkFlairText: '',
+    distinguished: '',
   };
 }
 

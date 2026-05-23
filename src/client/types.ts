@@ -1,4 +1,4 @@
-export type ViewMode = 'code' | 'drag' | 'chat';
+export type ViewMode = 'code' | 'chat';
 
 export type AutomodConditionType =
   | 'karma'

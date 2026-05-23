@@ -3,33 +3,16 @@ import { context, redis, reddit } from '@devvit/web/server';
 import {
   DEFAULT_AUTOMOD_RULE,
   buildDebugPrompt,
-  buildDecoderAnalysisPrompt,
-  type DecoderAnalysis,
   type EscapeHatchCode,
 } from '../../shared/automod';
-import type { DebugResponse } from '../../shared/debug-types';
-import { runDebug } from '../services/debugger.service';
+import type { DebugResponse, MockPostDebugRequest } from '../../shared/debug-types';
+import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { analyzeYamlLimitation, generateEscapeHatchTrigger, getRuleStageModContext } from '../services/escape-hatch.service';
 import { generateText, generateJson } from '../services/model-proxy.service';
-import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, runSimulation, saveCurrentRule } from '../services/automod.service';
+import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule } from '../services/automod.service';
 
 // (previously used to strip fenced code blocks from model output)
-
-async function analyzeObfuscationOnServer(examples: [string, string, string]): Promise<DecoderAnalysis> {
-  const prompt = buildDecoderAnalysisPrompt(examples);
-  const parsed = await generateJson<DecoderAnalysis>(prompt, 1024);
-
-  if (!parsed || !Array.isArray(parsed.tricks) || typeof parsed.explanation !== 'string' || typeof parsed.regexPattern !== 'string' || typeof parsed.automodYaml !== 'string') {
-    throw new Error('Gemini returned an invalid decoder analysis payload');
-  }
-
-  if (parsed.confidence !== 'high' && parsed.confidence !== 'medium' && parsed.confidence !== 'low') {
-    throw new Error('Gemini returned an invalid confidence level');
-  }
-
-  return parsed;
-}
 
 type DebugAnalysis = {
   explanation: string;
@@ -131,6 +114,21 @@ async function analyzeDebugOnServer(result: DebugResponse): Promise<DebugAnalysi
       author: result.postAuthor,
       accountAgeDays: 0,
       combinedKarma: 0,
+      linkKarma: 0,
+      commentKarma: 0,
+      subreddit: '',
+      domain: '',
+      url: '',
+      isSelf: false,
+      over18: false,
+      spoiler: false,
+      stickied: false,
+      numComments: 0,
+      score: 0,
+      upvoteRatio: 1,
+      authorFlairText: '',
+      linkFlairText: '',
+      distinguished: '',
     },
     result.matches
   );
@@ -154,12 +152,10 @@ export const ruleStage = new Hono();
 ruleStage.get('/init', async (c) => {
   try {
     const rule = await getCurrentRule();
-    const simulation = await runSimulation(rule);
 
     return c.json({
       status: 'success',
       rule,
-      simulation,
     });
   } catch (error) {
     console.error('[RuleStage] init failed:', error);
@@ -188,18 +184,6 @@ ruleStage.post('/rule', async (c) => {
   }
 });
 
-ruleStage.post('/simulate', async (c) => {
-  try {
-    const body = await c.req.json().catch(() => null);
-    const rule = body?.rule ?? undefined;
-    const result = await runSimulation(rule);
-    return c.json({ status: 'success', simulation: result });
-  } catch (error) {
-    console.error('[RuleStage] simulate failed:', error);
-    return c.json({ status: 'error', message: 'Failed to run simulation' }, 500);
-  }
-});
-
 ruleStage.post('/blast', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
@@ -209,23 +193,6 @@ ruleStage.post('/blast', async (c) => {
   } catch (error) {
     console.error('[RuleStage] blast failed:', error);
     return c.json({ status: 'error', message: 'Failed to run Blast Radius' }, 500);
-  }
-});
-
-ruleStage.post('/decoder/analyze', async (c) => {
-  try {
-    const body = (await c.req.json().catch(() => null)) as { examples?: unknown } | null;
-    const examples = body?.examples;
-
-    if (!Array.isArray(examples) || examples.length !== 3 || examples.some((example) => typeof example !== 'string')) {
-      return c.json({ status: 'error', message: 'Exactly three spam examples are required' }, 400);
-    }
-
-    const analysis = await analyzeObfuscationOnServer(examples as [string, string, string]);
-    return c.json({ status: 'success', analysis });
-  } catch (error) {
-    console.error('[RuleStage] decoder analyze failed:', error);
-    return c.json({ status: 'error', message: 'Failed to analyze obfuscation' }, 500);
   }
 });
 
@@ -320,15 +287,58 @@ ruleStage.post('/debug', async (c) => {
   }
 });
 
+ruleStage.post('/debug-mock', async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => null)) as { mockPost?: unknown } | null;
+    const mockPost = body?.mockPost as Record<string, unknown> | null;
+
+    if (!mockPost || typeof mockPost !== 'object') {
+      return c.json({ status: 'error', message: 'mockPost is required' }, 400);
+    }
+
+    const validatedPost: MockPostDebugRequest = {
+      title: typeof mockPost['title'] === 'string' ? mockPost['title'] : '',
+      body: typeof mockPost['body'] === 'string' ? mockPost['body'] : '',
+      author: typeof mockPost['author'] === 'string' ? mockPost['author'] : '',
+      accountAgeDays: typeof mockPost['accountAgeDays'] === 'number' ? mockPost['accountAgeDays'] : 0,
+      combinedKarma: typeof mockPost['combinedKarma'] === 'number' ? mockPost['combinedKarma'] : 0,
+      linkKarma: typeof mockPost['linkKarma'] === 'number' ? mockPost['linkKarma'] : 0,
+      commentKarma: typeof mockPost['commentKarma'] === 'number' ? mockPost['commentKarma'] : 0,
+      subreddit: typeof mockPost['subreddit'] === 'string' ? mockPost['subreddit'] : '',
+      domain: typeof mockPost['domain'] === 'string' ? mockPost['domain'] : '',
+      url: typeof mockPost['url'] === 'string' ? mockPost['url'] : '',
+      isSelf: typeof mockPost['isSelf'] === 'boolean' ? mockPost['isSelf'] : true,
+      over18: typeof mockPost['over18'] === 'boolean' ? mockPost['over18'] : false,
+      spoiler: typeof mockPost['spoiler'] === 'boolean' ? mockPost['spoiler'] : false,
+      stickied: typeof mockPost['stickied'] === 'boolean' ? mockPost['stickied'] : false,
+      numComments: typeof mockPost['numComments'] === 'number' ? mockPost['numComments'] : 0,
+      score: typeof mockPost['score'] === 'number' ? mockPost['score'] : 0,
+      upvoteRatio: typeof mockPost['upvoteRatio'] === 'number' ? mockPost['upvoteRatio'] : 1,
+      authorFlairText: typeof mockPost['authorFlairText'] === 'string' ? mockPost['authorFlairText'] : '',
+      linkFlairText: typeof mockPost['linkFlairText'] === 'string' ? mockPost['linkFlairText'] : '',
+      distinguished: typeof mockPost['distinguished'] === 'string' ? mockPost['distinguished'] : '',
+    };
+
+    const currentRule = await getCurrentRule();
+    const comparison = await runDebugComparison(validatedPost, currentRule);
+
+    return c.json({
+      status: 'success',
+      comparison,
+    });
+  } catch (error) {
+    console.error('[RuleStage] debug-mock failed:', error);
+    return c.json({ status: 'error', message: 'Failed to debug mock post' }, 500);
+  }
+});
+
 ruleStage.post('/reset', async (c) => {
   try {
     const rule = await resetRuleStageState();
-    const simulation = await runSimulation(rule);
 
     return c.json({
       status: 'success',
       rule,
-      simulation,
     });
   } catch (error) {
     console.error('[RuleStage] reset failed:', error);

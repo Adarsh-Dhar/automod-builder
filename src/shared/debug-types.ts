@@ -33,3 +33,40 @@ export type DebugResponse = {
   matches: DebugMatch[];
   aiFixYaml: string;
 };
+
+export type MockPostDebugRequest = {
+  title: string;
+  body: string;
+  author: string;
+  accountAgeDays: number;
+  combinedKarma: number;
+  linkKarma: number;
+  commentKarma: number;
+  subreddit: string;
+  domain: string;
+  url: string;
+  isSelf: boolean;
+  over18: boolean;
+  spoiler: boolean;
+  stickied: boolean;
+  numComments: number;
+  score: number;
+  upvoteRatio: number;
+  authorFlairText: string;
+  linkFlairText: string;
+  distinguished: string;
+};
+
+export type DebugComparison = {
+  draftResult: {
+    matched: boolean;
+    action: 'remove' | 'approve' | 'report';
+    matchedCondition?: DebugCondition;
+  };
+  liveResult: {
+    matched: boolean;
+    matches: DebugMatch[];
+    action?: 'remove' | 'approve' | 'report';
+  };
+  differences: string[];
+};

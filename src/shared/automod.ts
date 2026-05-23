@@ -1,6 +1,6 @@
 import type { DebugMatch } from './debug-types';
 
-export type RuleStageMode = 'code' | 'drag' | 'chat' | 'decoder' | 'escape-hatch' | 'debug';
+export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'escape-hatch' | 'debug';
 
 export type YamlLimitation =
   | 'external-api'
@@ -98,6 +98,21 @@ export type SimulationPost = {
   author: string;
   accountAgeDays: number;
   combinedKarma: number;
+  linkKarma: number;
+  commentKarma: number;
+  subreddit: string;
+  domain: string;
+  url: string;
+  isSelf: boolean;
+  over18: boolean;
+  spoiler: boolean;
+  stickied: boolean;
+  numComments: number;
+  score: number;
+  upvoteRatio: number;
+  authorFlairText: string;
+  linkFlairText: string;
+  distinguished: string;
 };
 
 export type SimulationOutcome = 'remove' | 'approve' | 'report';
@@ -453,6 +468,21 @@ export function createDefaultSimulationPosts(): SimulationPost[] {
       author: 'newshopper88',
       accountAgeDays: 12,
       combinedKarma: 14,
+      linkKarma: 10,
+      commentKarma: 4,
+      subreddit: 'r/shopping',
+      domain: 'self.shopping',
+      url: 'https://reddit.com/r/shopping/comments/abc123',
+      isSelf: true,
+      over18: false,
+      spoiler: false,
+      stickied: false,
+      numComments: 5,
+      score: 3,
+      upvoteRatio: 0.6,
+      authorFlairText: '',
+      linkFlairText: '',
+      distinguished: '',
     },
     {
       id: 'post-2',
@@ -461,6 +491,21 @@ export function createDefaultSimulationPosts(): SimulationPost[] {
       author: 'communityhelper',
       accountAgeDays: 418,
       combinedKarma: 1204,
+      linkKarma: 800,
+      commentKarma: 404,
+      subreddit: 'r/technology',
+      domain: 'self.technology',
+      url: 'https://reddit.com/r/technology/comments/def456',
+      isSelf: true,
+      over18: false,
+      spoiler: false,
+      stickied: true,
+      numComments: 150,
+      score: 250,
+      upvoteRatio: 0.85,
+      authorFlairText: 'Moderator',
+      linkFlairText: 'Discussion',
+      distinguished: 'moderator',
     },
     {
       id: 'post-3',
@@ -469,6 +514,21 @@ export function createDefaultSimulationPosts(): SimulationPost[] {
       author: 'vendorthrowaway',
       accountAgeDays: 8,
       combinedKarma: 2,
+      linkKarma: 1,
+      commentKarma: 1,
+      subreddit: 'r/deals',
+      domain: 'imgur.com',
+      url: 'https://imgur.com/gallery/xyz789',
+      isSelf: false,
+      over18: false,
+      spoiler: false,
+      stickied: false,
+      numComments: 2,
+      score: -5,
+      upvoteRatio: 0.3,
+      authorFlairText: '',
+      linkFlairText: 'Promo',
+      distinguished: '',
     },
     {
       id: 'post-4',
@@ -477,6 +537,21 @@ export function createDefaultSimulationPosts(): SimulationPost[] {
       author: 'lowkarmaaccount',
       accountAgeDays: 54,
       combinedKarma: 32,
+      linkKarma: 20,
+      commentKarma: 12,
+      subreddit: 'r/gaming',
+      domain: 'amazon.com',
+      url: 'https://amazon.com/product/123',
+      isSelf: false,
+      over18: false,
+      spoiler: false,
+      stickied: false,
+      numComments: 8,
+      score: 1,
+      upvoteRatio: 0.45,
+      authorFlairText: '',
+      linkFlairText: 'Deal',
+      distinguished: '',
     },
   ];
 }

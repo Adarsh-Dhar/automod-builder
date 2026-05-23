@@ -7,7 +7,7 @@ import {
   type AutomodRule,
   type SimulationPost,
 } from '../../shared/automod';
-import type { DebugCondition, DebugConfidence, DebugMatch, DebugResponse } from '../../shared/debug-types';
+import type { DebugCondition, DebugConfidence, DebugMatch, DebugResponse, DebugComparison, MockPostDebugRequest } from '../../shared/debug-types';
 import { getLiveAutomodYaml } from './automod.service';
 
 type RedditAuthor = {
@@ -104,6 +104,21 @@ function normalizePost(post: RedditPost, postId: string): SimulationPost {
     author: normalizeAuthor(post.author),
     accountAgeDays: getAccountAgeDays(post.author),
     combinedKarma: getCombinedKarma(post.author),
+    linkKarma: 0,
+    commentKarma: 0,
+    subreddit: '',
+    domain: '',
+    url: '',
+    isSelf: false,
+    over18: false,
+    spoiler: false,
+    stickied: false,
+    numComments: 0,
+    score: 0,
+    upvoteRatio: 1,
+    authorFlairText: '',
+    linkFlairText: '',
+    distinguished: '',
   };
 }
 
@@ -409,6 +424,21 @@ export function getDebugMatchesForPost(post: SimulationPost, rules: AutomodRule[
     author: String(post.author ?? ''),
     accountAgeDays: Number(post.accountAgeDays ?? 0),
     combinedKarma: Number(post.combinedKarma ?? 0),
+    linkKarma: Number(post.linkKarma ?? 0),
+    commentKarma: Number(post.commentKarma ?? 0),
+    subreddit: String(post.subreddit ?? ''),
+    domain: String(post.domain ?? ''),
+    url: String(post.url ?? ''),
+    isSelf: Boolean(post.isSelf ?? false),
+    over18: Boolean(post.over18 ?? false),
+    spoiler: Boolean(post.spoiler ?? false),
+    stickied: Boolean(post.stickied ?? false),
+    numComments: Number(post.numComments ?? 0),
+    score: Number(post.score ?? 0),
+    upvoteRatio: Number(post.upvoteRatio ?? 1),
+    authorFlairText: String(post.authorFlairText ?? ''),
+    linkFlairText: String(post.linkFlairText ?? ''),
+    distinguished: String(post.distinguished ?? ''),
   };
 
   for (const rule of rules || []) {
@@ -460,4 +490,96 @@ export function generateDebugAnalysis(post: SimulationPost, matches: DebugMatch[
   } catch {
     return `${post.title}\n${post.author}\nMatches: ${String(matches.length)}`;
   }
+}
+
+// Test a mock post against both draft rule and live automod config
+export async function runDebugComparison(mockPost: MockPostDebugRequest, draftRule: AutomodRule): Promise<DebugComparison> {
+  const post: SimulationPost = {
+    id: 'mock-post',
+    title: mockPost.title,
+    body: mockPost.body,
+    author: mockPost.author,
+    accountAgeDays: mockPost.accountAgeDays,
+    combinedKarma: mockPost.combinedKarma,
+    linkKarma: mockPost.linkKarma,
+    commentKarma: mockPost.commentKarma,
+    subreddit: mockPost.subreddit,
+    domain: mockPost.domain,
+    url: mockPost.url,
+    isSelf: mockPost.isSelf,
+    over18: mockPost.over18,
+    spoiler: mockPost.spoiler,
+    stickied: mockPost.stickied,
+    numComments: mockPost.numComments,
+    score: mockPost.score,
+    upvoteRatio: mockPost.upvoteRatio,
+    authorFlairText: mockPost.authorFlairText,
+    linkFlairText: mockPost.linkFlairText,
+    distinguished: mockPost.distinguished,
+  };
+
+  // Test against draft rule
+  const draftEvaluation = evaluateRule(draftRule, [post]);
+  const draftMatched = draftEvaluation.matched > 0;
+  const draftMatchedCondition = draftMatched ? findMatchedCondition(draftRule, post) : undefined;
+
+  // Test against live config
+  const liveYaml = await getLiveAutomodYaml('');
+  const blocks = splitAutomodBlocks(liveYaml);
+  const liveMatches: DebugMatch[] = [];
+
+  for (const block of blocks) {
+    const normalizedBlock = stripBlockDelimiters(block.rawYaml);
+    if (!normalizedBlock) continue;
+
+    const rule = parseAutomodRuleDraft(normalizedBlock, DEFAULT_AUTOMOD_RULE);
+    const evaluation = evaluateRule(rule, [post]);
+
+    if (evaluation.matched <= 0) continue;
+
+    const matchedCondition = findMatchedCondition(rule, post) ?? rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0];
+    if (!matchedCondition) continue;
+
+    liveMatches.push({
+      ruleName: rule.name,
+      rawYaml: block.rawYaml,
+      matchedCondition: mapCondition(matchedCondition),
+      lineStart: block.lineStart,
+      lineEnd: block.lineEnd,
+      confidence: inferConfidence(rule, matchedCondition),
+    });
+  }
+
+  // Determine live action from first match
+  const liveMatched = liveMatches.length > 0;
+  const firstLiveMatch = liveMatches[0];
+  const liveAction = liveMatched && firstLiveMatch ? 'remove' : undefined;
+
+  // Calculate differences
+  const differences: string[] = [];
+  if (draftMatched !== liveMatched) {
+    differences.push(draftMatched ? 'Draft rule matches but live config does not' : 'Live config matches but draft rule does not');
+  }
+  if (draftMatched && liveMatched && liveAction && draftRule.action !== liveAction) {
+    differences.push(`Actions differ: draft would ${draftRule.action}, live would ${liveAction}`);
+  }
+  if (draftMatched && liveMatched && draftMatchedCondition && firstLiveMatch?.matchedCondition) {
+    if (draftMatchedCondition.field !== firstLiveMatch.matchedCondition.field) {
+      differences.push(`Matched fields differ: draft matched on ${draftMatchedCondition.field}, live matched on ${firstLiveMatch.matchedCondition.field}`);
+    }
+  }
+
+  return {
+    draftResult: {
+      matched: draftMatched,
+      action: draftRule.action,
+      matchedCondition: draftMatchedCondition ? mapCondition(draftMatchedCondition) : undefined,
+    },
+    liveResult: {
+      matched: liveMatched,
+      matches: liveMatches,
+      action: liveAction,
+    },
+    differences,
+  };
 }

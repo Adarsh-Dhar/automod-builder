@@ -87,13 +87,6 @@ const DEMO_POSTS = [
   { id: '12', title: 'Health claim without sources', body: 'This supplement cures cancer', author: 'user_50days', accountAgeDays: 50, combinedKarma: 100, isSpam: false, wasRemoved: false },
 ];
 
-interface YamlRule {
-  type: string;
-  action?: string;
-  author?: unknown;
-  [key: string]: unknown;
-}
-
 interface BlastResult {
   totalTested: number;
   wouldCatch: number;
@@ -127,7 +120,7 @@ describe('AI Agent Context Integration Tests', () => {
    * Simulates the generateChatReplyOnServer function
    * In real tests, this would call the actual API
    */
-  const generateMockYamlRule = (prompt: string, context: string): string => {
+  const generateMockYamlRule = (prompt: string, _context: string): string => {
     // This is a mock - in real tests, you'd call the actual generateChatReplyOnServer
     // For now, we return a realistic mock response
     
@@ -335,7 +328,7 @@ comment: |
    */
   const validateContextAwareness = (
     yaml: string,
-    contextField: string,
+    _contextField: string,
     expectedValues: string[]
   ): { aware: boolean; usedValues: string[] } => {
     const usedValues: string[] = [];
@@ -356,8 +349,6 @@ comment: |
    * Checks for duplication with existing rules
    */
   const checkForDuplication = (newRuleYaml: string, liveYaml: string): { isDuplicate: boolean; reasoning: string } => {
-    const newRuleName = newRuleYaml.match(/#\s*(.+)/)?.[1] || 'Unknown';
-    
     if (liveYaml.includes('Link Domain Blocklist') && newRuleYaml.includes('domain:')) {
       return {
         isDuplicate: true,
@@ -449,12 +440,12 @@ comment: |
       const prompt = 'Remove posts that look like self-promotion.';
       const yaml = generateMockYamlRule(prompt, JSON.stringify(context));
 
-      const reasonAwareness = validateContextAwareness(
+      validateContextAwareness(
         yaml,
         'removalReasons',
         ['Self Promotion', 'Low Effort Content']
       );
-      
+
       expect(yaml).toContain('comment:');
     });
 
@@ -636,10 +627,7 @@ action: filter
   describe('Scenario 10: Context-Aware Decision Making', () => {
     it('should recommend options instead of creating duplicate rule', () => {
       const context = mockContextEndpoint();
-      
-      // Asking for something that already exists
-      const request = 'Add a rule that blocks posts with tinyurl and bit.ly links';
-      
+
       // Agent should recognize "Link Domain Blocklist" already exists
       expect(context.liveYaml).toContain('Link Domain Blocklist');
     });
@@ -719,8 +707,6 @@ action: filter
 
   describe('Scenario 13: Progressive Rule Testing', () => {
     it('should support test-before-rollout approach', () => {
-      const context = mockContextEndpoint();
-      
       // Generate rule with 'report' action for testing
       const testYaml = `---
 type: submission
@@ -806,8 +792,6 @@ action: approve
     });
 
     it('should incorporate all context types in final rule', () => {
-      const context = mockContextEndpoint();
-      
       const finalYaml = `---
 # Smart Low-Effort Filter with Trusted Bypass
 type: submission
@@ -1022,7 +1006,7 @@ action: filter
 
       conversation.push({
         role: 'assistant',
-        content: generateMockYamlRule(conversation[0].content, JSON.stringify(context)),
+        content: generateMockYamlRule(conversation[0]?.content ?? '', JSON.stringify(context)),
       });
 
       conversation.push({
@@ -1033,14 +1017,14 @@ action: filter
       conversation.push({
         role: 'assistant',
         content: generateMockYamlRule(
-          conversation[2].content,
+          conversation[2]?.content ?? '',
           JSON.stringify(context)
         ),
       });
 
       expect(conversation.length).toBe(4);
-      expect(conversation[1].content).toContain('submission');
-      expect(conversation[3].content).toContain('submission');
+      expect(conversation[1]?.content).toContain('submission');
+      expect(conversation[3]?.content).toContain('submission');
     });
   });
 });

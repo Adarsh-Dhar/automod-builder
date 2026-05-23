@@ -7,11 +7,9 @@ interface ModeTabStripProps {
 
 const MODES: { id: RuleStageMode; label: string; shortcut: string }[] = [
   { id: 'code', label: 'Code', shortcut: '⌘1' },
-  { id: 'drag', label: 'Drag', shortcut: '⌘2' },
-  { id: 'chat', label: 'Chat', shortcut: '⌘3' },
-  { id: 'decoder', label: 'Decoder', shortcut: '⌘4' },
-  { id: 'debug', label: 'Debugger', shortcut: '⌘5' },
-  { id: 'escape-hatch', label: 'Escape Hatch', shortcut: '⌘6' },
+  { id: 'chat', label: 'Chat', shortcut: '⌘2' },
+  { id: 'debug', label: 'Debugger', shortcut: '⌘4' },
+  { id: 'escape-hatch', label: 'Escape Hatch', shortcut: '⌘5' },
 ];
 
 export function ModeTabStrip({ mode, setMode }: ModeTabStripProps) {
