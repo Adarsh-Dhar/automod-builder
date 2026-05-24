@@ -57,11 +57,6 @@ function buildCodeFromTemplate(
   limitation: YamlLimitation,
   modContext: ModContext
 ): EscapeHatchCode | null {
-  // If the request names a custom response field (e.g. "verified: false"),
-  // the static template will check the wrong field — let the model generate instead.
-  const hasCustomResponseField = /returns?\s+\w+:\s*(true|false)/i.test(request);
-  if (hasCustomResponseField) return null;
-
   // For database-check, pick the sismember template when the request mentions
   // sismember or a named set, otherwise fall back to the redis.get template.
   const useSetTemplate =
@@ -76,12 +71,39 @@ function buildCodeFromTemplate(
 
   // Extract the URL from the request, excluding trailing punctuation and parens.
   const urlMatch = request.match(/https?:\/\/[^\s"'`,()\]]+/);
-  const triggerCode = urlMatch
+  let triggerCode = urlMatch
     ? template.code.replace('https://api.example.com/check', urlMatch[0])
     : template.code;
 
+  // Extract a custom response field + value from the request
+  // e.g. "returns verified: false" → field=verified, value=false
+  const fieldMatch = request.match(/returns?\s+(\w+):\s*(true|false)/i);
+  if (fieldMatch) {
+    const fieldName  = fieldMatch[1];                    // e.g. "verified"
+    const fieldValue = fieldMatch[2].toLowerCase();      // e.g. "false"
+
+    // Replace the type cast
+    triggerCode = triggerCode.replace(
+      /as \{ isSpam\?: boolean \}/,
+      `as { ${fieldName}?: boolean }` 
+    );
+
+    // Replace the condition — handle both true and false cases
+    if (fieldValue === 'false') {
+      triggerCode = triggerCode.replace(
+        /if \(result\.isSpam\)/,
+        `if (result.${fieldName} === false)` 
+      );
+    } else {
+      triggerCode = triggerCode.replace(
+        /if \(result\.isSpam\)/,
+        `if (result.${fieldName} === true)` 
+      );
+    }
+  }
+
   const contextSuffix = modContext.subredditName
-    ? ` For subreddit ${modContext.subredditName}.`
+    ? ` For subreddit ${modContext.subredditName}.` 
     : '';
   return {
     triggerCode,
