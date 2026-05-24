@@ -242,6 +242,7 @@ export function buildEscapeHatchAnalysisPrompt(request: string): string {
     buildEscapeHatchPrompt(request),
     '',
     'Be strict. If the request requires any capability outside native AutoModerator YAML, mark hasLimitation as true and recommend TypeScript.',
+    'Keep the explanation field to one short sentence (under 20 words).',
   ].join('\n');
 }
 

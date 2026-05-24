@@ -1,15 +1,4 @@
-import { settings } from '@devvit/web/server';
-import { createRequire } from 'module';
-
-// Load environment variables from .env file for local development
-const require = createRequire(import.meta.url);
-if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
-  try {
-    require('dotenv').config({ path: '.env' });
-  } catch {
-    // dotenv not available, continue without it
-  }
-}
+import { resolveServerGeminiApiKey } from './gemini-key.service';
 
 function stripCodeFences(text: string): string {
   const trimmed = text.trim();
@@ -25,11 +14,8 @@ export type GenerateOptions = {
   responseMimeType?: string | null;
 };
 
-export async function generateText(input: string, opts: GenerateOptions = {}): Promise<string> {
-  // Use Gemini API in both production and development
-  const envKey = (process.env.GEMINI_API_KEY ?? '').trim();
-  const storedKey = (await settings.get<string>('GEMINI_API_KEY')) ?? '';
-  const apiKey = envKey || (storedKey ?? '');
+export async function generateText(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
+  const apiKey = providedApiKey || await resolveServerGeminiApiKey();
 
   if (!apiKey) {
     throw new Error('Missing GEMINI_API_KEY');
@@ -64,8 +50,8 @@ export async function generateText(input: string, opts: GenerateOptions = {}): P
   return text || JSON.stringify(data || {});
 }
 
-export async function generateJson<T>(prompt: string, maxOutputTokens = 1024): Promise<T> {
-  const text = await generateText(prompt, { maxOutputTokens, responseMimeType: 'application/json' });
+export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, providedApiKey?: string): Promise<T> {
+  const text = await generateText(prompt, { maxOutputTokens, responseMimeType: 'application/json' }, providedApiKey);
 
   const cleaned = stripCodeFences(text || '');
   

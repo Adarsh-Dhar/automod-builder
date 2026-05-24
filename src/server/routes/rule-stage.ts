@@ -86,7 +86,8 @@ modmail: |
 export async function generateChatReplyOnServer(
   prompt: string,
   history: ChatHistoryMessage[] = [],
-  subredditContext?: string
+  subredditContext?: string,
+  apiKey?: string
 ): Promise<string> {
   // Build the prompt text combining system prompt, optional subreddit context, history and user prompt.
   const parts: string[] = [];
@@ -106,7 +107,7 @@ export async function generateChatReplyOnServer(
   parts.push(`User: ${prompt}`);
 
   const combined = parts.join('\n\n');
-  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 1024 });
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 4096 }, apiKey);
   return text || 'I could not generate a response.';
 }
 
@@ -246,20 +247,27 @@ ruleStage.post('/chat-unified', async (c) => {
       prompt?: unknown;
       history?: unknown;
       subredditContext?: unknown;
+      apiKey?: unknown;
     } | null;
 
     const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
     const historyInput = Array.isArray(body?.history) ? body.history : [];
     const subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
+    const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : undefined;
 
     if (!prompt) {
       return c.json({ status: 'error', message: 'Prompt is required' }, 400);
     }
 
+    if (!apiKey) {
+      return c.json({ status: 'error', message: 'API key is required. Please set your Gemini API key in the chat settings.' }, 400);
+    }
+
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      2048
+      2048,
+      apiKey
     );
 
     const history = historyInput
@@ -277,7 +285,7 @@ ruleStage.post('/chat-unified', async (c) => {
       const yamlPrompt = analysis.needsTypeScript
         ? `${prompt}\n\nNote: Only generate the YAML portion. The part requiring code will be handled separately: ${analysis.typescriptPart}`
         : prompt;
-      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext);
+      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext, apiKey);
     }
 
     // Step 3: Generate TypeScript trigger if needed
@@ -285,12 +293,14 @@ ruleStage.post('/chat-unified', async (c) => {
     if (analysis.needsTypeScript) {
       const modContext = getRuleStageModContext();
       const limitation = await analyzeYamlLimitation(
-        analysis.typescriptPart || prompt
+        analysis.typescriptPart || prompt,
+        apiKey
       );
       escapeHatch = await generateEscapeHatchTrigger(
         analysis.typescriptPart || prompt,
         modContext,
-        limitation
+        limitation,
+        apiKey
       );
     }
 

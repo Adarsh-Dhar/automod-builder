@@ -27,10 +27,11 @@ type ModContext = {
   subredditName?: string;
 };
 
-export async function analyzeYamlLimitation(request: string): Promise<YamlLimitationAnalysis> {
+export async function analyzeYamlLimitation(request: string, apiKey?: string): Promise<YamlLimitationAnalysis> {
   const parsed = await generateJson<LimitationDetectionResult>(
     buildEscapeHatchAnalysisPrompt(request),
-    512
+    1024,
+    apiKey
   );
   return {
     hasLimitation: Boolean(parsed.hasLimitation),
@@ -72,9 +73,10 @@ function buildCodeFromTemplate(
 export async function generateEscapeHatchTrigger(
   request: string,
   modContext: ModContext = {},
-  limitation: YamlLimitationAnalysis | null = null
+  limitation: YamlLimitationAnalysis | null = null,
+  apiKey?: string
 ): Promise<EscapeHatchCode> {
-  const analysis = limitation ?? (await analyzeYamlLimitation(request));
+  const analysis = limitation ?? (await analyzeYamlLimitation(request, apiKey));
 
   if (analysis.hasLimitation && analysis.limitation) {
     const templateResult = buildCodeFromTemplate(request, analysis.limitation, modContext);
@@ -83,7 +85,8 @@ export async function generateEscapeHatchTrigger(
 
   const parsed = await generateJson<CodeGenerationResult>(
     buildEscapeHatchGenerationPrompt(request),
-    2048
+    2048,
+    apiKey
   );
   return {
     triggerCode: parsed.code,

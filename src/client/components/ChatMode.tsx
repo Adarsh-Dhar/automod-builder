@@ -7,6 +7,85 @@ import type { DebugResponse } from '../../shared/debug-types';
 import DebugResultCard from './DebugResultCard';
 import { formatDebugMessage, parsePostId } from '../utils/debug';
 
+function ApiKeyModal({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (key: string) => void }) {
+  const [key, setKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const storedKey = localStorage.getItem('gemini_api_key') || '';
+      setKey(storedKey);
+    }
+  }, [isOpen]);
+
+  const handleSave = () => {
+    localStorage.setItem('gemini_api_key', key.trim());
+    onSave(key.trim());
+    onClose();
+  };
+
+  const handleClear = () => {
+    localStorage.removeItem('gemini_api_key');
+    setKey('');
+    onSave('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#1E192B] p-6 shadow-lg">
+        <h3 className="mb-4 text-lg font-semibold text-[#EDE8F5]">Gemini API Key</h3>
+        <p className="mb-4 text-sm text-[#8B7FA8]">
+          Enter your Gemini API key to use the chat feature. Your key is stored locally in your browser.
+        </p>
+        <div className="mb-4">
+          <label className="mb-2 block text-xs font-medium text-[#8B7FA8]">API Key</label>
+          <div className="flex gap-2">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="AIzaSy..."
+              className="flex-1 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 py-2 text-sm text-[#EDE8F5] outline-none focus:border-[#F5C842]"
+            />
+            <button
+              onClick={() => setShowKey(!showKey)}
+              className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 py-2 text-[#8B7FA8] hover:border-[#F5C842]/50"
+            >
+              {showKey ? '🙈' : '👁️'}
+            </button>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          {key && (
+            <button
+              onClick={handleClear}
+              className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-4 py-2 text-sm text-[#F85149] hover:bg-[#F85149]/10"
+            >
+              Clear
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-4 py-2 text-sm text-[#EDE8F5] hover:border-[rgba(255,255,255,0.15)]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!key.trim()}
+            className="rounded-lg bg-[#F5C842] px-4 py-2 text-sm font-semibold text-[#0E0C14] transition-colors hover:bg-[#F5C842]/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type EscapeHatchResult = {
   triggerCode: string;
   description: string;
@@ -286,7 +365,14 @@ export default function ChatMode({
   const [error, setError] = useState<string | null>(null);
   const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
   const [subredditContext, setSubredditContext] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini_api_key') || '';
+    setApiKey(storedKey);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -340,6 +426,11 @@ export default function ChatMode({
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    if (!apiKey) {
+      setShowApiKeyModal(true);
+      return;
+    }
 
     const trimmed = text.trim();
     const debugPostId = detectDebugIntent(trimmed);
@@ -430,6 +521,7 @@ export default function ChatMode({
           prompt: contextual,
           history,
           subredditContext,
+          apiKey,
         }),
       });
 
@@ -516,6 +608,16 @@ export default function ChatMode({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#1E192B]">
+      <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[rgba(255,255,255,0.08)]">
+        <h2 className="text-sm font-semibold text-[#EDE8F5]">Chat</h2>
+        <button
+          onClick={() => setShowApiKeyModal(true)}
+          className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 py-1.5 text-xs text-[#8B7FA8] hover:border-[#F5C842]/50 hover:text-[#F5C842] transition-colors"
+          title="Configure API Key"
+        >
+          ⚙️ Settings
+        </button>
+      </div>
       <div className="flex-1 overflow-auto px-3 sm:px-5 py-3 sm:py-5 bg-[#1E192B]">
         <div className="space-y-4">
           {messages.map((msg) => (
@@ -569,6 +671,11 @@ export default function ChatMode({
           50% { opacity: 0.25; }
         }
       `}</style>
+      <ApiKeyModal
+        isOpen={showApiKeyModal}
+        onClose={() => setShowApiKeyModal(false)}
+        onSave={(key) => setApiKey(key)}
+      />
     </div>
   );
 }

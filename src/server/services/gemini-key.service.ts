@@ -1,9 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { settings } from '@devvit/web/server';
 
 function loadLocalEnvValue(key: string): string {
-  const envFilePath = resolve(process.cwd(), '.env');
+  // Resolve to project root from the current file location
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const projectRoot = resolve(currentDir, '../../..');
+  const envFilePath = resolve(projectRoot, '.env');
 
   if (!existsSync(envFilePath)) {
     return '';
