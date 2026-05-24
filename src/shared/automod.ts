@@ -419,7 +419,8 @@ export function extractFirstRule(yaml: string): string {
   const secondDelimiter = yaml.indexOf('---', firstDelimiter + 3);
   if (secondDelimiter === -1) return yaml;
 
-  return yaml.slice(firstDelimiter, secondDelimiter).trim();
+  // Include the closing --- by adding its length (3)
+  return yaml.slice(firstDelimiter, secondDelimiter + 3).trim();
 }
 
 export function parseAutomodRuleDraft(draft: string, fallback: AutomodRule = DEFAULT_AUTOMOD_RULE): AutomodRule {

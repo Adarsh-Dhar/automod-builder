@@ -1,4 +1,5 @@
 import { reddit } from '@devvit/web/server';
+import { context } from '@devvit/web/server';
 import {
   DEFAULT_AUTOMOD_RULE,
   evaluateRule,
@@ -493,7 +494,11 @@ export function generateDebugAnalysis(post: SimulationPost, matches: DebugMatch[
 }
 
 // Test a mock post against both draft rule and live automod config
-export async function runDebugComparison(mockPost: MockPostDebugRequest, draftRule: AutomodRule): Promise<DebugComparison> {
+export async function runDebugComparison(
+  mockPost: MockPostDebugRequest,
+  draftRule: AutomodRule,
+  rawYaml?: string
+): Promise<DebugComparison> {
   const post: SimulationPost = {
     id: 'mock-post',
     title: mockPost.title,
@@ -518,29 +523,21 @@ export async function runDebugComparison(mockPost: MockPostDebugRequest, draftRu
     distinguished: mockPost.distinguished,
   };
 
-  // Test against draft rule
-  const draftEvaluation = evaluateRule(draftRule, [post]);
-  const draftMatched = draftEvaluation.matched > 0;
-  const draftMatchedCondition = draftMatched ? findMatchedCondition(draftRule, post) : undefined;
+  // Use rawYaml for both draft and live — tests ALL rule blocks not just Rule 1
+  const yamlToTest = rawYaml ?? await getLiveAutomodYaml(context.subredditName ?? '');
+  const blocks = splitAutomodBlocks(yamlToTest);
 
-  // Test against live config
-  const liveYaml = await getLiveAutomodYaml('');
-  const blocks = splitAutomodBlocks(liveYaml);
-  const liveMatches: DebugMatch[] = [];
-
+  // Test draft side against all blocks
+  const draftMatches: DebugMatch[] = [];
   for (const block of blocks) {
     const normalizedBlock = stripBlockDelimiters(block.rawYaml);
     if (!normalizedBlock) continue;
-
     const rule = parseAutomodRuleDraft(normalizedBlock, DEFAULT_AUTOMOD_RULE);
     const evaluation = evaluateRule(rule, [post]);
-
     if (evaluation.matched <= 0) continue;
-
-    const matchedCondition = findMatchedCondition(rule, post) ?? rule.conditions[0] ?? DEFAULT_AUTOMOD_RULE.conditions[0];
+    const matchedCondition = findMatchedCondition(rule, post) ?? rule.conditions[0];
     if (!matchedCondition) continue;
-
-    liveMatches.push({
+    draftMatches.push({
       ruleName: rule.name,
       rawYaml: block.rawYaml,
       matchedCondition: mapCondition(matchedCondition),
@@ -549,8 +546,11 @@ export async function runDebugComparison(mockPost: MockPostDebugRequest, draftRu
       confidence: inferConfidence(rule, matchedCondition),
     });
   }
+  const draftMatched = draftMatches.length > 0;
+  const draftMatchedCondition = draftMatches[0]?.matchedCondition;
 
-  // Determine live action from first match
+  // Test live side against the same blocks
+  const liveMatches = draftMatches; // same YAML = same result
   const liveMatched = liveMatches.length > 0;
   const firstLiveMatch = liveMatches[0];
   const liveAction = liveMatched && firstLiveMatch ? 'remove' : undefined;

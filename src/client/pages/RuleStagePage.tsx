@@ -142,7 +142,7 @@ export function RuleStagePage() {
       const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
       setRule(parsed);
       setMode('code');
-      void persistRule(parsed);
+      void persistRawYaml(yaml);
     } else {
       // Single rule - parse normally
       const parsed = parseAutomodRuleDraft(yaml, rule);
@@ -190,7 +190,7 @@ export function RuleStagePage() {
       const firstRuleYaml = extractFirstRule(value);
       const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
       setRule(parsed);
-      void persistRule(parsed);
+      void persistRawYaml(value);
     } else {
       // Single rule - parse normally
       const parsed = parseAutomodRuleDraft(value, rule);
@@ -222,6 +222,28 @@ export function RuleStagePage() {
         variant: 'destructive',
         title: 'Error',
         description: 'Unable to save the current rule.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const persistRawYaml = async (yaml: string) => {
+    try {
+      setSaving(true);
+      const response = await fetch('/api/rule-stage/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yaml }),
+      });
+      if (!response.ok) throw new Error('Failed to publish');
+      await response.json();
+    } catch (saveError) {
+      console.error('RuleStage raw YAML save failed:', saveError);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to save the rule set.',
       });
     } finally {
       setSaving(false);

@@ -62,6 +62,13 @@ STRICT RULES:
 12. Use the provided removal reason text verbatim in comment: blocks.
 13. Do not create rules that duplicate existing rule names shown in the context.
 14. If the live config is provided, generate rules that are compatible with the existing YAML — use the same type, indentation style, and action patterns.
+15. Author flair conditions use author_flair_text at the top level, NOT nested under author:.
+    Correct:   author_flair_text: "verified-trader"
+    Wrong:     author:\n  flair_text: "verified-trader"
+16. To negate a top-level condition, prefix the key with ~:
+    Correct:   ~author_flair_text: "official"
+    Wrong:     author:\n  ~flair_text: "official"
+    The ~ prefix works on any top-level key.
 
 Example of a single rule:
 \`\`\`yaml
@@ -401,8 +408,9 @@ ruleStage.post('/debug-mock', async (c) => {
       distinguished: typeof mockPost['distinguished'] === 'string' ? mockPost['distinguished'] : '',
     };
 
+    const liveYaml = await getLiveAutomodYaml(context.subredditName ?? '');
     const currentRule = await getCurrentRule();
-    const comparison = await runDebugComparison(validatedPost, currentRule);
+    const comparison = await runDebugComparison(validatedPost, currentRule, liveYaml);
 
     return c.json({
       status: 'success',
