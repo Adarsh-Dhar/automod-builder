@@ -23,7 +23,7 @@ export type GenerateOptions = {
   responseMimeType?: string | null;
 };
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 8000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -70,13 +70,20 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
     throw new Error('Missing GEMINI_API_KEY');
   }
 
+  // Truncate input if it's too large to avoid URI size limit errors
+  // Devvit HTTP plugin has a URI size limit, so we need to keep the request body reasonable
+  const MAX_INPUT_LENGTH = 50000; // 50k characters should be safe
+  const truncatedInput = input.length > MAX_INPUT_LENGTH 
+    ? input.substring(0, MAX_INPUT_LENGTH) + '\n\n[Content truncated due to size limit]' 
+    : input;
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
     apiKey
   )}`;
 
   const contents = opts.systemPrompt
-    ? [{ role: 'user', parts: [{ text: opts.systemPrompt }] }, { role: 'model', parts: [{ text: 'Understood.' }] }, { role: 'user', parts: [{ text: input }] }]
-    : [{ role: 'user', parts: [{ text: input }] }];
+    ? [{ role: 'user', parts: [{ text: opts.systemPrompt }] }, { role: 'model', parts: [{ text: 'Understood.' }] }, { role: 'user', parts: [{ text: truncatedInput }] }]
+    : [{ role: 'user', parts: [{ text: truncatedInput }] }];
 
   const res = await fetchWithRetry(url, {
     method: 'POST',

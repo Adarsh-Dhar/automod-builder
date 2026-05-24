@@ -47,9 +47,12 @@ function toSimulationPost(post: CachedPost): SimulationPost {
   };
 }
 
-export async function runBlastRadius(rule: AutomodRule): Promise<BlastRadiusResult> {
-  const raw = await redis.get(getCacheKey());
+export async function runBlastRadius(rules: AutomodRule[]): Promise<BlastRadiusResult> {
+  const cacheKey = getCacheKey();
+  console.log('[BlastRadius] cache key:', cacheKey);
+  const raw = await redis.get(cacheKey);
   const posts = parseCachedPosts(raw);
+  console.log('[BlastRadius] posts found:', posts.length);
 
   if (posts.length === 0) {
     return {
@@ -63,12 +66,22 @@ export async function runBlastRadius(rule: AutomodRule): Promise<BlastRadiusResu
   }
 
   const simulationPosts = posts.map(toSimulationPost);
-  const evaluation = evaluateRule(rule, simulationPosts);
-  const caughtIds = new Set(evaluation.items.filter((item) => item.outcome === rule.action).map((item) => item.id));
+  
+  // A post is "caught" if ANY rule fires on it
+  const caughtIds = new Set<string>();
+  for (const rule of rules) {
+    const evaluation = evaluateRule(rule, simulationPosts);
+    evaluation.items
+      .filter((item) => item.outcome === rule.action)
+      .forEach((item) => caughtIds.add(item.id));
+  }
+  
   const spamPosts = posts.filter((post) => post.isSpam);
   const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.wasRemoved);
   const missedSpam = spamPosts.filter((post) => !caughtIds.has(post.id));
   const wouldCatch = spamPosts.filter((post) => caughtIds.has(post.id)).length;
+
+  console.log('[BlastRadius] caught:', caughtIds.size, 'spam posts:', spamPosts.length, 'false positives:', falsePositives.length);
 
   return {
     totalTested: posts.length,

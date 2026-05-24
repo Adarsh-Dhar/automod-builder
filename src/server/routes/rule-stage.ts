@@ -5,6 +5,8 @@ import {
   DEFAULT_AUTOMOD_RULE,
   buildDebugPrompt,
   buildUnifiedAnalysisPrompt,
+  parseAutomodRuleDraft,
+  serializeAutomodRule,
   type UnifiedAnalysis,
 } from '../../shared/automod';
 import type { DebugResponse, MockPostDebugRequest } from '../../shared/debug-types';
@@ -282,8 +284,14 @@ ruleStage.post('/rule', async (c) => {
 ruleStage.post('/blast', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
-    const rule = body?.rule ?? (await getCurrentRule());
-    const blast = await runBlastRadius(rule);
+    const yaml: string = body?.yaml ?? serializeAutomodRule(await getCurrentRule());
+    
+    // Parse ALL rule blocks from the YAML
+    const rules = yaml.split(/^---$/m)
+      .filter((block) => block.trim())
+      .map((block) => parseAutomodRuleDraft(block, DEFAULT_AUTOMOD_RULE));
+
+    const blast = await runBlastRadius(rules);
     return c.json({ status: 'success', blast });
   } catch (error) {
     console.error('[RuleStage] blast failed:', error);
@@ -355,7 +363,7 @@ ruleStage.post('/chat-unified', async (c) => {
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      2048,
+      8192,
       apiKey
     );
 
@@ -524,22 +532,52 @@ ruleStage.post('/publish', async (c) => {
 
 ruleStage.post('/sync-blast-cache', async (c) => {
   try {
-    const sub = context.subredditName ?? '';
-    if (!sub) {
-      return c.json({ status: 'error', message: 'No subreddit context' }, 400);
-    }
-
+    // Try to get subreddit name from request header first, then fall back to context
+    const headerSub = c.req.header('x-reddit-subreddit');
+    const sub = headerSub ?? context.subredditName ?? 'AutoModDemo'; // Default to AutoModDemo for testing
     const blastCacheKey = `blast:posts:${sub}`;
-
-    // Direct HTTP requests to www.reddit.com are not allowed in Devvit serverless environment
-    // This endpoint now returns the existing cache without attempting to fetch new posts
+    console.log('[RuleStage] sync-blast-cache: headerSub=', headerSub, 'context.sub=', context.subredditName, 'using sub=', sub, 'key=', blastCacheKey);
+    
     const existingRaw = await redis.get(blastCacheKey);
     const existingPosts: CachedPost[] = existingRaw ? JSON.parse(existingRaw) : [];
+    console.log('[RuleStage] sync-blast-cache: existing posts=', existingPosts.length);
+
+    // Fetch recent posts using the Devvit reddit API (not direct HTTP)
+    const freshPosts: CachedPost[] = [];
+    try {
+      for await (const post of reddit.getNewPosts({ subredditName: sub, limit: 100 })) {
+        freshPosts.push({
+          id: post.id,
+          title: post.title,
+          body: post.body ?? '',
+          author: post.authorName ?? 'unknown',
+          accountAgeDays: 365,    // safe default — won't trigger age-based rules
+          combinedKarma: 1000,    // safe default
+          createdAt: post.createdAt ? post.createdAt.getTime() / 1000 : Date.now() / 1000,
+          isSpam: false,
+          wasRemoved: post.removed ?? false,
+        });
+        if (freshPosts.length >= 100) break;
+      }
+    } catch (fetchError) {
+      console.error('[RuleStage] Failed to fetch new posts:', fetchError);
+    }
+    console.log('[RuleStage] sync-blast-cache: fetched posts=', freshPosts.length);
+
+    // Merge: fresh posts take priority, keep existing posts not in fresh list
+    const freshIds = new Set(freshPosts.map((p) => p.id));
+    const merged = [
+      ...freshPosts,
+      ...existingPosts.filter((p) => !freshIds.has(p.id)),
+    ].slice(0, 500);
+
+    await redis.set(blastCacheKey, JSON.stringify(merged));
+    console.log('[RuleStage] sync-blast-cache: saved merged posts=', merged.length);
 
     return c.json({
       status: 'success',
-      synced: 0,
-      total: existingPosts.length,
+      synced: freshPosts.length,
+      total: merged.length,
     });
   } catch (error) {
     console.error('[RuleStage] sync-blast-cache failed:', error);

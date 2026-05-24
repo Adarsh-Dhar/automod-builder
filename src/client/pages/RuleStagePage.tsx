@@ -181,7 +181,7 @@ export function RuleStagePage() {
     }
   };
 
-  const refreshBlast = async (nextRule: AutomodRule) => {
+  const refreshBlast = async (yaml: string) => {
     try {
       setBlasting(true);
       const response = await fetch('/api/rule-stage/blast', {
@@ -189,7 +189,7 @@ export function RuleStagePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ rule: nextRule }),
+        body: JSON.stringify({ yaml }),
       });
 
       if (!response.ok) {
@@ -269,7 +269,7 @@ export function RuleStagePage() {
       }
 
       await response.json();
-      await refreshBlast(nextRule);
+      await refreshBlast(serializeAutomodRule(nextRule));
     } catch (saveError) {
       console.error('RuleStage save failed:', saveError);
       toast({
@@ -322,7 +322,7 @@ export function RuleStagePage() {
       const data = (await response.json()) as RuleStageInitResponse;
       setRule(data.rule);
       setDraft(serializeAutomodRule(data.rule));
-      await refreshBlast(data.rule);
+      await refreshBlast(serializeAutomodRule(data.rule));
     } catch (resetError) {
       console.error('RuleStage reset failed:', resetError);
       toast({
@@ -461,7 +461,7 @@ export function RuleStagePage() {
           blast={blast}
           blasting={blasting}
           saving={saving}
-          onRunBlast={() => void refreshBlast(rule)}
+          onRunBlast={() => void refreshBlast(draft)}
         />
       </div>
 
