@@ -251,7 +251,11 @@ function MessageBubble({
       return;
     }
 
-    onApply(yaml);
+    const sanitized = yaml.replace(
+      /^(\s*(?:title|body)\s*\(matches\)\s*:\s*\[')(.*?)('\])\s*$/gm,
+      (_, prefix, inner, suffix) => `${prefix}${inner.replace(/''/g, "\\'")}${suffix}`
+    );
+    onApply(sanitized);
     setJustApplied(true);
     setTimeout(() => setJustApplied(false), 3000);
   };

@@ -77,7 +77,7 @@ export async function runBlastRadius(rules: AutomodRule[]): Promise<BlastRadiusR
   }
   
   const spamPosts = posts.filter((post) => post.isSpam);
-  const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.wasRemoved);
+  const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.isSpam);
   const missedSpam = spamPosts.filter((post) => !caughtIds.has(post.id));
   const wouldCatch = spamPosts.filter((post) => caughtIds.has(post.id)).length;
 

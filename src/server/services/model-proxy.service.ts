@@ -23,7 +23,7 @@ export type GenerateOptions = {
   responseMimeType?: string | null;
 };
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 60000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -43,12 +43,29 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 3
   }
 }
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 1): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fetchWithTimeout(url, options, 30000);
+      const response = await fetchWithTimeout(url, options, 60000);
+      
+      // Check for rate limit errors (HTTP 429)
+      if (response.status === 429) {
+        const errorText = await response.text();
+        lastError = new Error(`Rate limited: ${errorText}`);
+        console.error(`Fetch attempt ${attempt + 1} rate limited:`, errorText);
+        
+        if (attempt < maxRetries) {
+          // Use longer delays for rate limit errors
+          const delayMs = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
+          console.log(`Retrying after ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+      }
+      
+      return response;
     } catch (error) {
       lastError = error as Error;
       console.error(`Fetch attempt ${attempt + 1} failed:`, error);
@@ -60,6 +77,19 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 1)
     }
   }
 
+  // Check if it's a rate limit error and provide a better message
+  const errorMessage = lastError?.message || '';
+  const errorDetails = (lastError as any)?.details || '';
+  const fullError = `${errorMessage} ${errorDetails}`.toLowerCase();
+  
+  if (fullError.includes('too many requests') || fullError.includes('rate limit') || fullError.includes('429') || errorMessage.includes('grpc invocation failed')) {
+    throw new Error('The Gemini API is rate limiting your requests. Please wait a few minutes before trying again, or check your API key quota at https://aistudio.google.com/app/apikey.');
+  }
+  
+  if (fullError.includes('deadline exceeded') || fullError.includes('timeout') || errorMessage.includes('DEADLINE_EXCEEDED')) {
+    throw new Error('The request timed out. The Gemini API may be slow to respond. Please try again.');
+  }
+  
   throw lastError || new Error('Max retries exceeded');
 }
 
@@ -71,8 +101,8 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
   }
 
   // Truncate input if it's too large to avoid URI size limit errors
-  // Devvit HTTP plugin has a URI size limit, so we need to keep the request body reasonable
-  const MAX_INPUT_LENGTH = 50000; // 50k characters should be safe
+  // Devvit HTTP plugin has a URI size limit and internal deadline, so we need to keep the request body reasonable
+  const MAX_INPUT_LENGTH = 20000; // 20k characters to avoid Devvit HTTP plugin timeouts
   const truncatedInput = input.length > MAX_INPUT_LENGTH 
     ? input.substring(0, MAX_INPUT_LENGTH) + '\n\n[Content truncated due to size limit]' 
     : input;
@@ -92,7 +122,7 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
       contents,
       generationConfig: {
         temperature: opts.temperature ?? 0.2,
-        maxOutputTokens: opts.maxOutputTokens ?? 6144,
+        maxOutputTokens: opts.maxOutputTokens ?? 4096, // Reduced from 6144 to 4096 for faster responses
       },
     }),
   });
