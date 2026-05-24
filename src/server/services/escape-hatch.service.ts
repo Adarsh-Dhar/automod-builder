@@ -59,11 +59,18 @@ function buildCodeFromTemplate(
 ): EscapeHatchCode | null {
   const template = getEscapeHatchTemplate(limitation);
   if (!template) return null;
+
+  // Extract any URL the user mentioned in their request
+  const urlMatch = request.match(/https?:\/\/[^\s"'`,]+/);
+  const triggerCode = urlMatch
+    ? template.code.replace('https://api.example.com/check', urlMatch[0])
+    : template.code;
+
   const contextSuffix = modContext.subredditName
-    ? ` For subreddit ${modContext.subredditName}.` 
+    ? ` For subreddit ${modContext.subredditName}.`
     : '';
   return {
-    triggerCode: template.code,
+    triggerCode,
     description: `${template.description}${contextSuffix} Request: ${request}`,
     limitations: template.limitations,
     installationSteps: buildInstallationSteps(),
