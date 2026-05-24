@@ -30,11 +30,12 @@ type ChatHistoryMessage = {
   content: string;
 };
 
-const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant for Reddit. Your ONLY job is to output a single, complete AutoModerator YAML rule block in response to the user's request.
+const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant for Reddit. Your job is to output one or more complete AutoModerator YAML rule blocks in response to the user's request.
 
 STRICT RULES:
-1. Always output exactly ONE rule wrapped in --- delimiters.
-2. Never include or repeat previous rules - write a fresh standalone rule each time.
+1. If the request describes a single rule, output exactly ONE rule block wrapped in --- delimiters.
+   If the request describes multiple rules, output ALL of them as separate --- blocks in one response.
+2. Never include or repeat previous rules - write fresh standalone rules each time.
 3. type must always be: submission
 4. For text matching use ONLY these exact keys:
    title (includes): ['phrase1', 'phrase2']
@@ -56,13 +57,13 @@ STRICT RULES:
    ...
    ---
 9. Do not add any prose, explanation, or markdown outside the yaml code fence.
-10. Wrap the YAML in a code fence: \`\`\`yaml ... \`\`\`
+10. Wrap ALL rules together in a single code fence: \`\`\`yaml ... \`\`\` 
 11. Use the provided post flair names exactly when writing link_flair conditions.
 12. Use the provided removal reason text verbatim in comment: blocks.
 13. Do not create rules that duplicate existing rule names shown in the context.
 14. If the live config is provided, generate rules that are compatible with the existing YAML — use the same type, indentation style, and action patterns.
 
-Example of a perfectly formatted rule:
+Example of a single rule:
 \`\`\`yaml
 ---
 # New account spam guard
@@ -80,6 +81,32 @@ modmail: |
   Removed post: {{permalink}}
   User: u/{{author}}
   Title: {{title}}
+---
+\`\`\`
+
+Example of multiple rules in one response:
+\`\`\`yaml
+---
+# Rule 1 name
+type: submission
+title (includes): ['spam phrase']
+action: remove
+comment: |
+  Removed.
+modmail: |
+  Removed: {{permalink}}
+---
+
+---
+# Rule 2 name
+type: submission
+author:
+  account_age: "< 7 days"
+action: remove
+comment: |
+  Account too new.
+modmail: |
+  New account removed: {{permalink}}
 ---
 \`\`\``;
 
@@ -283,7 +310,7 @@ ruleStage.post('/chat-unified', async (c) => {
     let yamlResponse: string | null = null;
     if (analysis.needsYaml) {
       const yamlPrompt = analysis.needsTypeScript
-        ? `${prompt}\n\nNote: Only generate the YAML portion. The part requiring code will be handled separately: ${analysis.typescriptPart}`
+        ? `${prompt}\n\nNote: Only generate the YAML portion of this request. Generate as many YAML rule blocks as needed. The TypeScript portion will be handled separately: ${analysis.typescriptPart}`
         : prompt;
       yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext, apiKey);
     }

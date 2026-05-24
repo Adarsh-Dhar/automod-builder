@@ -405,6 +405,23 @@ function readBlockValue(lines: string[], startIndex: number): { value: string; n
   };
 }
 
+export function hasMultipleRules(yaml: string): boolean {
+  // Count non-empty --- delimiters (at least 2 means multiple rules)
+  const matches = yaml.match(/^---$/gm);
+  return (matches?.length ?? 0) >= 2;
+}
+
+export function extractFirstRule(yaml: string): string {
+  // Extract the first rule block (from first --- to second --- or end)
+  const firstDelimiter = yaml.indexOf('---');
+  if (firstDelimiter === -1) return yaml;
+
+  const secondDelimiter = yaml.indexOf('---', firstDelimiter + 3);
+  if (secondDelimiter === -1) return yaml;
+
+  return yaml.slice(firstDelimiter, secondDelimiter).trim();
+}
+
 export function parseAutomodRuleDraft(draft: string, fallback: AutomodRule = DEFAULT_AUTOMOD_RULE): AutomodRule {
   const lines = draft.split('\n');
   const nextRule: AutomodRule = {

@@ -76,11 +76,15 @@ function buildCodeFromTemplate(
     : template.code;
 
   // Extract a custom response field + value from the request
-  // e.g. "returns verified: false" → field=verified, value=false
-  const fieldMatch = request.match(/returns?\s+(\w+):\s*(true|false)/i);
-  if (fieldMatch) {
-    const fieldName  = fieldMatch[1];                    // e.g. "verified"
-    const fieldValue = fieldMatch[2].toLowerCase();      // e.g. "false"
+  // Handles multiple phrasings: "returns verified: false", "if 'verified' is false", etc.
+  const NOISE_WORDS = new Set(['post','the','if','it','api','that','this','true','false','remove','result']);
+  const fieldMatch = request.match(/['"]?(\w+)['"]?\s*(?:is|===?|:)\s*(true|false)|returns?\s+['"]?(\w+)['"]?:\s*(true|false)/i);
+  const rawField = fieldMatch?.[1] || fieldMatch?.[3];
+  const cleanField = rawField !== undefined && !NOISE_WORDS.has(rawField.toLowerCase()) ? rawField : null;
+  if (fieldMatch && cleanField) {
+    const fieldName  = cleanField;
+    const rawValue = fieldMatch[2] ?? fieldMatch[4];
+    const fieldValue = (rawValue ?? 'false').toLowerCase();
 
     // Replace the type cast
     triggerCode = triggerCode.replace(

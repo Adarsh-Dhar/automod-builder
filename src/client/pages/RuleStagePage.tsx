@@ -10,6 +10,8 @@ import { ModeTabStrip } from '../components/layout/ModeTabStrip';
 import { RightPanel } from '../components/layout/RightPanel';
 import {
   DEFAULT_AUTOMOD_RULE,
+  extractFirstRule,
+  hasMultipleRules,
   parseAutomodRuleDraft,
   serializeAutomodRule,
   type AutomodAction,
@@ -132,11 +134,23 @@ export function RuleStagePage() {
   };
 
   const handleApplyYaml = (yaml: string) => {
-    const parsed = parseAutomodRuleDraft(yaml, rule);
-    setRule(parsed);
-    setDraft(serializeAutomodRule(parsed));
-    setMode('code');
-    void persistRule(parsed);
+    // If YAML contains multiple rules, preserve all rules in the draft
+    if (hasMultipleRules(yaml)) {
+      setDraft(yaml);
+      // Extract first rule for features that need single rule (blast radius, etc.)
+      const firstRuleYaml = extractFirstRule(yaml);
+      const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
+      setRule(parsed);
+      setMode('code');
+      void persistRule(parsed);
+    } else {
+      // Single rule - parse normally
+      const parsed = parseAutomodRuleDraft(yaml, rule);
+      setRule(parsed);
+      setDraft(serializeAutomodRule(parsed));
+      setMode('code');
+      void persistRule(parsed);
+    }
   };
 
   const refreshBlast = async (nextRule: AutomodRule) => {
@@ -171,9 +185,18 @@ export function RuleStagePage() {
   const handleDraftChange = (value: string) => {
     setDraft(value);
 
-    const parsed = parseAutomodRuleDraft(value, rule);
-    setRule(parsed);
-    void persistRule(parsed);
+    // If draft contains multiple rules, extract first rule for parsing
+    if (hasMultipleRules(value)) {
+      const firstRuleYaml = extractFirstRule(value);
+      const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
+      setRule(parsed);
+      void persistRule(parsed);
+    } else {
+      // Single rule - parse normally
+      const parsed = parseAutomodRuleDraft(value, rule);
+      setRule(parsed);
+      void persistRule(parsed);
+    }
   };
 
   const persistRule = async (nextRule: AutomodRule) => {
