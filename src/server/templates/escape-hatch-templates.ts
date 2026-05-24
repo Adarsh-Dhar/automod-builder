@@ -86,6 +86,27 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
       'The trigger assumes the ban list is kept in sync elsewhere.',
     ],
   },
+  {
+    limitation: 'database-check',
+    label: 'Redis Set Member Check',
+    description: 'Check a Redis set using sismember before allowing the post through.',
+    code: `import { type Context, type PostSubmitEvent } from '@devvit/web/server';
+
+export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => {
+  try {
+    const isMember = await context.redis.sismember('scammer-list', event.author.name);
+    if (isMember) {
+      await context.reddit.remove(event.post.id);
+    }
+  } catch (error) {
+    console.error('Escape hatch Redis set check failed:', error);
+  }
+};`,
+    limitations: [
+      'Requires the Redis set to be populated and kept in sync separately.',
+      'The set name must match exactly what is used when adding banned users.',
+    ],
+  },
 ];
 
 export function getEscapeHatchTemplate(limitation: YamlLimitation) {

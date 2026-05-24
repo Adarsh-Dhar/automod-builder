@@ -6,7 +6,7 @@ import {
   type YamlLimitation,
   type YamlLimitationAnalysis,
 } from '../../shared/automod';
-import { getEscapeHatchTemplate } from '../templates/escape-hatch-templates';
+import { getEscapeHatchTemplate, ESCAPE_HATCH_TEMPLATES, type EscapeHatchTemplate } from '../templates/escape-hatch-templates';
 import { generateJson } from './model-proxy.service';
 
 type LimitationDetectionResult = {
@@ -57,11 +57,25 @@ function buildCodeFromTemplate(
   limitation: YamlLimitation,
   modContext: ModContext
 ): EscapeHatchCode | null {
-  const template = getEscapeHatchTemplate(limitation);
+  // If the request names a custom response field (e.g. "verified: false"),
+  // the static template will check the wrong field — let the model generate instead.
+  const hasCustomResponseField = /returns?\s+\w+:\s*(true|false)/i.test(request);
+  if (hasCustomResponseField) return null;
+
+  // For database-check, pick the sismember template when the request mentions
+  // sismember or a named set, otherwise fall back to the redis.get template.
+  const useSetTemplate =
+    limitation === 'database-check' &&
+    /sismember|smembers|\bset\b|scammer.?list|ban.?set/i.test(request);
+
+  const template = useSetTemplate
+    ? ESCAPE_HATCH_TEMPLATES.find((t: EscapeHatchTemplate) => t.label === 'Redis Set Member Check') ?? getEscapeHatchTemplate(limitation)
+    : getEscapeHatchTemplate(limitation);
+
   if (!template) return null;
 
-  // Extract any URL the user mentioned in their request
-  const urlMatch = request.match(/https?:\/\/[^\s"'`,]+/);
+  // Extract the URL from the request, excluding trailing punctuation and parens.
+  const urlMatch = request.match(/https?:\/\/[^\s"'`,()\]]+/);
   const triggerCode = urlMatch
     ? template.code.replace('https://api.example.com/check', urlMatch[0])
     : template.code;
