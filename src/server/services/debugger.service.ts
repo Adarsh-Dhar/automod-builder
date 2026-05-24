@@ -170,21 +170,23 @@ function splitAutomodBlocks(yaml: string): Array<{ rawYaml: string; lineStart: n
 
 function conditionMatches(condition: AutomodCondition, post: SimulationPost): boolean {
   if (condition.field === 'title') {
+    const title = post.title ?? '';
     return condition.comparator === 'matches'
-      ? new RegExp(condition.value, 'i').test(post.title)
+      ? new RegExp(condition.value, 'i').test(title)
       : condition.value
           .split(',')
           .map((part) => part.trim().toLowerCase())
-          .some((phrase) => phrase.length > 0 && post.title.toLowerCase().includes(phrase));
+          .some((phrase) => phrase.length > 0 && title.toLowerCase().includes(phrase));
   }
 
   if (condition.field === 'body') {
+    const body = post.body ?? '';
     return condition.comparator === 'matches'
-      ? new RegExp(condition.value, 'i').test(post.body)
+      ? new RegExp(condition.value, 'i').test(body)
       : condition.value
           .split(',')
           .map((part) => part.trim().toLowerCase())
-          .some((phrase) => phrase.length > 0 && post.body.toLowerCase().includes(phrase));
+          .some((phrase) => phrase.length > 0 && body.toLowerCase().includes(phrase));
   }
 
   if (condition.field === 'account_age' || condition.field === 'combined_karma') {
@@ -194,6 +196,10 @@ function conditionMatches(condition: AutomodCondition, post: SimulationPost): bo
     }
 
     const actualValue = condition.field === 'account_age' ? post.accountAgeDays : post.combinedKarma;
+
+    if (actualValue === undefined) {
+      return false;
+    }
 
     switch (condition.comparator) {
       case '<':
@@ -317,9 +323,9 @@ export async function runDebug(postId: string, subredditName?: string): Promise<
   return {
     postId: post.id,
     subredditName,
-    postTitle: post.title,
-    postBody: post.body,
-    postAuthor: post.author,
+    postTitle: post.title ?? '',
+    postBody: post.body ?? '',
+    postAuthor: post.author ?? '',
     matches,
     aiFixYaml,
   };

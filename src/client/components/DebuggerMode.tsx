@@ -5,12 +5,14 @@ import { Card } from './ui/card';
 import { Textarea } from './ui/textarea';
 import type { DebugResponse, DebugComparison } from '../../shared/debug-types';
 import { parsePostId } from '../utils/debug';
+import { saveMockTest, type SavedMockTest } from '../utils/mock-tests';
 
 type DebuggerModeProps = {
-  onApplyYaml: (yaml: string) => void;
+  onApplyYaml: (yaml: string, source?: 'chat' | 'code' | 'debugger' | 'decoder' | 'escape-hatch' | 'restore') => void;
+  onTestSaved?: (test: SavedMockTest) => void;
 };
 
-export default function DebuggerMode({ onApplyYaml }: DebuggerModeProps) {
+export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DebugResponse | null>(null);
@@ -40,6 +42,8 @@ export default function DebuggerMode({ onApplyYaml }: DebuggerModeProps) {
   const [mockLoading, setMockLoading] = useState(false);
   const [comparison, setComparison] = useState<DebugComparison | null>(null);
   const [mockError, setMockError] = useState<string | null>(null);
+  const [savedTests, setSavedTests] = useState<SavedMockTest[]>([]);
+  const [testCounter, setTestCounter] = useState(1);
 
   // Check if YAML has actual content (not empty/default/template)
   const hasRealYaml = result?.aiFixYaml && !result.aiFixYaml.includes("# Rule draft") && !result.aiFixYaml.includes("title (includes): ['']") && result.aiFixYaml.trim().length > 50;
@@ -123,6 +127,40 @@ export default function DebuggerMode({ onApplyYaml }: DebuggerModeProps) {
       setMockError((e as Error).message);
     } finally {
       setMockLoading(false);
+    }
+  };
+
+  const handleSaveMockTest = () => {
+    const mockPost = {
+      title: mockTitle,
+      body: mockBody,
+      author: mockAuthor,
+      accountAgeDays: Number.parseInt(mockAccountAge, 10) || 0,
+      combinedKarma: Number.parseInt(mockCombinedKarma, 10) || 0,
+      linkKarma: Number.parseInt(mockLinkKarma, 10) || 0,
+      commentKarma: Number.parseInt(mockCommentKarma, 10) || 0,
+      subreddit: mockSubreddit,
+      domain: mockDomain,
+      url: mockUrl,
+      isSelf: mockIsSelf,
+      over18: mockOver18,
+      spoiler: mockSpoiler,
+      stickied: mockStickied,
+      numComments: Number.parseInt(mockNumComments, 10) || 0,
+      score: Number.parseInt(mockScore, 10) || 0,
+      upvoteRatio: Number.parseFloat(mockUpvoteRatio) || 1,
+      authorFlairText: mockAuthorFlairText,
+      linkFlairText: mockLinkFlairText,
+      distinguished: mockDistinguished,
+    };
+
+    const updated = saveMockTest(mockPost, `Mock Test #${testCounter}`);
+    setSavedTests(updated);
+    setTestCounter(testCounter + 1);
+
+    const savedTest = updated[0];
+    if (savedTest && onTestSaved) {
+      onTestSaved(savedTest);
     }
   };
 
@@ -351,9 +389,14 @@ export default function DebuggerMode({ onApplyYaml }: DebuggerModeProps) {
               </div>
             </div>
 
-            <Button onClick={handleMockDebug} disabled={mockLoading} className="w-full" size="sm">
-              {mockLoading ? 'Testing...' : 'Test Mock Post'}
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleMockDebug} disabled={mockLoading} className="flex-1" size="sm">
+                {mockLoading ? 'Testing...' : 'Test Mock Post'}
+              </Button>
+              <Button onClick={handleSaveMockTest} variant="outline" size="sm">
+                Save Test
+              </Button>
+            </div>
           </div>
           {mockError && <p className="mt-2 text-xs text-[--warning]">{mockError}</p>}
         </Card>
@@ -422,7 +465,7 @@ export default function DebuggerMode({ onApplyYaml }: DebuggerModeProps) {
       )}
 
       {shouldShowCard && (
-        <DebugResultCard result={result} onApplyYaml={onApplyYaml} />
+        <DebugResultCard result={result} onApplyYaml={(yaml) => onApplyYaml(yaml, 'debugger')} />
       )}
     </div>
   );

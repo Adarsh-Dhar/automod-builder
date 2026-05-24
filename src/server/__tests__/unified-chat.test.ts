@@ -136,7 +136,7 @@ vi.mock('../services/model-proxy.service', async (importOriginal) => {
 export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => {
   try {
     const isBanned = await context.redis.sismember('scammer-list', event.author.name);
-    if (isBanned) { await context.reddit.remove(event.post.id); }
+    if (isBanned) { await context.reddit.remove(event.post.id, true); }
   } catch (error) { console.error('Redis check failed:', error); }
 };`,
             description: 'Checks Redis scammer-list set before allowing a post through.',
@@ -159,7 +159,7 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
     });
     if (res.ok) {
       const data = await res.json() as { isSpam: boolean };
-      if (data.isSpam) { await context.reddit.remove(event.post.id); }
+      if (data.isSpam) { await context.reddit.remove(event.post.id, true); }
     }
   } catch (error) { console.error('Spam API check failed:', error); }
 };`,
@@ -181,7 +181,7 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
   try {
     const data = JSON.parse(event.post.body) as Record<string, unknown>;
     if (data.blocked === true || data.kind === 'forbidden') {
-      await context.reddit.remove(event.post.id);
+      await context.reddit.remove(event.post.id, true);
     }
   } catch { return; }
 };`,
@@ -443,7 +443,7 @@ function buildFetchMock() {
 export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => {
   try {
     const isBanned = await context.redis.sismember('scammer-list', event.author.name);
-    if (isBanned) { await context.reddit.remove(event.post.id); }
+    if (isBanned) { await context.reddit.remove(event.post.id, true); }
   } catch (error) { console.error('Redis check failed:', error); }
 };`,
           description: 'Checks Redis scammer-list set before allowing a post through.',
@@ -462,7 +462,7 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
     });
     if (res.ok) {
       const data = await res.json() as { isSpam: boolean };
-      if (data.isSpam) { await context.reddit.remove(event.post.id); }
+      if (data.isSpam) { await context.reddit.remove(event.post.id, true); }
     }
   } catch (error) { console.error('Spam API check failed:', error); }
 };`,
@@ -480,7 +480,7 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
   try {
     const data = JSON.parse(event.post.body) as Record<string, unknown>;
     if (data.blocked === true || data.kind === 'forbidden') {
-      await context.reddit.remove(event.post.id);
+      await context.reddit.remove(event.post.id, true);
     }
   } catch { return; }
 };`,
@@ -601,13 +601,15 @@ function makeYamlFetchMock(yaml: string = MINIMAL_YAML) {
 describe('Suite 1 — Normal Mode: Pure YAML Generation', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', makeYamlFetchMock());
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('wiki unavailable'));
-    vi.mocked(reddit.updateWikiPage).mockResolvedValue(undefined);
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('1.1 — generateText returns a string for a simple keyword filter request', async () => {
     const text = await generateText('Remove posts with "buy now" in the title');
@@ -674,11 +676,13 @@ describe('Suite 1 — Normal Mode: Pure YAML Generation', () => {
 describe('Suite 2 — Unified Analysis for YAML Generation', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', buildFetchMock());
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('2.1 — unified analysis classifies a YAML-only request correctly', async () => {
     const analysis = await generateJson<UnifiedAnalysis>(
@@ -713,19 +717,21 @@ describe('Suite 2 — Unified Analysis for YAML Generation', () => {
 // ============================================================
 describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   beforeEach(() => {
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
-    vi.mocked(redis.del).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
+    vi.mocked(redis.del).mockResolvedValue(undefined);
     vi.mocked(redis.sadd).mockResolvedValue(1);
     vi.mocked(redis.srem).mockResolvedValue(1);
     vi.mocked(redis.sismember).mockResolvedValue(0);
     vi.mocked(redis.smembers).mockResolvedValue([]);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('wiki unavailable'));
-    vi.mocked(reddit.updateWikiPage).mockResolvedValue(undefined);
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
     vi.stubGlobal('fetch', buildFetchMock());
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   // ---- CREATE -----------------------------------------------------------
 
@@ -780,7 +786,7 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   });
 
   it('4.8 — READ: get returns null for a user not on the ban list', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const result = await redis.get('banned:user:clean_user');
     expect(result).toBeNull();
   });
@@ -811,7 +817,7 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   });
 
   it('4.13 — READ: getCurrentRule returns DEFAULT_AUTOMOD_RULE when both wiki and Redis are empty', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('wiki not found'));
     const rule = await getCurrentRule();
     expect(rule).toHaveProperty('id');
@@ -854,7 +860,7 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
     const updatedRule = makeTestRule({ name: 'Updated Spam Filter', action: 'report' });
     await saveCurrentRule(updatedRule);
     expect(redis.set).toHaveBeenCalled();
-    const writtenYaml = String(vi.mocked(redis.set).mock.calls[0][1]);
+    const writtenYaml = String(vi.mocked(redis.set).mock.calls[0]?.[1]);
     expect(writtenYaml.length).toBeGreaterThan(0);
   });
 
@@ -934,22 +940,22 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
     vi.mocked(redis.sismember).mockResolvedValue(1);
     vi.mocked(reddit.remove).mockResolvedValue(undefined);
 
-    const event = { post: { id: 'post_1' }, author: { name: 'banned_user' } };
+    const event = { post: { id: 't1_post_1' }, author: { name: 'banned_user' } };
     const isBanned = await redis.sismember('scammer-list', event.author.name);
     if (isBanned) {
-      await reddit.remove(event.post.id);
+      await reddit.remove(event.post.id as `t1_${string}`, true);
     }
-    expect(reddit.remove).toHaveBeenCalledWith('post_1');
+    expect(reddit.remove).toHaveBeenCalledWith('t1_post_1', true);
   });
 
   it('4.26 — Redis trigger simulation: clean user does NOT cause reddit.remove', async () => {
     vi.mocked(redis.sismember).mockResolvedValue(0);
     vi.mocked(reddit.remove).mockResolvedValue(undefined);
 
-    const event = { post: { id: 'post_2' }, author: { name: 'clean_user' } };
+    const event = { post: { id: 't1_post_2' }, author: { name: 'clean_user' } };
     const isBanned = await redis.sismember('scammer-list', event.author.name);
     if (isBanned) {
-      await reddit.remove(event.post.id);
+      await reddit.remove(event.post.id as `t1_${string}`, true);
     }
     expect(reddit.remove).not.toHaveBeenCalled();
   });
@@ -964,7 +970,9 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
     vi.mocked(reddit.remove).mockResolvedValue(undefined);
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('5.1 — spam API mock returns isSpam: false for a clean post title', async () => {
     const res = await fetch('https://spam-api.example.com/check', {
@@ -1010,7 +1018,7 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
 
   it('5.5 — simulated trigger removes post when external API returns isSpam: true', async () => {
     const mockEvent = {
-      post: { id: 'post_abc', title: 'spam post', body: '' },
+      post: { id: 't1_post_abc', title: 'spam post', body: '' },
       author: { name: 'spammer' },
     };
 
@@ -1021,10 +1029,10 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
     });
     const data = (await res.json()) as { isSpam: boolean };
     if (data.isSpam) {
-      await reddit.remove(mockEvent.post.id);
+      await reddit.remove(mockEvent.post.id as `t1_${string}`, true);
     }
 
-    expect(reddit.remove).toHaveBeenCalledWith('post_abc');
+    expect(reddit.remove).toHaveBeenCalledWith('t1_post_abc', true);
   });
 
   it('5.9 — simulated trigger does NOT remove post when isSpam is false', async () => {
@@ -1040,7 +1048,7 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
     });
     const data = (await res.json()) as { isSpam: boolean };
     if (data.isSpam) {
-      await reddit.remove(mockEvent.post.id);
+      await reddit.remove(mockEvent.post.id as `t1_${string}`, true);
     }
 
     expect(reddit.remove).not.toHaveBeenCalled();
@@ -1075,7 +1083,7 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
     const data = (await res.json()) as Record<string, unknown>;
     const isSpam = typeof data.isSpam === 'boolean' ? data.isSpam : false;
     if (isSpam) {
-      await reddit.remove('any-post-id');
+      await reddit.remove('t1_any-post-id' as `t1_${string}`, true);
     }
 
     expect(isSpam).toBe(false);
@@ -1120,9 +1128,9 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
     expect(results).toHaveLength(3);
     expect(results.every((r) => typeof r.isSpam === 'boolean')).toBe(true);
     // posts[0] and [2] contain "spam" → true; posts[1] does not → false
-    expect(results[0].isSpam).toBe(true);
-    expect(results[1].isSpam).toBe(false);
-    expect(results[2].isSpam).toBe(true);
+    expect(results[0]?.isSpam).toBe(true);
+    expect(results[1]?.isSpam).toBe(false);
+    expect(results[2]?.isSpam).toBe(true);
   });
 });
 
@@ -1132,17 +1140,19 @@ describe('Suite 5 — External API: HTTP Call Integration', () => {
 describe('Suite 6 — Edge Cases and Guard Rails', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', buildFetchMock());
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
-    vi.mocked(redis.del).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
+    vi.mocked(redis.del).mockResolvedValue(undefined);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('wiki unavailable'));
-    vi.mocked(reddit.updateWikiPage).mockResolvedValue(undefined);
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('6.1 — getCurrentRule falls back gracefully when both wiki and Redis are unavailable', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('forbidden'));
     const rule = await getCurrentRule();
     expect(rule).toBeDefined();
@@ -1181,19 +1191,17 @@ describe('Suite 7 — Rule Evaluation and Simulation Engine', () => {
   let createDefaultSimulationPosts: typeof import('../../shared/automod').createDefaultSimulationPosts;
   let runSimulation: typeof import('../services/automod.service').runSimulation;
   let getMockSimulationPosts: typeof import('../services/automod.service').getMockSimulationPosts;
-  let serializeAutomodRule: typeof import('../../shared/automod').serializeAutomodRule;
   let describeCondition: typeof import('../../shared/automod').describeCondition;
 
   beforeEach(async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('unavailable'));
-    vi.mocked(reddit.updateWikiPage).mockResolvedValue(undefined);
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
 
     const shared = await import('../../shared/automod');
     evaluateRule              = shared.evaluateRule;
     createDefaultSimulationPosts = shared.createDefaultSimulationPosts;
-    serializeAutomodRule      = shared.serializeAutomodRule;
     describeCondition         = shared.describeCondition;
 
     const svc = await import('../services/automod.service');
@@ -1201,7 +1209,9 @@ describe('Suite 7 — Rule Evaluation and Simulation Engine', () => {
     getMockSimulationPosts    = svc.getMockSimulationPosts;
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   // ---- createDefaultSimulationPosts --------------------------------------
 
@@ -1224,8 +1234,8 @@ describe('Suite 7 — Rule Evaluation and Simulation Engine', () => {
 
   it('7.3 — default posts include both old and new accounts', () => {
     const posts = createDefaultSimulationPosts();
-    const hasNew = posts.some((p) => p.accountAgeDays < 30);
-    const hasOld = posts.some((p) => p.accountAgeDays >= 30);
+    const hasNew = posts.some((p) => (p.accountAgeDays ?? 0) < 30);
+    const hasOld = posts.some((p) => (p.accountAgeDays ?? 0) >= 30);
     expect(hasNew).toBe(true);
     expect(hasOld).toBe(true);
   });
@@ -1390,7 +1400,7 @@ describe('Suite 7 — Rule Evaluation and Simulation Engine', () => {
   // ---- runSimulation / getMockSimulationPosts ----------------------------
 
   it('7.16 — getMockSimulationPosts returns empty array when Redis is empty', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const posts = await getMockSimulationPosts();
     expect(Array.isArray(posts)).toBe(true);
     expect(posts.length).toBe(0);
@@ -1401,7 +1411,9 @@ describe('Suite 7 — Rule Evaluation and Simulation Engine', () => {
     vi.mocked(redis.get).mockResolvedValue(JSON.stringify(fakePosts));
     const posts = await getMockSimulationPosts();
     expect(posts.length).toBe(2);
-    expect(posts[0].id).toBe(fakePosts[0].id);
+    if (posts[0] && fakePosts[0]) {
+      expect(posts[0].id).toBe(fakePosts[0].id);
+    }
   });
 
   it('7.18 — getMockSimulationPosts handles malformed JSON gracefully', async () => {
@@ -1412,7 +1424,7 @@ describe('Suite 7 — Rule Evaluation and Simulation Engine', () => {
   });
 
   it('7.19 — runSimulation uses getCurrentRule when no rule argument provided', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const result = await runSimulation();
     // With no posts stored, simulation runs against empty list → all counts 0
     expect(result).toHaveProperty('matched');
@@ -1484,8 +1496,8 @@ describe('Suite 8 — Blast Radius Engine', () => {
   }
 
   beforeEach(async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
 
     const svc = await import('../services/blast-radius.service');
     calculateBlastRadius           = svc.calculateBlastRadius;
@@ -1494,7 +1506,9 @@ describe('Suite 8 — Blast Radius Engine', () => {
     formatBlastRadiusResult        = svc.formatBlastRadiusResult;
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   // ---- calculateBlastRadius ---------------------------------------------
 
@@ -1587,7 +1601,7 @@ describe('Suite 8 — Blast Radius Engine', () => {
   // ---- runBlastRadius (async, uses Redis) --------------------------------
 
   it('8.9 — runBlastRadius returns zero result when Redis cache is empty', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const result = await runBlastRadius(makeTestRule());
     expect(result.totalTested).toBe(0);
     expect(result.catchRate).toBe(0);
@@ -1625,7 +1639,7 @@ describe('Suite 8 — Blast Radius Engine', () => {
     }));
     expect(result.matched).toBe(1);
     expect(result.items.length).toBe(1);
-    expect(result.items[0].id).toBe('hit-1');
+    expect(result.items[0]?.id).toBe('hit-1');
   });
 
   it('8.13 — evaluateRuleAgainstCachedPosts returns zero matched for empty post list', () => {
@@ -1670,17 +1684,19 @@ describe('Suite 9 — YAML Serialization and Parsing', () => {
   let parseAutomodRuleDraft: typeof import('../../shared/automod').parseAutomodRuleDraft;
 
   beforeEach(async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('unavailable'));
-    vi.mocked(reddit.updateWikiPage).mockResolvedValue(undefined);
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
 
     const shared = await import('../../shared/automod');
     serializeAutomodRule = shared.serializeAutomodRule;
     parseAutomodRuleDraft = shared.parseAutomodRuleDraft;
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   // ---- serializeAutomodRule ----------------------------------------------
 
@@ -1822,11 +1838,11 @@ describe('Suite 10 — Rule Stage Integration', () => {
   let getLiveAutomodYaml:   typeof import('../services/automod.service').getLiveAutomodYaml;
 
   beforeEach(async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
-    vi.mocked(redis.set).mockResolvedValue(null);
-    vi.mocked(redis.del).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
+    vi.mocked(redis.del).mockResolvedValue(undefined);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('unavailable'));
-    vi.mocked(reddit.updateWikiPage).mockResolvedValue(undefined);
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
     vi.stubGlobal('fetch', buildFetchMock());
 
     const svc = await import('../services/automod.service');
@@ -1838,7 +1854,9 @@ describe('Suite 10 — Rule Stage Integration', () => {
     getLiveAutomodYaml  = svc.getLiveAutomodYaml;
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('10.1 — saveCurrentRule → getCurrentRule round-trip preserves action', async () => {
     const original = makeTestRule({ action: 'report', name: 'Integration Rule', comment: 'Filed report.' });
@@ -1846,7 +1864,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
     const written = vi.mocked(redis.set).mock.calls[0];
     expect(written).toBeDefined();
     // Re-inject the YAML that was written so getCurrentRule can read it back
-    const writtenYaml = String(written[1]);
+    const writtenYaml = String(written?.[1]);
     vi.mocked(redis.get).mockResolvedValue(writtenYaml);
     const loaded = await getCurrentRule();
     expect(loaded.action).toBe('report');
@@ -1856,7 +1874,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
     const rule = makeTestRule({ name: 'Save Test', comment: 'Saved.' });
     await saveCurrentRule(rule);
     expect(redis.set).toHaveBeenCalled();
-    const value = String(vi.mocked(redis.set).mock.calls[0][1]);
+    const value = String(vi.mocked(redis.set).mock.calls[0]?.[1]);
     expect(value.length).toBeGreaterThan(0);
   });
 
@@ -1867,14 +1885,14 @@ describe('Suite 10 — Rule Stage Integration', () => {
 
   it('10.4 — saveCurrentRule wiki call receives the subredditName from context', async () => {
     await saveCurrentRule(makeTestRule({ name: 'Context Check', comment: 'Check.' }));
-    const call = vi.mocked(reddit.updateWikiPage).mock.calls[0][0] as { subredditName: string; page: string };
+    const call = vi.mocked(reddit.updateWikiPage).mock.calls[0]?.[0] as { subredditName: string; page: string };
     expect(call).toBeDefined();
     expect(call.subredditName).toBe('test_subreddit');
     expect(call.page).toBe('config/automoderator');
   });
 
   it('10.5 — getCurrentRule falls back to DEFAULT_AUTOMOD_RULE when both sources empty', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('not found'));
     const rule = await getCurrentRule();
     expect(rule.id).toBe(DEFAULT_AUTOMOD_RULE.id);
@@ -1893,7 +1911,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
   it('10.7 — resetRuleStageState deletes the rule key from Redis', async () => {
     await resetRuleStageState();
     expect(redis.del).toHaveBeenCalled();
-    const deletedKey = String(vi.mocked(redis.del).mock.calls[0][0]);
+    const deletedKey = String(vi.mocked(redis.del).mock.calls[0]?.[0]);
     expect(deletedKey).toMatch(/rulestage:rule:current/);
   });
 
@@ -1913,7 +1931,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
   });
 
   it('10.10 — runSimulation returns matched = 0 when no posts are stored', async () => {
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const result = await runSimulation(makeTestRule());
     expect(result.matched).toBe(0);
     expect(result.items.length).toBe(0);
@@ -1925,7 +1943,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
     await saveCurrentRule(rule);
 
     // SIMULATE against stored posts (none → empty result)
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const simResult = await runSimulation(rule);
     expect(simResult.matched).toBe(0);
 
@@ -1934,7 +1952,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
     expect(redis.del).toHaveBeenCalled();
 
     // VERIFY default is restored
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('gone'));
     const restored = await getCurrentRule();
     expect(restored.id).toBe(DEFAULT_AUTOMOD_RULE.id);
@@ -1942,14 +1960,14 @@ describe('Suite 10 — Rule Stage Integration', () => {
 
   it('10.12 — pushYamlToWiki calls updateWikiPage with correct page path', async () => {
     await pushYamlToWiki(MINIMAL_YAML);
-    const call = vi.mocked(reddit.updateWikiPage).mock.calls[0][0] as { page: string; content: string };
+    const call = vi.mocked(reddit.updateWikiPage).mock.calls[0]?.[0] as { page: string; content: string };
     expect(call.page).toBe('config/automoderator');
     expect(call.content).toContain('type: submission');
   });
 
   it('10.13 — getLiveAutomodYaml returns serialized DEFAULT when both sources are empty', async () => {
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('not found'));
-    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.get).mockResolvedValue(undefined);
     const yaml = await getLiveAutomodYaml('test_subreddit');
     expect(typeof yaml).toBe('string');
     // Either DEFAULT YAML or empty — must be a string either way

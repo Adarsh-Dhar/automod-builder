@@ -1,6 +1,6 @@
-import type { DebugMatch } from './debug-types';
+import type { DebugMatch, MockPostDebugRequest } from './debug-types';
 
-export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'escape-hatch' | 'debug';
+export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'escape-hatch' | 'debug' | 'test-matrix';
 
 export type YamlLimitation =
   | 'external-api'
@@ -93,26 +93,27 @@ export type AutomodRule = {
 
 export type SimulationPost = {
   id: string;
-  title: string;
-  body: string;
-  author: string;
-  accountAgeDays: number;
-  combinedKarma: number;
-  linkKarma: number;
-  commentKarma: number;
-  subreddit: string;
-  domain: string;
-  url: string;
-  isSelf: boolean;
-  over18: boolean;
-  spoiler: boolean;
-  stickied: boolean;
-  numComments: number;
-  score: number;
-  upvoteRatio: number;
-  authorFlairText: string;
-  linkFlairText: string;
-  distinguished: string;
+  label?: string;
+  title?: string;
+  body?: string;
+  author?: string;
+  accountAgeDays?: number;
+  combinedKarma?: number;
+  linkKarma?: number;
+  commentKarma?: number;
+  subreddit?: string;
+  domain?: string;
+  url?: string;
+  isSelf?: boolean;
+  over18?: boolean;
+  spoiler?: boolean;
+  stickied?: boolean;
+  numComments?: number;
+  score?: number;
+  upvoteRatio?: number;
+  authorFlairText?: string;
+  linkFlairText?: string;
+  distinguished?: string;
 };
 
 export type SimulationOutcome = 'remove' | 'approve' | 'report';
@@ -126,11 +127,22 @@ export type SimulationItem = {
 };
 
 export type SimulationResult = {
+  changeId?: string;
+  postId?: string;
   matched: number;
   removed: number;
   approved: number;
   reported: number;
   items: SimulationItem[];
+};
+
+export type AutomodChange = {
+  id: string;
+  yaml: string;
+  label: string;
+  source: 'chat' | 'code' | 'debugger' | 'decoder' | 'escape-hatch' | 'restore';
+  createdAt: number;
+  ruleCount: number;
 };
 
 export type RuleChatSuggestion = {
@@ -630,12 +642,12 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
     const accountAgeCondition = rule.conditions.find((condition) => condition.field === 'account_age');
     const karmaCondition = rule.conditions.find((condition) => condition.field === 'combined_karma');
 
-    const titleMatch = titleCondition ? matchesTextCondition(titleCondition, post.title) : false;
-    const bodyMatch = bodyCondition ? matchesTextCondition(bodyCondition, post.body) : false;
+    const titleMatch = titleCondition ? matchesTextCondition(titleCondition, post.title ?? '') : false;
+    const bodyMatch = bodyCondition ? matchesTextCondition(bodyCondition, post.body ?? '') : false;
 
-    const ageMatch = accountAgeCondition ? matchesNumericCondition(accountAgeCondition, post.accountAgeDays) : false;
+    const ageMatch = accountAgeCondition ? matchesNumericCondition(accountAgeCondition, post.accountAgeDays ?? 0) : false;
 
-    const karmaMatch = karmaCondition ? matchesNumericCondition(karmaCondition, post.combinedKarma) : false;
+    const karmaMatch = karmaCondition ? matchesNumericCondition(karmaCondition, post.combinedKarma ?? 0) : false;
 
     const textConditions = [titleCondition, bodyCondition].filter((condition): condition is AutomodCondition => !!condition);
 
@@ -657,8 +669,8 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
     if (shouldMatch) {
       items.push({
         id: post.id,
-        title: post.title,
-        author: post.author,
+        title: post.title ?? '',
+        author: post.author ?? '',
         outcome: rule.action,
         reason: `${rule.name} matched`,
       });
@@ -673,8 +685,8 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
 
     items.push({
       id: post.id,
-      title: post.title,
-      author: post.author,
+      title: post.title ?? '',
+      author: post.author ?? '',
       outcome: 'approve',
       reason: 'No rule match',
     });
@@ -687,6 +699,37 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
     approved,
     reported,
     items,
+  };
+}
+
+export function buildSimulationPost(
+  req: MockPostDebugRequest,
+  id?: string,
+  label?: string
+): SimulationPost {
+  return {
+    id: id ?? `mock-${Date.now().toString(36)}`,
+    ...(label !== undefined ? { label } : {}),
+    title: req.title,
+    body: req.body,
+    author: req.author,
+    accountAgeDays: req.accountAgeDays,
+    combinedKarma: req.combinedKarma,
+    linkKarma: req.linkKarma,
+    commentKarma: req.commentKarma,
+    subreddit: req.subreddit,
+    domain: req.domain,
+    url: req.url,
+    isSelf: req.isSelf,
+    over18: req.over18,
+    spoiler: req.spoiler,
+    stickied: req.stickied,
+    numComments: req.numComments,
+    score: req.score,
+    upvoteRatio: req.upvoteRatio,
+    authorFlairText: req.authorFlairText,
+    linkFlairText: req.linkFlairText,
+    distinguished: req.distinguished,
   };
 }
 

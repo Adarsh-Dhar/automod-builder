@@ -9,9 +9,10 @@ interface PageTopbarProps {
   saving: boolean;
   onReset: () => void;
   onActionChange: (action: AutomodAction) => void;
+  onOpenHistory?: () => void;
 }
 
-export function PageTopbar({ ruleName, action, saving, onReset, onActionChange }: PageTopbarProps) {
+export function PageTopbar({ ruleName, action, saving, onReset, onActionChange, onOpenHistory }: PageTopbarProps) {
   const actions: AutomodAction[] = ['remove', 'report', 'approve'];
 
   const getNextAction = (current: AutomodAction): AutomodAction => {
@@ -48,6 +49,14 @@ export function PageTopbar({ ruleName, action, saving, onReset, onActionChange }
           <RefreshCw className="w-4 h-4 text-[--muted-foreground] animate-spin shrink-0" />
         )}
 
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onOpenHistory}
+          className="text-xs text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3] px-2 hidden sm:inline"
+        >
+          History
+        </Button>
         <Button
           variant="ghost"
           size="sm"

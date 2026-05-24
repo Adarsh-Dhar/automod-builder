@@ -46,7 +46,7 @@ export default function HistoryPanel({
   const selectedSnap = snapshots.find((s) => s.id === selected) ?? null;
 
   const handleSaveNow = () => {
-    const updated = saveSnapshot(currentYaml, ruleCount, "Manual save");
+    const updated = saveSnapshot(currentYaml, ruleCount, "Manual save", 'code');
     onSnapshotsChange(updated);
   };
 

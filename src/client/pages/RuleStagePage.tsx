@@ -1,6 +1,7 @@
 import { useInit } from '../contexts/init-context';
 import ChatMode from '../components/ChatMode';
 import DebuggerMode from '../components/DebuggerMode';
+import HistoryPanel from '../components/HistoryPanel';
 import { useEffect, useState } from 'react';
 import { Textarea } from '../components/ui/textarea';
 import { Skeleton } from '../components/ui/skeleton';
@@ -14,12 +15,18 @@ import {
   hasMultipleRules,
   parseAutomodRuleDraft,
   serializeAutomodRule,
+  buildSimulationPost,
+  evaluateRule,
   type AutomodAction,
   type AutomodRule,
   type RuleStageMode,
   type YamlLimitation,
 } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
+import { getSnapshots, saveSnapshot, type HistorySnapshot } from '../utils/history';
+import { getMockTests, type SavedMockTest } from '../utils/mock-tests';
+import { saveMatrixCell, getMatrixCell, type MatrixCell } from '../utils/test-matrix';
+import TestMatrixView from '../components/TestMatrixView';
 
 type RuleStageInitResponse = {
   status: 'success';
@@ -52,6 +59,9 @@ export function RuleStagePage() {
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [changes, setChanges] = useState<HistorySnapshot[]>(getSnapshots());
+  const [mockTests, setMockTests] = useState<SavedMockTest[]>(getMockTests());
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -133,7 +143,7 @@ export function RuleStagePage() {
     }
   };
 
-  const handleApplyYaml = (yaml: string) => {
+  const handleApplyYaml = (yaml: string, source?: HistorySnapshot['source']) => {
     // If YAML contains multiple rules, preserve all rules in the draft
     if (hasMultipleRules(yaml)) {
       setDraft(yaml);
@@ -143,6 +153,10 @@ export function RuleStagePage() {
       setRule(parsed);
       setMode('code');
       void persistRawYaml(yaml);
+      // Save snapshot with source
+      const ruleCount = yaml.split('---').filter((b) => b.trim()).length;
+      const updated = saveSnapshot(yaml, ruleCount, undefined, source);
+      setChanges(updated);
     } else {
       // Single rule - parse normally
       const parsed = parseAutomodRuleDraft(yaml, rule);
@@ -150,6 +164,9 @@ export function RuleStagePage() {
       setDraft(serializeAutomodRule(parsed));
       setMode('code');
       void persistRule(parsed);
+      // Save snapshot with source
+      const updated = saveSnapshot(serializeAutomodRule(parsed), parsed.conditions.length, undefined, source);
+      setChanges(updated);
     }
   };
 
@@ -191,11 +208,18 @@ export function RuleStagePage() {
       const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
       setRule(parsed);
       void persistRawYaml(value);
+      // Save snapshot with source 'code'
+      const ruleCount = value.split('---').filter((b) => b.trim()).length;
+      const updated = saveSnapshot(value, ruleCount, undefined, 'code');
+      setChanges(updated);
     } else {
       // Single rule - parse normally
       const parsed = parseAutomodRuleDraft(value, rule);
       setRule(parsed);
       void persistRule(parsed);
+      // Save snapshot with source 'code'
+      const updated = saveSnapshot(serializeAutomodRule(parsed), parsed.conditions.length, undefined, 'code');
+      setChanges(updated);
     }
   };
 
@@ -279,6 +303,47 @@ export function RuleStagePage() {
     }
   };
 
+  const handleTestSaved = (test: SavedMockTest) => {
+    setMockTests(getMockTests());
+  };
+
+  const handleRunMatrixCell = async (changeId: string, testId: string): Promise<MatrixCell> => {
+    const change = changes.find((c) => c.id === changeId);
+    const test = mockTests.find((t) => t.id === testId);
+    if (!change || !test) {
+      throw new Error('Change or test not found');
+    }
+
+    const rule = parseAutomodRuleDraft(change.yaml, DEFAULT_AUTOMOD_RULE);
+    const post = buildSimulationPost(test.post, test.id, test.label);
+    const result = evaluateRule(rule, [post]);
+
+    const item = result.items[0];
+    const cell: MatrixCell = {
+      changeId,
+      testId,
+      outcome: item.outcome,
+      matchedCondition: result.matched > 0 ? `${rule.name} matched` : undefined,
+      reason: item.reason,
+      runAt: Date.now(),
+    };
+
+    saveMatrixCell(cell);
+    return cell;
+  };
+
+  const handleRunAll = async () => {
+    for (const change of changes) {
+      for (const test of mockTests) {
+        await handleRunMatrixCell(change.id, test.id);
+      }
+    }
+  };
+
+  const handleHistoryRestore = (yaml: string) => {
+    handleApplyYaml(yaml, 'restore');
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Page Topbar */}
@@ -288,6 +353,7 @@ export function RuleStagePage() {
         saving={saving}
         onReset={handleReset}
         onActionChange={handleActionChange}
+        onOpenHistory={() => setHistoryPanelOpen(true)}
       />
 
       {/* Mode Tab Strip */}
@@ -323,7 +389,7 @@ export function RuleStagePage() {
               )}
 
               {mode === 'debug' && (
-                <DebuggerMode onApplyYaml={handleApplyYaml} />
+                <DebuggerMode onApplyYaml={handleApplyYaml} onTestSaved={handleTestSaved} />
               )}
 
               {mode === 'chat' && (
@@ -333,11 +399,20 @@ export function RuleStagePage() {
                     messages={chatMessages}
                     onAddMessage={handleAddChatMessage}
                     onApplyAST={() => {}}
-                    onApplyYaml={handleApplyYaml}
+                    onApplyYaml={(yaml) => handleApplyYaml(yaml, 'chat')}
                     subredditName={init?.subredditName}
                     contextYaml={draft}
                   />
                 </div>
+              )}
+
+              {mode === 'test-matrix' && (
+                <TestMatrixView
+                  changes={changes}
+                  mockTests={mockTests}
+                  onRunCell={handleRunMatrixCell}
+                  onRunAll={handleRunAll}
+                />
               )}
             </>
           )}
@@ -351,6 +426,17 @@ export function RuleStagePage() {
           onRunBlast={() => void refreshBlast(rule)}
         />
       </div>
+
+      {/* History Panel */}
+      <HistoryPanel
+        open={historyPanelOpen}
+        snapshots={changes}
+        currentYaml={draft}
+        ruleCount={rule.conditions.length}
+        onRestore={handleHistoryRestore}
+        onSnapshotsChange={setChanges}
+        onOpenChange={setHistoryPanelOpen}
+      />
     </div>
   );
 }

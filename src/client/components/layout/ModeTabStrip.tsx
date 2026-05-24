@@ -9,6 +9,7 @@ const MODES: { id: RuleStageMode; label: string; shortcut: string }[] = [
   { id: 'code', label: 'Code', shortcut: '⌘1' },
   { id: 'chat', label: 'Chat', shortcut: '⌘2' },
   { id: 'debug', label: 'Debugger', shortcut: '⌘4' },
+  { id: 'test-matrix', label: 'Test Matrix', shortcut: '⌘5' },
 ];
 
 export function ModeTabStrip({ mode, setMode }: ModeTabStripProps) {
