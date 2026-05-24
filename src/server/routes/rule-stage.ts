@@ -42,7 +42,8 @@ STRICT RULES:
    title (matches): ['regex']
    body (includes): ['phrase']
    body (matches): ['regex']
-   Never invent other keys like "title (includes-word)" or "report_reason".
+   Never invent other keys like "title (includes-word)", "title+body", or "report_reason".
+   To match text in EITHER title OR body, use satisfy_any_threshold: true with separate title and body conditions.
 5. Numeric author conditions go nested under author: block:
    author:
      satisfy_any_threshold: true
@@ -65,10 +66,18 @@ STRICT RULES:
 15. Author flair conditions use author_flair_text at the top level, NOT nested under author:.
     Correct:   author_flair_text: "verified-trader"
     Wrong:     author:\n  flair_text: "verified-trader"
+    When matching moderator flair, use generic values like "mod" or "moderator" unless the user provides specific flair text.
+    Do not guess specific subreddit flair values like "Moderator" or "Community Manager" — these vary by subreddit.
 16. To negate a top-level condition, prefix the key with ~:
     Correct:   ~author_flair_text: "official"
     Wrong:     author:\n  ~flair_text: "official"
     The ~ prefix works on any top-level key.
+17. CRITICAL: In modmail: blocks, ONLY use these valid AutoModerator template variables:
+    {{permalink}}  {{author}}  {{title}}  {{body}}  {{kind}}
+    {{domain}}     {{url}}     {{author_flair_text}}  {{link_flair_text}}
+    NEVER use invalid variables like {{author.account_age}}, {{author.combined_karma}}, {{title_length}} — these will render as literal text.
+18. For title length checks, use regex: title (matches): ['^.{0,14}$'] for titles under 15 characters.
+    NEVER use title_length as a key — it does not exist in AutoModerator.
 
 Example of a single rule:
 \`\`\`yaml
@@ -141,7 +150,7 @@ export async function generateChatReplyOnServer(
   parts.push(`User: ${prompt}`);
 
   const combined = parts.join('\n\n');
-  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 4096 }, apiKey);
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192 }, apiKey);
   return text || 'I could not generate a response.';
 }
 
@@ -300,7 +309,7 @@ ruleStage.post('/chat-unified', async (c) => {
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      2048,
+      4096,
       apiKey
     );
 
@@ -464,44 +473,6 @@ ruleStage.post('/publish', async (c) => {
   }
 });
 
-ruleStage.get('/wiki-revisions', async (c) => {
-  try {
-    const sub = context.subredditName ?? '';
-    if (!sub) {
-      return c.json({ status: 'error', message: 'No subreddit context' }, 400);
-    }
-
-    // Fetch wiki revisions from public Reddit API
-    const revisionsRes = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/wiki/revisions/config/automoderator.json?limit=50`);
-    if (!revisionsRes.ok) {
-      throw new Error('Failed to fetch wiki revisions');
-    }
-
-    const revisionsData = await revisionsRes.json();
-    const revisions = revisionsData?.data?.children ?? [];
-
-    const formattedRevisions = revisions.map((rev: any) => {
-      const data = rev.data;
-      return {
-        id: data.id,
-        user: data.author ?? '[deleted]',
-        userHidden: data.author_hidden ?? false,
-        note: data.notes?.[0] ?? data.reason ?? '',
-        timestamp: data.timestamp * 1000, // Convert to milliseconds
-        revisionId: data.revision_id,
-        yaml: data.content_md ?? data.content ?? '',
-      };
-    });
-
-    return c.json({
-      status: 'success',
-      revisions: formattedRevisions,
-    });
-  } catch (error) {
-    console.error('[RuleStage] wiki-revisions fetch failed:', error);
-    return c.json({ status: 'error', message: 'Failed to fetch wiki revisions' }, 500);
-  }
-});
 
 ruleStage.get('/context', async (c) => {
   try {

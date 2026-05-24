@@ -7,16 +7,6 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Skeleton } from './ui/skeleton';
 
-type WikiRevision = {
-  id: string;
-  user: string;
-  userHidden: boolean;
-  note: string;
-  timestamp: number;
-  revisionId: string;
-  yaml?: string;
-};
-
 type TestMatrixViewProps = {
   changes: HistorySnapshot[];
   mockTests: SavedMockTest[];
@@ -70,9 +60,6 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
   const [runningCell, setRunningCell] = useState<{ changeId: string; testId: string } | null>(null);
   const [runningAll, setRunningAll] = useState(false);
   const [cellResults, setCellResults] = useState<Record<string, MatrixCell>>({});
-  const [wikiRevisions, setWikiRevisions] = useState<WikiRevision[]>([]);
-  const [loadingRevisions, setLoadingRevisions] = useState(false);
-  const [allChanges, setAllChanges] = useState<HistorySnapshot[]>([]);
 
   // Pre-populate cell results from storage on mount
   useEffect(() => {
@@ -80,43 +67,7 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
     setCellResults(Object.fromEntries(all.map((c) => [`${c.changeId}::${c.testId}`, c])));
   }, []);
 
-  // Fetch wiki revisions on mount and merge with local changes
-  useEffect(() => {
-    const fetchRevisions = async () => {
-      setLoadingRevisions(true);
-      try {
-        const res = await fetch('/api/rule-stage/wiki-revisions');
-        if (res.ok) {
-          const data = await res.json() as { status: string; revisions: WikiRevision[] };
-          if (data.status === 'success') {
-            setWikiRevisions(data.revisions);
-            // Convert wiki revisions to HistorySnapshot format
-            const revisionSnapshots: HistorySnapshot[] = data.revisions
-              .filter((rev) => rev.yaml && rev.yaml.trim())
-              .map((rev) => ({
-                id: `wiki-${rev.revisionId}`,
-                yaml: rev.yaml!,
-                savedAt: rev.timestamp,
-                ruleCount: rev.yaml.split('---').filter((b) => b.trim()).length,
-                label: rev.note || `Wiki revision by ${rev.userHidden ? '[deleted]' : rev.user}`,
-                source: 'code' as const,
-              }));
-            // Merge wiki revisions with local changes (wiki revisions first)
-            setAllChanges([...revisionSnapshots, ...changes]);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch wiki revisions:', error);
-        // If wiki fetch fails, just use local changes
-        setAllChanges(changes);
-      } finally {
-        setLoadingRevisions(false);
-      }
-    };
-    void fetchRevisions();
-  }, [changes]);
-
-  const filteredChanges = selectedChangeId ? allChanges.filter((c) => c.id === selectedChangeId) : allChanges;
+  const filteredChanges = selectedChangeId ? changes.filter((c) => c.id === selectedChangeId) : changes;
   const filteredTests = selectedTestId ? mockTests.filter((t) => t.id === selectedTestId) : mockTests;
 
   const handleRunCell = async (changeId: string, testId: string) => {
@@ -141,21 +92,11 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
     }
   };
 
-  if (loadingRevisions) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
-        <Skeleton className="h-8 w-1/3" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    );
-  }
-
-  if (allChanges.length === 0) {
+  if (changes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
         <div className="text-4xl opacity-20">📊</div>
-        <p className="text-sm text-[--muted-foreground]">No YAML changes or wiki revisions found</p>
+        <p className="text-sm text-[--muted-foreground]">No YAML changes found</p>
         <p className="text-xs text-[--subtle]">
           Make changes in Code, Chat, or Debugger mode to populate the test matrix
         </p>
@@ -238,7 +179,7 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
                             <span className="text-[10px] text-[--muted-foreground] truncate max-w-[180px]">
                               {wikiRev.note || '-'}
                             </span>
-                            <span className="text-[10px] text-[--subtle]">{formatTimestamp(wikiRev.timestamp)}</span>
+                            <span className="text-[10px] text-[--subtle]">{timeAgo(wikiRev.timestamp)}</span>
                           </>
                         ) : (
                           <>

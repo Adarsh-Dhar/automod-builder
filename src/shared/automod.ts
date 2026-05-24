@@ -203,6 +203,7 @@ export type UnifiedAnalysis = {
 };
 
 export function buildUnifiedAnalysisPrompt(request: string): string {
+  const truncated = request.length > 800 ? request.slice(0, 800) + '... [truncated]' : request;
   return [
     'You are analyzing a Reddit moderation request to decide what can be handled by AutoModerator YAML vs Devvit TypeScript triggers.',
     'Return a single JSON object only. No markdown fences.',
@@ -216,13 +217,13 @@ export function buildUnifiedAnalysisPrompt(request: string): string {
     '{',
     '  "needsYaml": boolean,',
     '  "needsTypeScript": boolean,',
-    '  "yamlPart": "description of what YAML will handle, empty string if none",',
-    '  "typescriptPart": "description of what TypeScript will handle, empty string if none",',
+    '  "yamlPart": "one short label, e.g. \'keyword + threshold rules\', empty string if none",',
+    '  "typescriptPart": "one short label, e.g. \'Redis state lookup\', empty string if none",',
     '  "explanation": "one sentence explaining why"',
     '}',
     '',
     'Moderator request:',
-    request,
+    truncated,
   ].join('\n');
 }
 
@@ -266,6 +267,10 @@ export function buildEscapeHatchGenerationPrompt(request: string): string {
   return [
     'You are generating a Devvit TypeScript moderation trigger for a request that AutoModerator YAML cannot handle.',
     'Create a focused onPostSubmit trigger and keep the code production-safe and readable.',
+    '',
+    'CRITICAL: Return ONLY a JSON object. Do NOT output raw TypeScript code.',
+    'The TypeScript code must be inside the "code" field as a string value.',
+    'Do NOT use markdown code fences. Do NOT include any text outside the JSON object.',
     '',
     'Requirements:',
     '- Return a single JSON object only.',
