@@ -501,10 +501,14 @@ export default function ChatMode({
         return;
       }
 
-      const history = messages.map((message) => ({
-        role: (message.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
-        content: message.content,
-      }));
+      const history = messages
+        .slice(-6)
+        .map((message) => ({
+          role: (message.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+          content: message.role === 'assistant' && message.content.includes('```yaml')
+            ? '[Previous YAML response — omitted from context]'
+            : message.content,
+        }));
 
       let contextual = trimmed;
       const currentYaml = contextYaml ?? (ast.length > 0 ? astToYaml(ast) : '');

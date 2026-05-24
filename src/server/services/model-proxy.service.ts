@@ -43,12 +43,12 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 3
   }
 }
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 1): Promise<Response> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fetchWithTimeout(url, options, 8000);
+      return await fetchWithTimeout(url, options, 30000);
     } catch (error) {
       lastError = error as Error;
       console.error(`Fetch attempt ${attempt + 1} failed:`, error);
