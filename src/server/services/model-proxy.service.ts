@@ -23,6 +23,46 @@ export type GenerateOptions = {
   responseMimeType?: string | null;
 };
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetchWithTimeout(url, options, 8000);
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Fetch attempt ${attempt + 1} failed:`, error);
+
+      if (attempt < maxRetries) {
+        const delayMs = Math.pow(2, attempt) * 300;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError || new Error('Max retries exceeded');
+}
+
 export async function generateText(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
   const apiKey = providedApiKey || await resolveServerGeminiApiKey();
 
@@ -38,14 +78,14 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
     ? [{ role: 'user', parts: [{ text: opts.systemPrompt }] }, { role: 'model', parts: [{ text: 'Understood.' }] }, { role: 'user', parts: [{ text: input }] }]
     : [{ role: 'user', parts: [{ text: input }] }];
 
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents,
       generationConfig: {
         temperature: opts.temperature ?? 0.2,
-        maxOutputTokens: opts.maxOutputTokens ?? 1024,
+        maxOutputTokens: opts.maxOutputTokens ?? 6144,
       },
     }),
   });

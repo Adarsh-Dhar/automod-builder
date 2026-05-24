@@ -133,7 +133,7 @@ export async function generateEscapeHatchTrigger(
 
   const parsed = await generateJson<CodeGenerationResult>(
     buildEscapeHatchGenerationPrompt(request),
-    8192,
+    4096,
     apiKey
   );
   return {

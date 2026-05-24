@@ -11,11 +11,6 @@ import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { generateText, generateJson } from '../services/model-proxy.service';
 import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule } from '../services/automod.service';
-import {
-  analyzeYamlLimitation,
-  generateEscapeHatchTrigger,
-  getRuleStageModContext,
-} from '../services/escape-hatch.service';
 
 // (previously used to strip fenced code blocks from model output)
 
@@ -30,56 +25,20 @@ type ChatHistoryMessage = {
   content: string;
 };
 
-const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant for Reddit. Your job is to output one or more complete AutoModerator YAML rule blocks in response to the user's request.
+const AUTOMOD_SYSTEM_PROMPT = `Output AutoModerator YAML rules.
 
-STRICT RULES:
-1. If the request describes a single rule, output exactly ONE rule block wrapped in --- delimiters.
-   If the request describes multiple rules, output ALL of them as separate --- blocks in one response.
-2. Never include or repeat previous rules - write fresh standalone rules each time.
-3. type must always be: submission
-4. For text matching use ONLY these exact keys:
-   title (includes): ['phrase1', 'phrase2']
-   title (matches): ['regex']
-   body (includes): ['phrase']
-   body (matches): ['regex']
-   Never invent other keys like "title (includes-word)", "title+body", or "report_reason".
-   To match text in EITHER title OR body, use satisfy_any_threshold: true with separate title and body conditions.
-5. Numeric author conditions go nested under author: block:
-   author:
-     satisfy_any_threshold: true
-     account_age: "< 30 days"
-     combined_karma: "< 50"
-6. action must be one of: remove, approve, report
-7. Always include comment: | and modmail: | as block literals.
-8. The rule name is a comment on the line after the first ---:
-   ---
-   # Rule name here
-   type: submission
-   ...
-   ---
-9. Do not add any prose, explanation, or markdown outside the yaml code fence.
-10. Wrap ALL rules together in a single code fence: \`\`\`yaml ... \`\`\` 
-11. Use the provided post flair names exactly when writing link_flair conditions.
-12. Use the provided removal reason text verbatim in comment: blocks.
-13. Do not create rules that duplicate existing rule names shown in the context.
-14. If the live config is provided, generate rules that are compatible with the existing YAML — use the same type, indentation style, and action patterns.
-15. Author flair conditions use author_flair_text at the top level, NOT nested under author:.
-    Correct:   author_flair_text: "verified-trader"
-    Wrong:     author:\n  flair_text: "verified-trader"
-    When matching moderator flair, use generic values like "mod" or "moderator" unless the user provides specific flair text.
-    Do not guess specific subreddit flair values like "Moderator" or "Community Manager" — these vary by subreddit.
-16. To negate a top-level condition, prefix the key with ~:
-    Correct:   ~author_flair_text: "official"
-    Wrong:     author:\n  ~flair_text: "official"
-    The ~ prefix works on any top-level key.
-17. CRITICAL: In modmail: blocks, ONLY use these valid AutoModerator template variables:
-    {{permalink}}  {{author}}  {{title}}  {{body}}  {{kind}}
-    {{domain}}     {{url}}     {{author_flair_text}}  {{link_flair_text}}
-    NEVER use invalid variables like {{author.account_age}}, {{author.combined_karma}}, {{title_length}} — these will render as literal text.
-18. For title length checks, use regex: title (matches): ['^.{0,14}$'] for titles under 15 characters.
-    NEVER use title_length as a key — it does not exist in AutoModerator.
+Rules:
+- type: submission
+- Use title (includes), title (matches), body (includes), body (matches)
+- Author conditions under author: with satisfy_any_threshold: true
+- action: remove, approve, or report
+- Include comment: | and modmail: |
+- Rule name as comment after ---
+- Output in \`\`\`yaml code fence
+- When combining author with title/body OR, split into TWO rules
+- modmail: {{permalink}} {{author}} {{title}}
 
-Example of a single rule:
+Example:
 \`\`\`yaml
 ---
 # New account spam guard
@@ -150,7 +109,7 @@ export async function generateChatReplyOnServer(
   parts.push(`User: ${prompt}`);
 
   const combined = parts.join('\n\n');
-  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192 }, apiKey);
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 6144 }, apiKey);
   return text || 'I could not generate a response.';
 }
 
@@ -309,7 +268,7 @@ ruleStage.post('/chat-unified', async (c) => {
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      4096,
+      2048,
       apiKey
     );
 
@@ -331,8 +290,10 @@ ruleStage.post('/chat-unified', async (c) => {
       yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext, apiKey);
     }
 
-    // Step 3: Generate TypeScript trigger if needed
-    let escapeHatch = null;
+    // Skip TypeScript trigger generation for now to avoid Devvit HTTP plugin timeouts
+    // TODO: Re-enable once Devvit HTTP plugin timeout issues are resolved
+    const escapeHatch = null;
+    /*
     if (analysis.needsTypeScript) {
       const modContext = getRuleStageModContext();
       const limitation = await analyzeYamlLimitation(
@@ -346,6 +307,7 @@ ruleStage.post('/chat-unified', async (c) => {
         apiKey
       );
     }
+    */
 
     return c.json({
       status: 'success',
