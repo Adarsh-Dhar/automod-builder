@@ -1,6 +1,6 @@
 import type { DebugMatch } from './debug-types';
 
-export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'debug';
+export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'escape-hatch' | 'debug';
 
 export type YamlLimitation =
   | 'external-api'
@@ -17,6 +17,14 @@ export type YamlLimitationAnalysis = {
   limitation: YamlLimitation | null;
   explanation: string;
   recommendation: 'yaml' | 'typescript';
+};
+
+export type EscapeHatchCode = {
+  triggerCode: string;
+  description: string;
+  limitations: string[];
+  installationSteps: string[];
+  confidence: 'high' | 'medium' | 'low';
 };
 
 export type ObfuscationTrick =
@@ -199,6 +207,62 @@ export function buildUnifiedAnalysisPrompt(request: string): string {
     '  "yamlPart": "description of what YAML will handle, empty string if none",',
     '  "typescriptPart": "description of what TypeScript will handle, empty string if none",',
     '  "explanation": "one sentence explaining why"',
+    '}',
+    '',
+    'Moderator request:',
+    request,
+  ].join('\n');
+}
+
+export function buildEscapeHatchPrompt(request: string): string {
+  return [
+    'You are helping a moderator determine whether AutoModerator YAML can handle a request.',
+    'First decide whether the request can be expressed natively in YAML.',
+    'If YAML can handle it, return a JSON object that says so.',
+    'If YAML cannot handle it, explain the limitation and recommend TypeScript.',
+    '',
+    'AutoModerator YAML can handle text matching, thresholds, and simple rule actions.',
+    'AutoModerator YAML cannot handle external API calls, JSON parsing, database checks, complex math, stateful logic, or batch processing.',
+    '',
+    'Return a single JSON object only with this shape:',
+    '{',
+    '  "hasLimitation": boolean,',
+    '  "limitation": "external-api" | "json-parsing" | "database-check" | "complex-math" | "conditional-logic" | "state-management" | "batch-processing" | "other" | null,',
+    '  "explanation": "short explanation of the result",',
+    '  "recommendation": "yaml" | "typescript"',
+    '}',
+    '',
+    'Moderator request:',
+    request,
+  ].join('\n');
+}
+
+export function buildEscapeHatchAnalysisPrompt(request: string): string {
+  return [
+    buildEscapeHatchPrompt(request),
+    '',
+    'Be strict. If the request requires any capability outside native AutoModerator YAML, mark hasLimitation as true and recommend TypeScript.',
+  ].join('\n');
+}
+
+export function buildEscapeHatchGenerationPrompt(request: string): string {
+  return [
+    'You are generating a Devvit TypeScript moderation trigger for a request that AutoModerator YAML cannot handle.',
+    'Create a focused onPostSubmit trigger and keep the code production-safe and readable.',
+    '',
+    'Requirements:',
+    '- Return a single JSON object only.',
+    '- Include a complete TypeScript trigger in the code string.',
+    '- Prefer simple, safe logic with clear error handling.',
+    '- Include installation steps that explain how to paste the trigger into the app.',
+    '- List practical limitations honestly.',
+    '',
+    'Return this shape:',
+    '{',
+    '  "code": "full TypeScript code as a string",',
+    '  "description": "brief explanation",',
+    '  "limitations": ["string"],',
+    '  "confidence": "high" | "medium" | "low"',
     '}',
     '',
     'Moderator request:',

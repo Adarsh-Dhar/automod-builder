@@ -11,6 +11,11 @@ import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { generateText, generateJson } from '../services/model-proxy.service';
 import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule } from '../services/automod.service';
+import {
+  analyzeYamlLimitation,
+  generateEscapeHatchTrigger,
+  getRuleStageModContext,
+} from '../services/escape-hatch.service';
 
 // (previously used to strip fenced code blocks from model output)
 
@@ -275,14 +280,25 @@ ruleStage.post('/chat-unified', async (c) => {
       yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext);
     }
 
-    // Step 3: Generate TypeScript trigger if needed (disabled - escape-hatch removed)
-    // TypeScript trigger generation has been removed along with Advanced Mode
+    // Step 3: Generate TypeScript trigger if needed
+    let escapeHatch = null;
+    if (analysis.needsTypeScript) {
+      const modContext = getRuleStageModContext();
+      const limitation = await analyzeYamlLimitation(
+        analysis.typescriptPart || prompt
+      );
+      escapeHatch = await generateEscapeHatchTrigger(
+        analysis.typescriptPart || prompt,
+        modContext,
+        limitation
+      );
+    }
 
     return c.json({
       status: 'success',
       analysis,
       yamlResponse,
-      escapeHatch: null,
+      escapeHatch,
     });
   } catch (error) {
     console.error('[RuleStage] chat-unified failed:', error);
