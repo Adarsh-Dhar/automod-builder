@@ -86,6 +86,8 @@ export function RuleStagePage() {
               setRule(parsed);
               setDraft(liveData.yaml);
               setLoading(false);
+              // Auto-sync blast cache after rule loads
+              await syncBlastCache();
               return;
             }
           }
@@ -103,6 +105,8 @@ export function RuleStagePage() {
 
         setRule(data.rule);
         setDraft(serializeAutomodRule(data.rule));
+        // Auto-sync blast cache after rule loads
+        await syncBlastCache();
       } catch (loadError) {
         if (!isActive) {
           return;
@@ -203,6 +207,23 @@ export function RuleStagePage() {
       });
     } finally {
       setBlasting(false);
+    }
+  };
+
+  const syncBlastCache = async () => {
+    try {
+      const response = await fetch('/api/rule-stage/sync-blast-cache', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to sync blast cache');
+      }
+
+      const data = (await response.json()) as { status: string; synced: number; total: number };
+      console.log(`[RuleStage] Synced ${data.synced} new posts. Total: ${data.total}`);
+    } catch (syncError) {
+      console.error('RuleStage sync-blast-cache failed:', syncError);
     }
   };
 

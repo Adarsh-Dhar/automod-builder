@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
+import type { CachedPost } from '../../shared/blast-types';
 import {
   DEFAULT_AUTOMOD_RULE,
   buildDebugPrompt,
@@ -25,20 +26,106 @@ type ChatHistoryMessage = {
   content: string;
 };
 
-const AUTOMOD_SYSTEM_PROMPT = `Output AutoModerator YAML rules.
+const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant for Reddit. Your job is to output one or more complete AutoModerator YAML rule blocks in response to the user's request.
 
-Rules:
-- type: submission
-- Use title (includes), title (matches), body (includes), body (matches)
-- Author conditions under author: with satisfy_any_threshold: true
-- action: remove, approve, or report
-- Include comment: | and modmail: |
-- Rule name as comment after ---
-- Output in \`\`\`yaml code fence
-- When combining author with title/body OR, split into TWO rules
-- modmail: {{permalink}} {{author}} {{title}}
+STRICT RULES:
+1. If the request describes a single rule, output exactly ONE rule block wrapped in --- delimiters.
+   If the request describes multiple rules, output ALL of them as separate --- blocks in one response.
+2. Never include or repeat previous rules - write fresh standalone rules each time.
+3. type must always be: submission
+4. For text matching use ONLY these exact keys:
+   title (includes): ['phrase1', 'phrase2']
+   title (matches): ['regex']
+   body (includes): ['phrase']
+   body (matches): ['regex']
+   Never invent other keys like "title (includes-word)", "title+body", or "report_reason".
+5. Numeric author conditions go nested under author: block:
+   author:
+     satisfy_any_threshold: true
+     account_age: "< 30 days"
+     combined_karma: "< 50"
+6. action must be one of: remove, approve, report
+7. Always include comment: | and modmail: | as block literals.
+8. The rule name is a comment on the line after the first ---:
+   ---
+   # Rule name here
+   type: submission
+   ...
+   ---
+9. Do not add any prose, explanation, or markdown outside the yaml code fence.
+10. Wrap ALL rules together in a single code fence: \`\`\`yaml ... \`\`\`
+11. Use the provided post flair names exactly when writing link_flair conditions.
+12. Use the provided removal reason text verbatim in comment: blocks.
+13. Do not create rules that duplicate existing rule names shown in the context.
+14. If the live config is provided, generate rules that are compatible with the existing YAML — use the same type, indentation style, and action patterns.
+15. Author flair conditions use author_flair_text at the top level, NOT nested under author:.
+    Correct:   author_flair_text: "verified-trader"
+    Wrong:     author:\n  flair_text: "verified-trader"
+    When matching moderator flair, use generic values like "mod" or "moderator" unless the user provides specific flair text.
+    Do not guess specific subreddit flair values like "Moderator" or "Community Manager" — these vary by subreddit.
+16. To negate a top-level condition, prefix the key with ~:
+    Correct:   ~author_flair_text: "official"
+    Wrong:     author:\n  ~flair_text: "official"
+    The ~ prefix works on any top-level key.
+17. CRITICAL: In modmail: blocks, ONLY use these valid AutoModerator template variables:
+    {{permalink}}  {{author}}  {{title}}  {{body}}  {{kind}}
+    {{domain}}     {{url}}     {{author_flair_text}}  {{link_flair_text}}
+    NEVER use invalid variables like {{author.account_age}}, {{author.combined_karma}}, {{title_length}} — these will render as literal text in modmail.
+18. For title length checks, use regex: title (matches): ['^.{0,14}$'] for titles under 15 characters.
+    NEVER use title_length as a key — it does not exist in AutoModerator.
+19. CRITICAL — satisfy_any_threshold scope conflict:
+    When a rule needs BOTH an author check AND title/body OR matching, do NOT use
+    top-level satisfy_any_threshold: true — it makes the author check optional.
+    Instead, split into TWO rules: one checking title, one checking body.
+    Both rules carry the full author: block.
 
-Example:
+    WRONG (author check becomes optional):
+      satisfy_any_threshold: true
+      title (includes): ['spam']
+      body (includes): ['spam']
+      author:
+        satisfy_any_threshold: true
+        account_age: "< 7 days"
+        combined_karma: "< 100"
+
+    CORRECT (split into two rules):
+      ---
+      # Spam guard (title)
+      type: submission
+      title (includes): ['spam']
+      author:
+        satisfy_any_threshold: true
+        account_age: "< 7 days"
+        combined_karma: "< 100"
+      action: remove
+      comment_stickied: true
+      comment: |
+        Removed.
+      modmail: |
+        Removed: {{permalink}}
+        User: u/{{author}}
+        Title: {{title}}
+      ---
+
+      ---
+      # Spam guard (body)
+      type: submission
+      body (includes): ['spam']
+      author:
+        satisfy_any_threshold: true
+        account_age: "< 7 days"
+        combined_karma: "< 100"
+      action: remove
+      comment_stickied: true
+      comment: |
+        Removed.
+      modmail: |
+        Removed: {{permalink}}
+        User: u/{{author}}
+        Title: {{title}}
+      ---
+
+Example of a single rule:
 \`\`\`yaml
 ---
 # New account spam guard
@@ -109,7 +196,7 @@ export async function generateChatReplyOnServer(
   parts.push(`User: ${prompt}`);
 
   const combined = parts.join('\n\n');
-  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 6144 }, apiKey);
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192 }, apiKey);
   return text || 'I could not generate a response.';
 }
 
@@ -435,6 +522,31 @@ ruleStage.post('/publish', async (c) => {
   }
 });
 
+ruleStage.post('/sync-blast-cache', async (c) => {
+  try {
+    const sub = context.subredditName ?? '';
+    if (!sub) {
+      return c.json({ status: 'error', message: 'No subreddit context' }, 400);
+    }
+
+    const blastCacheKey = `blast:posts:${sub}`;
+
+    // Direct HTTP requests to www.reddit.com are not allowed in Devvit serverless environment
+    // This endpoint now returns the existing cache without attempting to fetch new posts
+    const existingRaw = await redis.get(blastCacheKey);
+    const existingPosts: CachedPost[] = existingRaw ? JSON.parse(existingRaw) : [];
+
+    return c.json({
+      status: 'success',
+      synced: 0,
+      total: existingPosts.length,
+    });
+  } catch (error) {
+    console.error('[RuleStage] sync-blast-cache failed:', error);
+    return c.json({ status: 'error', message: (error as Error).message || 'Failed to sync blast cache' }, 500);
+  }
+});
+
 
 ruleStage.get('/context', async (c) => {
   try {
@@ -483,34 +595,10 @@ ruleStage.get('/context', async (c) => {
     const moderators = moderatorsResult.status === 'fulfilled' ? moderatorsResult.value : [];
     const removalReasons: string[] = [];
 
-    // Fetch subreddit info from public API as fallback for subscribers and rules
-    let subscribers = 0;
-    let rules: { short_name: string; description?: string }[] = [];
-    try {
-      const aboutRes = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/about.json`);
-      if (aboutRes.ok) {
-        const about = await aboutRes.json();
-        subscribers = about?.data?.subscribers ?? 0;
-      }
-    } catch (e) {
-      // ignore network errors
-    }
-
-    try {
-      const rulesRes = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/about/rules.json`);
-      if (rulesRes.ok) {
-        const rulesJson = await rulesRes.json();
-        const rulesArray = rulesJson?.rules ?? rulesJson?.data?.rules ?? [];
-        rules = Array.isArray(rulesArray)
-          ? rulesArray.map((r: any) => ({
-              short_name: r.short_name ?? r.shortName ?? r.shortname ?? (r.short ?? 'rule'),
-              description: r.description ?? r.short_description ?? '',
-            }))
-          : [];
-      }
-    } catch (e) {
-      // ignore
-    }
+    // Direct HTTP requests to www.reddit.com are not allowed in Devvit serverless environment
+    // Subscribers and rules are not available through the reddit API
+    const subscribers = 0;
+    const rules: { short_name: string; description?: string }[] = [];
 
     return c.json({
       status: 'success',
