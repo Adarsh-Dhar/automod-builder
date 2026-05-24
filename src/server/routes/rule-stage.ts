@@ -464,6 +464,45 @@ ruleStage.post('/publish', async (c) => {
   }
 });
 
+ruleStage.get('/wiki-revisions', async (c) => {
+  try {
+    const sub = context.subredditName ?? '';
+    if (!sub) {
+      return c.json({ status: 'error', message: 'No subreddit context' }, 400);
+    }
+
+    // Fetch wiki revisions from public Reddit API
+    const revisionsRes = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub)}/wiki/revisions/config/automoderator.json?limit=50`);
+    if (!revisionsRes.ok) {
+      throw new Error('Failed to fetch wiki revisions');
+    }
+
+    const revisionsData = await revisionsRes.json();
+    const revisions = revisionsData?.data?.children ?? [];
+
+    const formattedRevisions = revisions.map((rev: any) => {
+      const data = rev.data;
+      return {
+        id: data.id,
+        user: data.author ?? '[deleted]',
+        userHidden: data.author_hidden ?? false,
+        note: data.notes?.[0] ?? data.reason ?? '',
+        timestamp: data.timestamp * 1000, // Convert to milliseconds
+        revisionId: data.revision_id,
+        yaml: data.content_md ?? data.content ?? '',
+      };
+    });
+
+    return c.json({
+      status: 'success',
+      revisions: formattedRevisions,
+    });
+  } catch (error) {
+    console.error('[RuleStage] wiki-revisions fetch failed:', error);
+    return c.json({ status: 'error', message: 'Failed to fetch wiki revisions' }, 500);
+  }
+});
+
 ruleStage.get('/context', async (c) => {
   try {
     const sub = context.subredditName ?? '';

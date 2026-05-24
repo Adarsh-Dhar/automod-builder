@@ -2,7 +2,7 @@ import { useInit } from '../contexts/init-context';
 import ChatMode from '../components/ChatMode';
 import DebuggerMode from '../components/DebuggerMode';
 import HistoryPanel from '../components/HistoryPanel';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Textarea } from '../components/ui/textarea';
 import { Skeleton } from '../components/ui/skeleton';
 import { useToast } from '../hooks/use-toast';
@@ -62,6 +62,13 @@ export function RuleStagePage() {
   const [changes, setChanges] = useState<HistorySnapshot[]>(getSnapshots());
   const [mockTests, setMockTests] = useState<SavedMockTest[]>(getMockTests());
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -202,25 +209,27 @@ export function RuleStagePage() {
   const handleDraftChange = (value: string) => {
     setDraft(value);
 
-    // If draft contains multiple rules, extract first rule for parsing
+    // parse immediately for live preview
     if (hasMultipleRules(value)) {
       const firstRuleYaml = extractFirstRule(value);
       const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
       setRule(parsed);
       void persistRawYaml(value);
-      // Save snapshot with source 'code'
-      const ruleCount = value.split('---').filter((b) => b.trim()).length;
-      const updated = saveSnapshot(value, ruleCount, undefined, 'code');
-      setChanges(updated);
     } else {
-      // Single rule - parse normally
       const parsed = parseAutomodRuleDraft(value, rule);
       setRule(parsed);
       void persistRule(parsed);
-      // Save snapshot with source 'code'
-      const updated = saveSnapshot(serializeAutomodRule(parsed), parsed.conditions.length, undefined, 'code');
-      setChanges(updated);
     }
+
+    // debounce the snapshot save — only fires after 4 seconds of inactivity
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(() => {
+      const ruleCount = hasMultipleRules(value)
+        ? value.split('---').filter((b) => b.trim()).length
+        : parseAutomodRuleDraft(value, rule).conditions.length;
+      const updated = saveSnapshot(value, ruleCount, undefined, 'code');
+      setChanges(updated);
+    }, 4000);
   };
 
   const persistRule = async (nextRule: AutomodRule) => {
@@ -319,11 +328,15 @@ export function RuleStagePage() {
     const result = evaluateRule(rule, [post]);
 
     const item = result.items[0];
+    if (!item) {
+      throw new Error('No result item found');
+    }
+
     const cell: MatrixCell = {
       changeId,
       testId,
       outcome: item.outcome,
-      matchedCondition: result.matched > 0 ? `${rule.name} matched` : undefined,
+      matchedCondition: result.matched > 0 ? `${rule.name} matched` : '',
       reason: item.reason,
       runAt: Date.now(),
     };

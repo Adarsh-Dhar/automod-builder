@@ -1,10 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { HistorySnapshot } from '../utils/history';
 import type { SavedMockTest } from '../utils/mock-tests';
 import type { MatrixCell } from '../utils/test-matrix';
-import { getMatrixCell } from '../utils/test-matrix';
+import { getMatrixCell, getAllMatrixCells } from '../utils/test-matrix';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { Skeleton } from './ui/skeleton';
+
+type WikiRevision = {
+  id: string;
+  user: string;
+  userHidden: boolean;
+  note: string;
+  timestamp: number;
+  revisionId: string;
+  yaml?: string;
+};
 
 type TestMatrixViewProps = {
   changes: HistorySnapshot[];
@@ -48,6 +59,8 @@ function getSourceColor(source: HistorySnapshot['source']): string {
       return 'bg-pink-500/10 text-pink-500 border-pink-500/20';
     case 'restore':
       return 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20';
+    default:
+      return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
   }
 }
 
@@ -56,14 +69,61 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [runningCell, setRunningCell] = useState<{ changeId: string; testId: string } | null>(null);
   const [runningAll, setRunningAll] = useState(false);
+  const [cellResults, setCellResults] = useState<Record<string, MatrixCell>>({});
+  const [wikiRevisions, setWikiRevisions] = useState<WikiRevision[]>([]);
+  const [loadingRevisions, setLoadingRevisions] = useState(false);
+  const [allChanges, setAllChanges] = useState<HistorySnapshot[]>([]);
 
-  const filteredChanges = selectedChangeId ? changes.filter((c) => c.id === selectedChangeId) : changes;
+  // Pre-populate cell results from storage on mount
+  useEffect(() => {
+    const all = getAllMatrixCells();
+    setCellResults(Object.fromEntries(all.map((c) => [`${c.changeId}::${c.testId}`, c])));
+  }, []);
+
+  // Fetch wiki revisions on mount and merge with local changes
+  useEffect(() => {
+    const fetchRevisions = async () => {
+      setLoadingRevisions(true);
+      try {
+        const res = await fetch('/api/rule-stage/wiki-revisions');
+        if (res.ok) {
+          const data = await res.json() as { status: string; revisions: WikiRevision[] };
+          if (data.status === 'success') {
+            setWikiRevisions(data.revisions);
+            // Convert wiki revisions to HistorySnapshot format
+            const revisionSnapshots: HistorySnapshot[] = data.revisions
+              .filter((rev) => rev.yaml && rev.yaml.trim())
+              .map((rev) => ({
+                id: `wiki-${rev.revisionId}`,
+                yaml: rev.yaml!,
+                savedAt: rev.timestamp,
+                ruleCount: rev.yaml.split('---').filter((b) => b.trim()).length,
+                label: rev.note || `Wiki revision by ${rev.userHidden ? '[deleted]' : rev.user}`,
+                source: 'code' as const,
+              }));
+            // Merge wiki revisions with local changes (wiki revisions first)
+            setAllChanges([...revisionSnapshots, ...changes]);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch wiki revisions:', error);
+        // If wiki fetch fails, just use local changes
+        setAllChanges(changes);
+      } finally {
+        setLoadingRevisions(false);
+      }
+    };
+    void fetchRevisions();
+  }, [changes]);
+
+  const filteredChanges = selectedChangeId ? allChanges.filter((c) => c.id === selectedChangeId) : allChanges;
   const filteredTests = selectedTestId ? mockTests.filter((t) => t.id === selectedTestId) : mockTests;
 
   const handleRunCell = async (changeId: string, testId: string) => {
     setRunningCell({ changeId, testId });
     try {
-      await onRunCell(changeId, testId);
+      const cell = await onRunCell(changeId, testId);
+      setCellResults((prev) => ({ ...prev, [`${changeId}::${testId}`]: cell }));
     } finally {
       setRunningCell(null);
     }
@@ -73,16 +133,29 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
     setRunningAll(true);
     try {
       await onRunAll();
+      // Reload all cells from storage after running all
+      const all = getAllMatrixCells();
+      setCellResults(Object.fromEntries(all.map((c) => [`${c.changeId}::${c.testId}`, c])));
     } finally {
       setRunningAll(false);
     }
   };
 
-  if (changes.length === 0) {
+  if (loadingRevisions) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  if (allChanges.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
         <div className="text-4xl opacity-20">📊</div>
-        <p className="text-sm text-[--muted-foreground]">No YAML changes saved yet</p>
+        <p className="text-sm text-[--muted-foreground]">No YAML changes or wiki revisions found</p>
         <p className="text-xs text-[--subtle]">
           Make changes in Code, Chat, or Debugger mode to populate the test matrix
         </p>
@@ -116,7 +189,7 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
           className="rounded-lg border border-[--border] bg-[--surface-3] px-3 py-1.5 text-sm text-[--foreground] outline-none"
         >
           <option value="">All Changes</option>
-          {changes.map((c) => (
+          {allChanges.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label ?? `Change ${c.id.slice(0, 8)}`}
             </option>
@@ -145,24 +218,48 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
                 <th className="sticky left-0 top-0 bg-[--surface-2] p-3 text-left text-xs font-medium text-[--muted-foreground] border-b border-[--border] border-r border-[--border] z-10">
                   Test
                 </th>
-                {filteredChanges.map((change) => (
-                  <th key={change.id} className="p-3 text-left min-w-[200px] border-b border-[--border]">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-[--subtle]">{change.id.slice(0, 8)}</span>
-                        {change.source && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getSourceColor(change.source)}`}>
-                            {change.source}
-                          </span>
+                {filteredChanges.map((change) => {
+                  const isWikiRevision = change.id.startsWith('wiki-');
+                  const wikiRev = isWikiRevision ? wikiRevisions.find((r) => `wiki-${r.revisionId}` === change.id) : null;
+                  
+                  return (
+                    <th key={change.id} className="p-3 text-left min-w-[200px] border-b border-[--border]">
+                      <div className="flex flex-col gap-1">
+                        {isWikiRevision && wikiRev ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-500 border-blue-500/20">
+                                Wiki
+                              </span>
+                            </div>
+                            <span className="text-xs font-medium text-[--foreground]">
+                              {wikiRev.userHidden ? '[deleted]' : wikiRev.user.startsWith('u/') ? wikiRev.user : `u/${wikiRev.user}`}
+                            </span>
+                            <span className="text-[10px] text-[--muted-foreground] truncate max-w-[180px]">
+                              {wikiRev.note || '-'}
+                            </span>
+                            <span className="text-[10px] text-[--subtle]">{formatTimestamp(wikiRev.timestamp)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-[--subtle]">{change.id.slice(0, 8)}</span>
+                              {change.source && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getSourceColor(change.source)}`}>
+                                  {change.source}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-medium text-[--foreground]">
+                              {change.label ?? 'Unnamed change'}
+                            </span>
+                            <span className="text-[10px] text-[--muted-foreground]">{timeAgo(change.savedAt)}</span>
+                          </>
                         )}
                       </div>
-                      <span className="text-xs font-medium text-[--foreground]">
-                        {change.label ?? 'Unnamed change'}
-                      </span>
-                      <span className="text-[10px] text-[--muted-foreground]">{timeAgo(change.savedAt)}</span>
-                    </div>
-                  </th>
-                ))}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -180,7 +277,7 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
                     </div>
                   </td>
                   {filteredChanges.map((change) => {
-                    const cell = getMatrixCell(change.id, test.id);
+                    const cell = cellResults[`${change.id}::${test.id}`];
                     const isRunning = runningCell?.changeId === change.id && runningCell?.testId === test.id;
 
                     return (
