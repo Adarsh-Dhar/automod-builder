@@ -254,7 +254,7 @@ ruleStage.post('/chat-unified', async (c) => {
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      512
+      2048
     );
 
     const history = historyInput
