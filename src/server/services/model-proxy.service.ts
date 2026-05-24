@@ -2,8 +2,17 @@ import { resolveServerGeminiApiKey } from './gemini-key.service';
 
 function stripCodeFences(text: string): string {
   const trimmed = text.trim();
+  // Try to match complete code fences first
   const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fencedMatch?.[1]?.trim() ?? trimmed;
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+  // Handle truncated responses - strip opening fence if present
+  const openingFenceMatch = trimmed.match(/^```(?:json)?\s*/i);
+  if (openingFenceMatch) {
+    return trimmed.substring(openingFenceMatch[0].length).trim();
+  }
+  return trimmed;
 }
 
 export type GenerateOptions = {
@@ -25,7 +34,9 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
     apiKey
   )}`;
 
-  const contents = [{ role: 'user', parts: [{ text: input }] }];
+  const contents = opts.systemPrompt
+    ? [{ role: 'user', parts: [{ text: opts.systemPrompt }] }, { role: 'model', parts: [{ text: 'Understood.' }] }, { role: 'user', parts: [{ text: input }] }]
+    : [{ role: 'user', parts: [{ text: input }] }];
 
   const res = await fetch(url, {
     method: 'POST',
@@ -35,7 +46,6 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
       generationConfig: {
         temperature: opts.temperature ?? 0.2,
         maxOutputTokens: opts.maxOutputTokens ?? 1024,
-        responseMimeType: opts.responseMimeType ?? undefined,
       },
     }),
   });
@@ -51,10 +61,11 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
 }
 
 export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, providedApiKey?: string): Promise<T> {
-  const text = await generateText(prompt, { maxOutputTokens, responseMimeType: 'application/json' }, providedApiKey);
+  const systemPrompt = 'You are a JSON API. You must respond with ONLY valid JSON. No conversational text, no explanations, no markdown, no code fences. Just the raw JSON object starting with { and ending with }.';
+  const text = await generateText(prompt, { maxOutputTokens, systemPrompt }, providedApiKey);
 
   const cleaned = stripCodeFences(text || '');
-  
+
   try {
     return JSON.parse(cleaned) as T;
   } catch (error) {
@@ -64,7 +75,7 @@ export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, pr
     let braceCount = 0;
     let startIndex = -1;
     let endIndex = -1;
-    
+
     for (let i = 0; i < cleaned.length; i++) {
       if (cleaned[i] === '{') {
         if (braceCount === 0) startIndex = i;
@@ -77,18 +88,20 @@ export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, pr
         }
       }
     }
-    
+
     if (startIndex !== -1 && endIndex !== -1) {
       const jsonStr = cleaned.substring(startIndex, endIndex);
       try {
         return JSON.parse(jsonStr) as T;
       } catch (parseError) {
         console.error('Failed to parse extracted JSON:', jsonStr);
+        console.error('Full response:', cleaned);
         throw new Error(`Failed to parse JSON from Gemini response. Extracted: ${jsonStr.substring(0, 200)}...`);
       }
     }
-    
+
     console.error('Failed to find complete JSON in response:', cleaned.substring(0, 500));
+    console.error('Full response:', cleaned);
     throw new Error(`Failed to parse JSON from Gemini response. Response: ${cleaned.substring(0, 200)}...`);
   }
 }

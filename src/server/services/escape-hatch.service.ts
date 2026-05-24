@@ -12,7 +12,6 @@ import { generateJson } from './model-proxy.service';
 type LimitationDetectionResult = {
   hasLimitation: boolean;
   limitation: YamlLimitation | null;
-  explanation: string;
   recommendation: 'yaml' | 'typescript';
 };
 
@@ -30,13 +29,15 @@ type ModContext = {
 export async function analyzeYamlLimitation(request: string, apiKey?: string): Promise<YamlLimitationAnalysis> {
   const parsed = await generateJson<LimitationDetectionResult>(
     buildEscapeHatchAnalysisPrompt(request),
-    1024,
+    2048,
     apiKey
   );
   return {
     hasLimitation: Boolean(parsed.hasLimitation),
     limitation: parsed.limitation ?? null,
-    explanation: parsed.explanation,
+    explanation: parsed.limitation
+      ? `AutoModerator YAML cannot handle: ${parsed.limitation.replace(/-/g, ' ')}.`
+      : 'This can be handled with AutoModerator YAML.',
     recommendation: parsed.recommendation === 'typescript' ? 'typescript' : 'yaml',
   };
 }

@@ -224,11 +224,15 @@ export function buildEscapeHatchPrompt(request: string): string {
     'AutoModerator YAML can handle text matching, thresholds, and simple rule actions.',
     'AutoModerator YAML cannot handle external API calls, JSON parsing, database checks, complex math, stateful logic, or batch processing.',
     '',
-    'Return a single JSON object only with this shape:',
+    'IMPORTANT: Return ONLY the JSON object below.',
+    'Do NOT use markdown code fences (```json or ```).',
+    'Do NOT include any other text, explanation, or preamble.',
+    'Output the raw JSON object starting with { and ending with }.',
+    '',
+    'JSON schema:',
     '{',
     '  "hasLimitation": boolean,',
     '  "limitation": "external-api" | "json-parsing" | "database-check" | "complex-math" | "conditional-logic" | "state-management" | "batch-processing" | "other" | null,',
-    '  "explanation": "short explanation of the result",',
     '  "recommendation": "yaml" | "typescript"',
     '}',
     '',
@@ -242,7 +246,7 @@ export function buildEscapeHatchAnalysisPrompt(request: string): string {
     buildEscapeHatchPrompt(request),
     '',
     'Be strict. If the request requires any capability outside native AutoModerator YAML, mark hasLimitation as true and recommend TypeScript.',
-    'Keep the explanation field to one short sentence (under 20 words).',
+    'CRITICAL: Output ONLY the JSON object. No conversational text, no "Here is the JSON", no explanations. Just the JSON.',
   ].join('\n');
 }
 

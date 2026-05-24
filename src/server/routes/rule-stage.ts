@@ -312,7 +312,8 @@ ruleStage.post('/chat-unified', async (c) => {
     });
   } catch (error) {
     console.error('[RuleStage] chat-unified failed:', error);
-    return c.json({ status: 'error', message: 'Failed to process unified request' }, 500);
+    const errorMessage = (error as Error).message || 'Failed to process unified request';
+    return c.json({ status: 'error', message: errorMessage }, 500);
   }
 });
 
