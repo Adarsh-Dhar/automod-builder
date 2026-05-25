@@ -159,6 +159,34 @@ describe('serializeAutomodRule — round-trip', () => {
     const yaml = serializeAutomodRule(DEFAULT_AUTOMOD_RULE);
     expect(yaml).toBe('');
   });
+
+  it('emits "includes" comparator on body field correctly', () => {
+    const rule = buildRule({
+      name: 'Body rule',
+      comment: 'x',
+      modmail: 'y',
+      conditions: [{ field: 'body', comparator: 'includes', value: 'promo code' }],
+    });
+    const yaml = serializeAutomodRule(rule);
+    expect(yaml).toContain("body (includes): ['promo code']");
+  });
+
+  it('emits "matches" comparator on body field correctly', () => {
+    const rule = buildRule({
+      name: 'Body regex rule',
+      comment: 'x',
+      modmail: 'y',
+      conditions: [{ field: 'body', comparator: 'matches', value: '\\bpromo\\b' }],
+    });
+    const yaml = serializeAutomodRule(rule);
+    expect(yaml).toContain("body (matches): ['\\bpromo\\b']");
+  });
+
+  it('emits action: approve correctly', () => {
+    const rule = buildRule({ name: 'Approve rule', action: 'approve', comment: 'x', modmail: 'y' });
+    const yaml = serializeAutomodRule(rule);
+    expect(yaml).toContain('action: approve');
+  });
 });
 
 // ─── Parse tolerance ─────────────────────────────────────────────────────────
@@ -267,5 +295,26 @@ describe('YAML edge cases', () => {
     });
     const yaml = serializeAutomodRule(rule);
     expect(Buffer.byteLength(yaml, 'utf8')).toBeLessThan(100_000);
+  });
+
+  it('two conditions on the same field merge into a single YAML key', () => {
+    // AutoMod requires a single "title (includes): ['a', 'b']" — not two separate keys
+    const rule = buildRule({
+      name: 'Multi-keyword',
+      comment: 'x',
+      modmail: 'y',
+      conditions: [
+        { field: 'title', comparator: 'includes', value: 'spam' },
+        { field: 'title', comparator: 'includes', value: 'scam' },
+      ],
+    });
+    const yaml = serializeAutomodRule(rule);
+
+    // Should appear exactly once, not twice
+    const titleMatches = (yaml.match(/title \(includes\):/g) ?? []).length;
+    expect(titleMatches).toBe(1);
+    // Both values should be present in the single key
+    expect(yaml).toContain("'spam'");
+    expect(yaml).toContain("'scam'");
   });
 });
