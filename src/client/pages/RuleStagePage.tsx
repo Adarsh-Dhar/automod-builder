@@ -385,12 +385,8 @@ export function RuleStagePage() {
     return cell;
   };
 
-  const handleAllChangesChange = (mergedChanges: HistorySnapshot[]) => {
-    setAllChanges(mergedChanges);
-  };
-
   const handleRunAll = async () => {
-    for (const change of allChanges) {
+    for (const change of changes) {
       for (const test of mockTests) {
         await handleRunMatrixCell(change.id, test.id);
       }

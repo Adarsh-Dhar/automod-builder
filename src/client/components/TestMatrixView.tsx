@@ -130,7 +130,7 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
           className="rounded-lg border border-[--border] bg-[--surface-3] px-3 py-1.5 text-sm text-[--foreground] outline-none"
         >
           <option value="">All Changes</option>
-          {allChanges.map((c) => (
+          {changes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label ?? `Change ${c.id.slice(0, 8)}`}
             </option>
@@ -159,48 +159,24 @@ export default function TestMatrixView({ changes, mockTests, onRunCell, onRunAll
                 <th className="sticky left-0 top-0 bg-[--surface-2] p-3 text-left text-xs font-medium text-[--muted-foreground] border-b border-[--border] border-r border-[--border] z-10">
                   Test
                 </th>
-                {filteredChanges.map((change) => {
-                  const isWikiRevision = change.id.startsWith('wiki-');
-                  const wikiRev = isWikiRevision ? wikiRevisions.find((r) => `wiki-${r.revisionId}` === change.id) : null;
-                  
-                  return (
-                    <th key={change.id} className="p-3 text-left min-w-[200px] border-b border-[--border]">
-                      <div className="flex flex-col gap-1">
-                        {isWikiRevision && wikiRev ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-500 border-blue-500/20">
-                                Wiki
-                              </span>
-                            </div>
-                            <span className="text-xs font-medium text-[--foreground]">
-                              {wikiRev.userHidden ? '[deleted]' : wikiRev.user.startsWith('u/') ? wikiRev.user : `u/${wikiRev.user}`}
-                            </span>
-                            <span className="text-[10px] text-[--muted-foreground] truncate max-w-[180px]">
-                              {wikiRev.note || '-'}
-                            </span>
-                            <span className="text-[10px] text-[--subtle]">{timeAgo(wikiRev.timestamp)}</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono text-[--subtle]">{change.id.slice(0, 8)}</span>
-                              {change.source && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getSourceColor(change.source)}`}>
-                                  {change.source}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-xs font-medium text-[--foreground]">
-                              {change.label ?? 'Unnamed change'}
-                            </span>
-                            <span className="text-[10px] text-[--muted-foreground]">{timeAgo(change.savedAt)}</span>
-                          </>
+                {filteredChanges.map((change) => (
+                  <th key={change.id} className="p-3 text-left min-w-[200px] border-b border-[--border]">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-[--subtle]">{change.id.slice(0, 8)}</span>
+                        {change.source && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getSourceColor(change.source)}`}>
+                            {change.source}
+                          </span>
                         )}
                       </div>
-                    </th>
-                  );
-                })}
+                      <span className="text-xs font-medium text-[--foreground]">
+                        {change.label ?? 'Unnamed change'}
+                      </span>
+                      <span className="text-[10px] text-[--muted-foreground]">{timeAgo(change.savedAt)}</span>
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>

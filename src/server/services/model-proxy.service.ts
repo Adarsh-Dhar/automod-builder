@@ -137,6 +137,11 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0)
   const errorDetails = (lastError as any)?.details || '';
   const fullError = `${errorMessage} ${errorDetails}`.toLowerCase();
 
+  // Distinguish between Devvit infrastructure rate limiting and Gemini API rate limiting
+  if (fullError.includes('grpc') && fullError.includes('too many requests')) {
+    throw new Error('Devvit infrastructure is rate limiting external HTTP requests. This is not a Gemini API quota issue. Please wait a few minutes or check your Devvit app rate limits.');
+  }
+
   if (fullError.includes('too many requests') || fullError.includes('rate limit') || fullError.includes('429')) {
     throw new Error('The Gemini API is rate limiting your requests. Please wait a few minutes before trying again, or check your API key quota at https://aistudio.google.com/app/apikey.');
   }
@@ -218,7 +223,8 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
 
   // BYOK only - use only the provided API key, no fallback
   const apiKey = providedApiKey;
-  console.log('[ModelProxy] generateText - Provider:', provider, 'API key present:', !!apiKey, 'API key length:', apiKey?.length);
+  const maskedKey = apiKey ? `${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}` : 'none';
+  console.log('[ModelProxy] generateText - Provider:', provider, 'API key present:', !!apiKey, 'API key length:', apiKey?.length, 'API key:', maskedKey);
   const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0 } = opts;
 
   if (!apiKey) {
