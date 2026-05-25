@@ -1,4 +1,6 @@
-import { resolveServerGeminiApiKey } from './gemini-key.service';
+import { resolveServerGeminiApiKey, resolveServerGitHubApiKey } from './gemini-key.service';
+
+export type ModelProvider = 'gemini' | 'github';
 
 function stripCodeFences(text: string): string {
   const trimmed = text.trim();
@@ -22,6 +24,8 @@ export type GenerateOptions = {
   maxOutputTokens?: number;
   responseMimeType?: string | null;
   maxRetries?: number;
+  provider?: ModelProvider;
+  githubModelId?: string;
 };
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
@@ -133,7 +137,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0)
   const errorDetails = (lastError as any)?.details || '';
   const fullError = `${errorMessage} ${errorDetails}`.toLowerCase();
 
-  if (fullError.includes('too many requests') || fullError.includes('rate limit') || fullError.includes('429') || errorMessage.includes('grpc invocation failed')) {
+  if (fullError.includes('too many requests') || fullError.includes('rate limit') || fullError.includes('429')) {
     throw new Error('The Gemini API is rate limiting your requests. Please wait a few minutes before trying again, or check your API key quota at https://aistudio.google.com/app/apikey.');
   }
 
@@ -144,7 +148,74 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0)
   throw lastError || new Error('Max retries exceeded');
 }
 
+async function generateTextWithGitHub(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
+  const apiKey = providedApiKey || await resolveServerGitHubApiKey();
+  const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0, systemPrompt, githubModelId = 'openai/gpt-4.1' } = opts;
+
+  if (!apiKey) {
+    throw new Error('Missing GITHUB_API_KEY');
+  }
+
+  // Truncate input if it's too large
+  const MAX_INPUT_LENGTH = 4000;
+  const truncatedInput = input.length > MAX_INPUT_LENGTH
+    ? input.substring(0, MAX_INPUT_LENGTH) + '\n\n[Content truncated due to size limit]'
+    : input;
+
+  const url = process.env.GITHUB_MODEL_ENDPOINT || 'https://models.github.ai/inference/chat/completions';
+
+  // Build messages array
+  const messages: Array<{ role: string; content: string }> = [];
+  
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  
+  // Add history if provided
+  if (opts.history && opts.history.length > 0) {
+    messages.push(...opts.history.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    })));
+  }
+  
+  // Add the main input
+  messages.push({ role: 'user', content: truncatedInput });
+
+  const res = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${apiKey}`,
+      'X-GitHub-Api-Version': '2026-03-10',
+    },
+    body: JSON.stringify({
+      model: githubModelId,
+      messages,
+      temperature,
+      max_tokens: maxOutputTokens,
+    }),
+  }, maxRetries);
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`GitHub Models API error ${res.status}: ${txt}`);
+  }
+
+  const data = await res.json().catch(() => null);
+  const text = data?.choices?.[0]?.message?.content ?? '';
+  return text || JSON.stringify(data || {});
+}
+
 export async function generateText(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
+  const provider = opts.provider || 'gemini';
+
+  if (provider === 'github') {
+    return generateTextWithGitHub(input, opts, providedApiKey);
+  }
+
+  // Default to Gemini
   const apiKey = providedApiKey || await resolveServerGeminiApiKey();
   const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0 } = opts;
 
@@ -189,9 +260,9 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
   return text || JSON.stringify(data || {});
 }
 
-export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, providedApiKey?: string): Promise<T> {
+export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, providedApiKey?: string, provider?: ModelProvider): Promise<T> {
   const systemPrompt = 'You are a JSON API. You must respond with ONLY valid JSON. No conversational text, no explanations, no markdown, no code fences. Just the raw JSON object starting with { and ending with }.';
-  const text = await generateText(prompt, { maxOutputTokens, systemPrompt }, providedApiKey);
+  const text = await generateText(prompt, { maxOutputTokens, systemPrompt, provider }, providedApiKey);
 
   const cleaned = stripCodeFences(text || '');
 

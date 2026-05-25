@@ -11,12 +11,8 @@ import {
 const RULE_KEY = 'rulestage:rule:current';
 const MOCK_POSTS_KEY = 'rulestage:simulation:posts';
 
-// Retry configuration
-const MAX_WIKI_UPDATE_RETRIES = 3;
-const WIKI_UPDATE_RETRY_DELAY_MS = 1000; // Base delay in milliseconds
-
 function getSubredditKey(): string {
-  return context.subredditName || 'default';
+  return context.subredditName ?? 'default';
 }
 
 function ruleStorageKey(): string {
@@ -28,25 +24,19 @@ function postsStorageKey(): string {
 }
 
 function extractWikiContent(page: unknown): string {
-  let content = '';
-
   if (typeof page === 'string') {
-    content = page;
-  } else if (page && typeof page === 'object') {
+    return page;
+  }
+
+  if (page && typeof page === 'object') {
     const record = page as Record<string, unknown>;
-    const rawContent = record.content_md ?? record.content ?? record.wikitext ?? record.body ?? record.md;
-    if (typeof rawContent === 'string') {
-      content = rawContent;
+    const content = record.content_md ?? record.content ?? record.wikitext ?? record.body ?? record.md;
+    if (typeof content === 'string') {
+      return content;
     }
   }
 
-  // Strip markdown code fences if present (```yaml ... ```)
-  const codeBlockMatch = content.match(/^[\s]*```(?:yaml)?\s*([\s\S]*?)\s*```[\s]*$/m);
-  if (codeBlockMatch?.[1]) {
-    return codeBlockMatch[1].trim();
-  }
-
-  return content;
+  return '';
 }
 
 export async function getCurrentRule(): Promise<AutomodRule> {
@@ -68,11 +58,11 @@ export async function getCurrentRule(): Promise<AutomodRule> {
   }
 }
 
-export async function saveCurrentRule(rule: AutomodRule, title?: string): Promise<AutomodRule> {
+export async function saveCurrentRule(rule: AutomodRule): Promise<AutomodRule> {
   const normalized = parseAutomodRuleDraft(serializeAutomodRule(rule), rule);
   const yaml = serializeAutomodRule(normalized);
   await redis.set(ruleStorageKey(), yaml);     // keep Redis as draft cache
-  await pushYamlToWiki(yaml, getSubredditKey(), title);           // push to live wiki
+  await pushYamlToWiki(yaml);           // push to live wiki
   return normalized;
 }
 
@@ -118,100 +108,17 @@ export async function getLiveAutomodYaml(subredditName: string): Promise<string>
   return draft?.trim() ? draft : serializeAutomodRule(DEFAULT_AUTOMOD_RULE);
 }
 
-/**
- * Validates the input parameters for wiki update
- * @throws Error if validation fails
- */
-function validateWikiUpdateInputs(yaml: string, subredditName: string): void {
-  // Validate YAML content
-  if (!yaml || typeof yaml !== 'string') {
-    throw new Error('YAML content must be a non-empty string');
-  }
-
-  if (yaml.trim().length === 0) {
-    throw new Error('YAML content cannot be empty or whitespace only');
-  }
-
-  // Validate subreddit name
-  if (!subredditName || typeof subredditName !== 'string') {
-    throw new Error('Subreddit name must be a non-empty string');
-  }
-
-  if (subredditName === 'default') {
+export async function pushYamlToWiki(yaml: string): Promise<void> {
+  const subredditName = getSubredditKey();
+  if (!subredditName || subredditName === 'default') {
     throw new Error('No subreddit context available');
   }
-
-  // Check for invalid characters in YAML (null bytes, etc.)
-  if (yaml.includes('\x00')) {
-    throw new Error('YAML contains invalid null characters');
-  }
-
-  // Basic YAML structure validation
-  if (yaml.length > 100000) {
-    throw new Error('YAML content exceeds maximum size (100KB)');
-  }
-}
-
-/**
- * Updates the AutoModerator wiki page with exponential backoff retry logic
- * Handles transient failures and HTTP 415 errors
- */
-export async function pushYamlToWiki(yaml: string, subredditName: string, reason?: string): Promise<void> {
-  console.log('[AutoModService] pushYamlToWiki called for subreddit:', subredditName, 'with reason:', reason, 'yaml length:', yaml?.length);
-  
-  try {
-    // Validate inputs first
-    validateWikiUpdateInputs(yaml, subredditName);
-
-    let lastError: Error | null = null;
-
-    // Retry logic with exponential backoff
-    for (let attempt = 1; attempt <= MAX_WIKI_UPDATE_RETRIES; attempt++) {
-      try {
-        console.log(`[AutoModService] Wiki update attempt ${attempt}/${MAX_WIKI_UPDATE_RETRIES} for subreddit: ${subredditName}`);
-        
-        // Send raw YAML — no markdown code fences, config/automoderator expects plain YAML
-        await reddit.updateWikiPage({
-          subredditName,
-          page: 'config/automoderator',
-          content: yaml,
-          reason: reason || 'Updated via AutoMod Builder app',
-        });
-        
-        console.log('[AutoModService] Wiki page updated successfully for subreddit:', subredditName, 'on attempt', attempt);
-        return; // Success
-      } catch (error) {
-        lastError = error as Error;
-        const errorMessage = (error as Error).message || String(error);
-        
-        // Check if this is an HTTP 415 or other retryable error
-        const isRetryable = errorMessage.includes('415') || 
-                           errorMessage.includes('UNKNOWN') ||
-                           errorMessage.includes('grpc');
-        
-        if (attempt === MAX_WIKI_UPDATE_RETRIES || !isRetryable) {
-          // Last attempt or non-retryable error, throw it
-          console.error(`[AutoModService] Wiki update failed on attempt ${attempt}:`, errorMessage);
-          throw error;
-        }
-
-        // Calculate exponential backoff: 1s, 2s, 4s
-        const delayMs = WIKI_UPDATE_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-        console.warn(
-          `[AutoModService] Wiki update attempt ${attempt} failed with retryable error: ${errorMessage}. Retrying in ${delayMs}ms...` 
-        );
-        
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-    }
-
-    // Should not reach here, but just in case
-    throw lastError || new Error('Failed to update wiki page after all retries');
-  } catch (error) {
-    console.error('[AutoModService] Failed to update wiki page:', error);
-    throw error;
-  }
+  await reddit.updateWikiPage({
+    subredditName,
+    page: 'config/automoderator',
+    content: yaml,
+    reason: 'Updated via AutoMod Builder app',
+  });
 }
 
 export async function resetRuleStageState(): Promise<AutomodRule> {

@@ -82,6 +82,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@devvit/test": "^0.12.24",
     "@eslint/js": "9.39.2",
     "@tailwindcss/vite": "4.1.18",
     "@types/node": "^22.19.7",

@@ -8,3 +8,11 @@ Devvit.addSettings({
   isSecret: true,
   scope: SettingScope.App,
 });
+
+Devvit.addSettings({
+  name: 'GITHUB_API_KEY',
+  label: 'GitHub Models API Token',
+  type: 'string',
+  isSecret: true,
+  scope: SettingScope.App,
+});

@@ -1,18 +1,16 @@
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
-import type { CachedPost } from '../../shared/blast-types';
 import {
   DEFAULT_AUTOMOD_RULE,
   buildDebugPrompt,
   buildUnifiedAnalysisPrompt,
-  parseAutomodRuleDraft,
-  serializeAutomodRule,
   type UnifiedAnalysis,
 } from '../../shared/automod';
 import type { DebugResponse, MockPostDebugRequest } from '../../shared/debug-types';
 import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
-import { generateText, generateJson } from '../services/model-proxy.service';
+import { generateText, generateJson, type ModelProvider } from '../services/model-proxy.service';
+import { resolveServerGitHubApiKey } from '../services/gemini-key.service';
 import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule } from '../services/automod.service';
 
 // (previously used to strip fenced code blocks from model output)
@@ -27,28 +25,6 @@ type ChatHistoryMessage = {
   role: 'user' | 'model';
   content: string;
 };
-
-// Simple circuit breaker to prevent cascading failures during rate limits
-let circuitBreakerOpen = false;
-let circuitBreakerOpenTime = 0;
-const CIRCUIT_BREAKER_TIMEOUT = 60000; // 60 seconds
-
-function isCircuitBreakerOpen(): boolean {
-  if (!circuitBreakerOpen) return false;
-
-  const now = Date.now();
-  if (now - circuitBreakerOpenTime > CIRCUIT_BREAKER_TIMEOUT) {
-    circuitBreakerOpen = false;
-    return false;
-  }
-
-  return true;
-}
-
-function openCircuitBreaker(): void {
-  circuitBreakerOpen = true;
-  circuitBreakerOpenTime = Date.now();
-}
 
 const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant. Follow the user's EXACT instructions for rule specifications. Do not generate generic rules unless specifically requested.
 
@@ -66,7 +42,6 @@ RULES:
 - Modmail ONLY uses: {{permalink}} {{author}} {{title}} {{body}} {{kind}} {{domain}} {{url}} {{author_flair_text}} {{link_flair_text}}
 - NEVER use dotted variables like {{author.account_age}} - they don't exist in AutoModerator
 - If rule needs BOTH author thresholds AND title/body keyword matching, split into TWO rules
-- IMPORTANT: Follow the user's specific rule requirements exactly. Do not add generic rules unless asked.
 
 Example:
 \`\`\`yaml
@@ -87,13 +62,13 @@ modmail: |
   User: u/{{author}}
   Title: {{title}}
 ---
-\`\`\``;
+\`\`\`;`;
 
 export async function generateChatReplyOnServer(
   prompt: string,
   history: ChatHistoryMessage[] = [],
   subredditContext?: string,
-  apiKey?: string
+  provider?: ModelProvider
 ): Promise<string> {
   // Build the prompt text combining system prompt, optional subreddit context, history and user prompt.
   const parts: string[] = [];
@@ -105,7 +80,7 @@ export async function generateChatReplyOnServer(
     parts.push('Noted. I will keep this subreddit context in mind.');
   }
 
-  for (const message of history.slice(-3)) { // Reduced from -5 to -3 to reduce prompt size
+  for (const message of history.slice(-10)) {
     if (!message?.content?.trim()) continue;
     parts.push(`${message.role === 'model' ? 'Assistant:' : 'User:'} ${message.content}`);
   }
@@ -113,16 +88,15 @@ export async function generateChatReplyOnServer(
   parts.push(`User: ${prompt}`);
 
   const combined = parts.join('\n\n');
-  let text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192, maxRetries: 0 }, apiKey);
-  // Fix doubled apostrophes in regex match conditions
-  text = text.replace(
-    /^(\s*(?:title|body)\s*\(matches\)\s*:\s*\[')(.*?)('\])\s*$/gm,
-    (_, prefix, inner, suffix) => `${prefix}${inner.replace(/''/g, "\\'")}${suffix}`
-  );
-  // Strip invalid AutoMod template variables from modmail blocks
-  text = text.replace(/\{\{author\.(account_age|combined_karma|link_karma|comment_karma)[^}]*\}\}/g, '');
-  text = text.replace(/\{\{title_length\}\}/g, '');
-  text = text.replace(/\{\{(author|post)\.[^}]+\}\}/g, '');
+
+  // Auto-detect provider: use GitHub if token is available, otherwise use Gemini
+  let selectedProvider = provider;
+  if (!selectedProvider) {
+    const githubKey = await resolveServerGitHubApiKey();
+    selectedProvider = githubKey ? 'github' : 'gemini';
+  }
+
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 1024, provider: selectedProvider });
   return text || 'I could not generate a response.';
 }
 
@@ -198,12 +172,7 @@ ruleStage.post('/rule', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
     const payload = body as typeof DEFAULT_AUTOMOD_RULE;
-    const title = typeof body?.title === 'string' ? body.title : undefined;
-    // Try to get subreddit name from request header first, then fall back to context
-    const headerSub = c.req.header('x-reddit-subreddit');
-    const subredditName = headerSub ?? context.subredditName ?? 'default';
-    console.log('[RuleStage] /rule called with title:', title, 'headerSub:', headerSub, 'context.sub:', context.subredditName, 'using sub:', subredditName);
-    const saved = await saveCurrentRule(payload, title);
+    const saved = await saveCurrentRule(payload);
     return c.json({ status: 'success', rule: saved });
   } catch (error) {
     console.error('[RuleStage] rule save failed:', error);
@@ -214,32 +183,17 @@ ruleStage.post('/rule', async (c) => {
 ruleStage.post('/blast', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
-    const yaml: string = body?.yaml ?? serializeAutomodRule(await getCurrentRule());
-    
-    // Parse ALL rule blocks from the YAML
-    const rules = yaml.split(/^---$/m)
-      .filter((block) => block.trim())
-      .map((block) => parseAutomodRuleDraft(block, DEFAULT_AUTOMOD_RULE));
-
-    const blast = await runBlastRadius(rules);
+    const rule = body?.rule ?? (await getCurrentRule());
+    const blast = await runBlastRadius(rule);
     return c.json({ status: 'success', blast });
   } catch (error) {
     console.error('[RuleStage] blast failed:', error);
-    return c.json({ status: 'error', message: 'Failed to run Blast Radius' }, 500);
+    return c.json({ status: 'error', message: 'Failed to run blast radius' }, 500);
   }
 });
 
 ruleStage.post('/chat', async (c) => {
   try {
-    // Check circuit breaker
-    if (isCircuitBreakerOpen()) {
-      const waitTime = Math.ceil((CIRCUIT_BREAKER_TIMEOUT - (Date.now() - circuitBreakerOpenTime)) / 1000);
-      return c.json({
-        status: 'error',
-        message: `The chat feature is temporarily unavailable due to rate limiting. Please wait ${waitTime} seconds before trying again.`
-      }, 429);
-    }
-
     const body = (await c.req.json().catch(() => null)) as {
       prompt?: unknown;
       history?: unknown;
@@ -267,59 +221,36 @@ ruleStage.post('/chat', async (c) => {
         content: typeof entry.content === 'string' ? entry.content : '',
       }))
       .filter((entry) => entry.content.trim().length > 0)
-      .slice(-3); // Reduced from -20 to -3 to reduce prompt size
+      .slice(-20);
 
     const response = await generateChatReplyOnServer(prompt, history, subredditContext);
     return c.json({ status: 'success', response });
   } catch (error) {
     console.error('[RuleStage] chat failed:', error);
-    const errorMessage = (error as Error).message || 'Failed to run chat';
-
-    // Open circuit breaker if it's a rate limit error
-    if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
-      openCircuitBreaker();
-    }
-
-    return c.json({ status: 'error', message: errorMessage }, 500);
+    return c.json({ status: 'error', message: (error as Error).message || 'Failed to run chat' }, 500);
   }
 });
 
 ruleStage.post('/chat-unified', async (c) => {
   try {
-    // Check circuit breaker
-    if (isCircuitBreakerOpen()) {
-      const waitTime = Math.ceil((CIRCUIT_BREAKER_TIMEOUT - (Date.now() - circuitBreakerOpenTime)) / 1000);
-      return c.json({
-        status: 'error',
-        message: `The chat feature is temporarily unavailable due to rate limiting. Please wait ${waitTime} seconds before trying again.`
-      }, 429);
-    }
-
     const body = await c.req.json().catch(() => null) as {
       prompt?: unknown;
       history?: unknown;
       subredditContext?: unknown;
-      apiKey?: unknown;
     } | null;
 
     const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
     const historyInput = Array.isArray(body?.history) ? body.history : [];
     const subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
-    const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : undefined;
 
     if (!prompt) {
       return c.json({ status: 'error', message: 'Prompt is required' }, 400);
     }
 
-    if (!apiKey) {
-      return c.json({ status: 'error', message: 'API key is required. Please set your Gemini API key in the chat settings.' }, 400);
-    }
-
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      4096, // Increased to 4096 to prevent response truncation
-      apiKey
+      512
     );
 
     const history = historyInput
@@ -329,7 +260,7 @@ ruleStage.post('/chat-unified', async (c) => {
         content: typeof e.content === 'string' ? e.content : '',
       }))
       .filter((e) => e.content.trim().length > 0)
-      .slice(-3); // Reduced from -5 to -3 to reduce prompt size
+      .slice(-20);
 
     // Step 2: Generate YAML if needed
     let yamlResponse: string | null = null;
@@ -337,7 +268,7 @@ ruleStage.post('/chat-unified', async (c) => {
       const yamlPrompt = analysis.needsTypeScript
         ? `${prompt}\n\nNote: Only generate the YAML portion of this request. Generate as many YAML rule blocks as needed. The TypeScript portion will be handled separately: ${analysis.typescriptPart}`
         : prompt;
-      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext, apiKey);
+      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext);
     }
 
     // Skip TypeScript trigger generation for now to avoid Devvit HTTP plugin timeouts
@@ -367,14 +298,7 @@ ruleStage.post('/chat-unified', async (c) => {
     });
   } catch (error) {
     console.error('[RuleStage] chat-unified failed:', error);
-    const errorMessage = (error as Error).message || 'Failed to process unified request';
-
-    // Open circuit breaker if it's a rate limit error
-    if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
-      openCircuitBreaker();
-    }
-
-    return c.json({ status: 'error', message: errorMessage }, 500);
+    return c.json({ status: 'error', message: (error as Error).message || 'Failed to process unified request' }, 500);
   }
 });
 
@@ -477,23 +401,17 @@ ruleStage.post('/publish', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
     const yaml = typeof body?.yaml === 'string' ? body.yaml : null;
-    const title = typeof body?.title === 'string' ? body.title : undefined;
-    // Try to get subreddit name from request header first, then fall back to context
-    const headerSub = c.req.header('x-reddit-subreddit');
-    const subredditName = headerSub ?? context.subredditName ?? 'default';
-    console.log('[RuleStage] /publish called with title:', title, 'headerSub:', headerSub, 'context.sub:', context.subredditName, 'using sub:', subredditName, 'yaml length:', yaml?.length);
     if (!yaml) {
       return c.json({ status: 'error', message: 'yaml is required' }, 400);
     }
-    await pushYamlToWiki(yaml, subredditName, title);
+    await pushYamlToWiki(yaml);
     // also update Redis so the next load is consistent
-    const ruleStorageKey = `rulestage:rule:current:${subredditName}`;
+    const ruleStorageKey = `rulestage:rule:current:${context.subredditName ?? 'default'}`;
     await redis.set(ruleStorageKey, yaml);
-    console.log('[RuleStage] /publish completed successfully');
     return c.json({ status: 'success' });
   } catch (error) {
     console.error('[RuleStage] publish failed:', error);
-    return c.json({ status: 'error', message: (error as Error).message || 'Failed to publish to wiki' }, 500);
+    return c.json({ status: 'error', message: 'Failed to publish to wiki' }, 500);
   }
 });
 
