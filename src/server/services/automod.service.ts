@@ -120,12 +120,11 @@ export async function pushYamlToWiki(yaml: string, subredditName: string, reason
     throw new Error('No subreddit context available');
   }
   try {
-    // Wrap YAML in markdown code blocks for Reddit wiki API compatibility
-    const markdownContent = ` \`\`\`yaml\n${yaml}\n\`\`\` `;
+    // Send raw YAML — no markdown code fences, config/automoderator expects plain YAML
     await reddit.updateWikiPage({
       subredditName,
       page: 'config/automoderator',
-      content: markdownContent,
+      content: yaml,
       reason: reason || 'Updated via AutoMod Builder app',
     });
     console.log('[AutoModService] Wiki page updated successfully for subreddit:', subredditName);

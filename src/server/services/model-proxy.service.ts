@@ -21,9 +21,10 @@ export type GenerateOptions = {
   temperature?: number;
   maxOutputTokens?: number;
   responseMimeType?: string | null;
+  maxRetries?: number;
 };
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 10000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -66,7 +67,7 @@ function markRateLimited(url: string, retryAfterMs: number): void {
   });
 }
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0): Promise<Response> {
   let lastError: Error | null = null;
 
   // Check if this URL is currently rate limited
@@ -78,7 +79,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetchWithTimeout(url, options, 10000);
+      const response = await fetchWithTimeout(url, options, 30000);
 
       // Check for rate limit errors (HTTP 429)
       if (response.status === 429) {
@@ -145,6 +146,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
 
 export async function generateText(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
   const apiKey = providedApiKey || await resolveServerGeminiApiKey();
+  const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0 } = opts;
 
   if (!apiKey) {
     throw new Error('Missing GEMINI_API_KEY');
@@ -171,11 +173,11 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
     body: JSON.stringify({
       contents,
       generationConfig: {
-        temperature: opts.temperature ?? 0.2,
-        maxOutputTokens: opts.maxOutputTokens ?? 8192, // Increased to 8192 to prevent response truncation
+        temperature,
+        maxOutputTokens,
       },
     }),
-  });
+  }, maxRetries);
 
   if (!res.ok) {
     const txt = await res.text();

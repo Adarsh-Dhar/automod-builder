@@ -113,7 +113,7 @@ export async function generateChatReplyOnServer(
   parts.push(`User: ${prompt}`);
 
   const combined = parts.join('\n\n');
-  let text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192 }, apiKey);
+  let text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192, maxRetries: 0 }, apiKey);
   // Fix doubled apostrophes in regex match conditions
   text = text.replace(
     /^(\s*(?:title|body)\s*\(matches\)\s*:\s*\[')(.*?)('\])\s*$/gm,
