@@ -3,6 +3,7 @@ import {
   DEFAULT_AUTOMOD_RULE,
   evaluateRule,
   parseAutomodRuleDraft,
+  replaceOrAppendRule,
   serializeAutomodRule,
   type AutomodRule,
   type SimulationPost,
@@ -39,6 +40,24 @@ function extractWikiContent(page: unknown): string {
   return '';
 }
 
+function validateWikiUpdateInputs(yaml: string): void {
+  if (typeof yaml !== 'string' || yaml.length === 0) {
+    throw new Error('YAML content must be a non-empty string');
+  }
+
+  if (yaml.trim().length === 0) {
+    throw new Error('YAML content must not be whitespace only');
+  }
+
+  if (yaml.includes('\x00')) {
+    throw new Error('YAML content contains invalid null characters');
+  }
+
+  if (yaml.length > 100_000) {
+    throw new Error('YAML content exceeds maximum size of 100KB');
+  }
+}
+
 export async function getCurrentRule(): Promise<AutomodRule> {
   try {
     const liveYaml = await getLiveAutomodYaml(getSubredditKey());
@@ -62,7 +81,7 @@ export async function saveCurrentRule(rule: AutomodRule): Promise<AutomodRule> {
   const normalized = parseAutomodRuleDraft(serializeAutomodRule(rule), rule);
   const yaml = serializeAutomodRule(normalized);
   await redis.set(ruleStorageKey(), yaml);     // keep Redis as draft cache
-  await pushYamlToWiki(yaml);           // push to live wiki
+  await pushYamlToWiki(yaml, rule.name);      // push to live wiki with rule name as reason
   return normalized;
 }
 
@@ -108,7 +127,9 @@ export async function getLiveAutomodYaml(subredditName: string): Promise<string>
   return draft?.trim() ? draft : serializeAutomodRule(DEFAULT_AUTOMOD_RULE);
 }
 
-export async function pushYamlToWiki(yaml: string): Promise<void> {
+export async function pushYamlToWiki(yaml: string, reason?: string): Promise<void> {
+  validateWikiUpdateInputs(yaml);
+
   const subredditName = getSubredditKey();
   if (!subredditName || subredditName === 'default') {
     throw new Error('No subreddit context available');
@@ -122,17 +143,34 @@ export async function pushYamlToWiki(yaml: string): Promise<void> {
     // Wiki doesn't exist yet, that's fine
   }
 
-  // MERGE new rule with existing content
-  const mergedContent = existingContent.trim()
-    ? existingContent + '\n\n' + yaml
-    : yaml;
+  // MERGE new rule with existing content (replace by name, append if new)
+  const mergedContent = replaceOrAppendRule(existingContent, yaml);
 
-  await reddit.updateWikiPage({
-    subredditName,
-    page: 'config/automoderator',
-    content: mergedContent,
-    reason: 'Updated via AutoMod Builder app',
-  });
+  // RETRY logic with exponential backoff
+  const maxRetries = 3;
+  const delays = [1000, 2000, 4000]; // 1s, 2s, 4s
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await reddit.updateWikiPage({
+        subredditName,
+        page: 'config/automoderator',
+        content: mergedContent,
+        reason: reason ?? 'Updated via AutoMod Builder app',
+      });
+      return; // Success, exit retry loop
+    } catch (error) {
+      const errorMessage = (error as Error).message.toLowerCase();
+      const isRetryable = errorMessage.includes('415') || errorMessage.includes('unknown') || errorMessage.includes('grpc');
+
+      if (!isRetryable || attempt === maxRetries - 1) {
+        throw error; // Not retryable or last attempt exhausted
+      }
+
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
 }
 
 export async function resetRuleStageState(): Promise<AutomodRule> {

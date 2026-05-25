@@ -97,6 +97,66 @@ describe('pushYamlToWiki — happy path', () => {
   });
 });
 
+// ─── Existing Wiki Content Tests ─────────────────────────────────────────────
+
+describe('pushYamlToWiki — with existing wiki content', () => {
+  it('merges new rule with existing wiki content', async () => {
+    const existingWikiContent = `---
+# Old spam filter
+type: submission
+title (includes): ['spam']
+author:
+  satisfy_any_threshold: true
+action: remove
+comment_stickied: false
+comment: |
+  Removed.
+modmail: |
+  {{permalink}}
+---`;
+
+    mockGetWikiPage.mockResolvedValue({
+      content_md: existingWikiContent,
+    });
+
+    const newYaml = serializeAutomodRule(buildRule({ name: 'New crypto filter' }));
+    await pushYamlToWiki(newYaml);
+
+    const content: string = mockUpdateWikiPage.mock.calls[0][0].content;
+    expect(content).toContain('Old spam filter');
+    expect(content).toContain('New crypto filter');
+  });
+
+  it('replaces existing rule with same name instead of duplicating', async () => {
+    const existingWikiContent = `---
+# Spam guard
+type: submission
+title (includes): ['spam']
+author:
+  satisfy_any_threshold: true
+action: remove
+comment_stickied: false
+comment: |
+  Old comment.
+modmail: |
+  {{permalink}}
+---`;
+
+    mockGetWikiPage.mockResolvedValue({
+      content_md: existingWikiContent,
+    });
+
+    const newYaml = serializeAutomodRule(buildRule({ name: 'Spam guard', comment: 'New comment.' }));
+    await pushYamlToWiki(newYaml);
+
+    const content: string = mockUpdateWikiPage.mock.calls[0][0].content;
+    const matches = (content.match(/# Spam guard/g) ?? []).length;
+    expect(matches).toBe(1); // Should appear exactly once, not duplicated
+    expect(content).toContain('New comment.');
+    expect(content).not.toContain('Old comment.');
+  });
+});
+
 // ─── Subreddit isolation ─────────────────────────────────────────────────────
 
 describe('saveCurrentRule — subreddit isolation', () => {
@@ -161,5 +221,81 @@ describe('pushYamlToWiki — input validation', () => {
     currentSubreddit = undefined as any;
     const yaml = serializeAutomodRule(buildRule());
     await expect(pushYamlToWiki(yaml)).rejects.toThrow('No subreddit context');
+  });
+
+  it('throws when YAML is empty string', async () => {
+    await expect(pushYamlToWiki('')).rejects.toThrow('YAML content must be a non-empty string');
+  });
+
+  it('throws when YAML is whitespace only', async () => {
+    await expect(pushYamlToWiki('   \n\n  ')).rejects.toThrow('YAML content must not be whitespace only');
+  });
+
+  it('throws when YAML contains null bytes', async () => {
+    const yamlWithNullByte = '---\n# Test\ntype: submission\n\x00';
+    await expect(pushYamlToWiki(yamlWithNullByte)).rejects.toThrow('invalid null characters');
+  });
+
+  it('throws when YAML exceeds 100KB limit', async () => {
+    const largeYaml = '---\n# Test\ntype: submission\n' + 'x'.repeat(100_001);
+    await expect(pushYamlToWiki(largeYaml)).rejects.toThrow('exceeds maximum size of 100KB');
+  });
+});
+
+// ─── Retry Logic Tests ─────────────────────────────────────────────────────────
+
+describe('pushYamlToWiki — retry on transient errors', () => {
+  it('retries on 415 and succeeds on second attempt', async () => {
+    const yaml = serializeAutomodRule(buildRule());
+    let attemptCount = 0;
+
+    mockUpdateWikiPage.mockImplementation(async () => {
+      attemptCount++;
+      if (attemptCount === 1) {
+        throw new Error('HTTP 415 Unsupported Media Type');
+      }
+      return undefined;
+    });
+
+    await pushYamlToWiki(yaml);
+
+    expect(attemptCount).toBe(2);
+    expect(mockUpdateWikiPage).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries on UNKNOWN and succeeds on third attempt', async () => {
+    const yaml = serializeAutomodRule(buildRule());
+    let attemptCount = 0;
+
+    mockUpdateWikiPage.mockImplementation(async () => {
+      attemptCount++;
+      if (attemptCount < 3) {
+        throw new Error('UNKNOWN error');
+      }
+      return undefined;
+    });
+
+    await pushYamlToWiki(yaml);
+
+    expect(attemptCount).toBe(3);
+    expect(mockUpdateWikiPage).toHaveBeenCalledTimes(3);
+  });
+
+  it('throws after all retries exhausted', async () => {
+    const yaml = serializeAutomodRule(buildRule());
+
+    mockUpdateWikiPage.mockRejectedValue(new Error('HTTP 415'));
+
+    await expect(pushYamlToWiki(yaml)).rejects.toThrow('HTTP 415');
+    expect(mockUpdateWikiPage).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry on non-retryable errors', async () => {
+    const yaml = serializeAutomodRule(buildRule());
+
+    mockUpdateWikiPage.mockRejectedValue(new Error('Permission denied'));
+
+    await expect(pushYamlToWiki(yaml)).rejects.toThrow('Permission denied');
+    expect(mockUpdateWikiPage).toHaveBeenCalledTimes(1);
   });
 });

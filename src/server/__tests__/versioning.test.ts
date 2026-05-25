@@ -97,8 +97,7 @@ modmail: |
 
     const parsed = parseAutomodRuleDraft(yaml);
     expect(parsed.name).toBe('Spam guard');
-    // Note: parseAutomodRuleDraft doesn't currently parse version, this test documents current behavior
-    expect(parsed.version).toBeUndefined();
+    expect(parsed.version).toBe('1.0.0');
   });
 });
 
@@ -161,10 +160,8 @@ describe('Version Round-trip', () => {
     const originalRule = buildRule({ name: 'Test', version: '1.5.0' });
     const yaml = serializeAutomodRule(originalRule);
 
-    // Note: parseAutomodRuleDraft doesn't currently parse version back
-    // This test documents current limitation
     const parsed = parseAutomodRuleDraft(yaml);
     expect(parsed.name).toBe('Test');
-    expect(parsed.version).toBeUndefined(); // Current limitation
+    expect(parsed.version).toBe('1.5.0');
   });
 });

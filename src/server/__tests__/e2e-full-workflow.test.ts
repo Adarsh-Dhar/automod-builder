@@ -130,6 +130,18 @@ modmail: Old
     const wikiCall = mockUpdateWikiPage.mock.calls[0][0] as { content: string };
     expect(wikiCall.content).toContain('Old spam filter');
     expect(wikiCall.content).toContain('New crypto filter');
+
+    // Step 5: Deploy the same rule again to test idempotency
+    mockGetWikiPage.mockResolvedValue({ content_md: wikiCall.content });
+    mockUpdateWikiPage.mockClear();
+    await saveCurrentRule(newRule);
+
+    // Step 6: Verify each rule name appears exactly once (no duplication)
+    const secondWikiCall = mockUpdateWikiPage.mock.calls[0][0] as { content: string };
+    const oldMatches = (secondWikiCall.content.match(/# Old spam filter/g) ?? []).length;
+    const newMatches = (secondWikiCall.content.match(/# New crypto filter/g) ?? []).length;
+    expect(oldMatches).toBe(1);
+    expect(newMatches).toBe(1);
   });
 
   it('should handle empty wiki on first deployment', async () => {

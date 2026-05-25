@@ -260,3 +260,57 @@ modmail: Test
     expect(content).toContain('New rule');
   });
 });
+
+// ─── Idempotency Tests ───────────────────────────────────────────────────────
+
+describe('Rule Merging - Idempotency', () => {
+  it('saving the same rule twice does not duplicate it in the wiki', async () => {
+    const rule = buildRule({ name: 'Spam guard' });
+
+    // First save - wiki is empty
+    mockGetWikiPage.mockResolvedValue(null);
+    await saveCurrentRule(rule);
+    const firstContent = mockUpdateWikiPage.mock.calls[0][0].content;
+
+    // Second save - wiki now contains the first save's output
+    mockGetWikiPage.mockResolvedValue({ content_md: firstContent });
+    mockUpdateWikiPage.mockClear();
+    await saveCurrentRule(rule);
+    const secondContent = mockUpdateWikiPage.mock.calls[0][0].content;
+
+    // Rule name must appear exactly once
+    const matches = (secondContent.match(/# Spam guard/g) ?? []).length;
+    expect(matches).toBe(1);
+  });
+
+  it('saving a different rule when one already exists preserves both', async () => {
+    const rule1 = buildRule({ name: 'Spam guard' });
+    const rule2 = buildRule({ name: 'Crypto filter' });
+
+    // First save - wiki is empty
+    mockGetWikiPage.mockResolvedValue(null);
+    await saveCurrentRule(rule1);
+    const firstContent = mockUpdateWikiPage.mock.calls[0][0].content;
+
+    // Second save - wiki contains first rule, add different rule
+    mockGetWikiPage.mockResolvedValue({ content_md: firstContent });
+    mockUpdateWikiPage.mockClear();
+    await saveCurrentRule(rule2);
+    const secondContent = mockUpdateWikiPage.mock.calls[0][0].content;
+
+    // Both rule names must appear exactly once
+    const matches1 = (secondContent.match(/# Spam guard/g) ?? []).length;
+    const matches2 = (secondContent.match(/# Crypto filter/g) ?? []).length;
+    expect(matches1).toBe(1);
+    expect(matches2).toBe(1);
+  });
+
+  it('passes rule name as wiki edit reason', async () => {
+    const rule = buildRule({ name: 'My filter' });
+    await saveCurrentRule(rule);
+
+    expect(mockUpdateWikiPage).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: expect.stringContaining('My filter') })
+    );
+  });
+});
