@@ -107,7 +107,6 @@ link_flair_text: null
     const updateCall = mockUpdateWikiPage.mock.calls[0]?.[0] as { content: string };
     const content = updateCall.content;
 
-    // This will FAIL with current implementation (overwrites existing)
     expect(content).toContain('Old spam filter');
     expect(content).toContain('Old linkflairs check');
     expect(content).toContain('New crypto filter');

@@ -4,6 +4,7 @@ import {
   buildDebugPrompt,
   buildEscapeHatchAnalysisPrompt,
   buildEscapeHatchGenerationPrompt,
+  replaceOrAppendRule,
 } from '../automod';
 import type {
   AutomodRule,
@@ -567,6 +568,160 @@ describe('Shared Utilities Tests', () => {
       expect(emptyArray.length).toBe(0);
       expect(singleArray.length).toBe(1);
       expect(multiArray.length).toBe(3);
+    });
+  });
+
+  describe('replaceOrAppendRule', () => {
+    it('should handle rule name appearing inside comment: | block (false positive)', () => {
+      const existingYaml = `---
+# Old rule
+type: submission
+action: remove
+comment: |
+  This comment mentions # Spam guard but should not match
+modmail: Test
+---`;
+
+      const newYaml = `---
+# Spam guard
+type: submission
+action: remove
+comment: New comment
+modmail: Test
+---`;
+
+      const result = replaceOrAppendRule(existingYaml, newYaml);
+
+      // Should append, not replace (the # Spam guard in comment is not a rule name)
+      expect(result).toContain('# Old rule');
+      expect(result).toContain('# Spam guard');
+      expect(result).toContain('This comment mentions # Spam guard but should not match');
+      expect(result).toContain('New comment');
+    });
+
+    it('should handle wiki with only whitespace between blocks', () => {
+      const existingYaml = `---
+
+# Rule 1
+type: submission
+action: remove
+comment: Test
+modmail: Test
+
+
+---
+
+# Rule 2
+type: submission
+action: approve
+comment: Test
+modmail: Test
+---`;
+
+      const newYaml = `---
+# Rule 3
+type: submission
+action: report
+comment: Test
+modmail: Test
+---`;
+
+      const result = replaceOrAppendRule(existingYaml, newYaml);
+
+      // Should preserve existing rules and append new one
+      expect(result).toContain('# Rule 1');
+      expect(result).toContain('# Rule 2');
+      expect(result).toContain('# Rule 3');
+    });
+
+    it('should handle unnamed new rule (fallback to append)', () => {
+      const existingYaml = `---
+# Existing rule
+type: submission
+action: remove
+comment: Test
+modmail: Test
+---`;
+
+      const newYaml = `---
+type: submission
+action: approve
+comment: No name rule
+modmail: Test
+---`;
+
+      const result = replaceOrAppendRule(existingYaml, newYaml);
+
+      // Should append the unnamed rule
+      expect(result).toContain('# Existing rule');
+      expect(result).toContain('No name rule');
+      expect(result).toContain('action: approve');
+    });
+
+    it('should replace existing rule with matching name', () => {
+      const existingYaml = `---
+# Spam guard
+type: submission
+action: remove
+comment: Old comment
+modmail: Test
+---`;
+
+      const newYaml = `---
+# Spam guard
+type: submission
+action: remove
+comment: New comment
+modmail: Test
+---`;
+
+      const result = replaceOrAppendRule(existingYaml, newYaml);
+
+      // Should replace, not duplicate
+      const matches = (result.match(/# Spam guard/g) ?? []).length;
+      expect(matches).toBe(1);
+      expect(result).toContain('New comment');
+      expect(result).not.toContain('Old comment');
+    });
+
+    it('should append new rule when no matching name exists', () => {
+      const existingYaml = `---
+# Existing rule
+type: submission
+action: remove
+comment: Test
+modmail: Test
+---`;
+
+      const newYaml = `---
+# New rule
+type: submission
+action: approve
+comment: Test
+modmail: Test
+---`;
+
+      const result = replaceOrAppendRule(existingYaml, newYaml);
+
+      // Should append
+      expect(result).toContain('# Existing rule');
+      expect(result).toContain('# New rule');
+    });
+
+    it('should handle empty existing wiki', () => {
+      const existingYaml = '';
+      const newYaml = `---
+# First rule
+type: submission
+action: remove
+comment: Test
+modmail: Test
+---`;
+
+      const result = replaceOrAppendRule(existingYaml, newYaml);
+
+      // Should just return new rule
+      expect(result).toContain('# First rule');
     });
   });
 });

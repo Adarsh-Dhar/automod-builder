@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // --- Mock @devvit/web/server before importing service ---
 const { mockRedisGet, mockRedisSet, mockRedisDel, mockUpdateWikiPage, mockGetWikiPage } = vi.hoisted(() => ({
@@ -245,6 +245,14 @@ describe('pushYamlToWiki — input validation', () => {
 // ─── Retry Logic Tests ─────────────────────────────────────────────────────────
 
 describe('pushYamlToWiki — retry on transient errors', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('retries on 415 and succeeds on second attempt', async () => {
     const yaml = serializeAutomodRule(buildRule());
     let attemptCount = 0;
@@ -257,7 +265,9 @@ describe('pushYamlToWiki — retry on transient errors', () => {
       return undefined;
     });
 
-    await pushYamlToWiki(yaml);
+    const promise = pushYamlToWiki(yaml);
+    await vi.runAllTimersAsync();
+    await promise;
 
     expect(attemptCount).toBe(2);
     expect(mockUpdateWikiPage).toHaveBeenCalledTimes(2);
@@ -275,7 +285,9 @@ describe('pushYamlToWiki — retry on transient errors', () => {
       return undefined;
     });
 
-    await pushYamlToWiki(yaml);
+    const promise = pushYamlToWiki(yaml);
+    await vi.runAllTimersAsync();
+    await promise;
 
     expect(attemptCount).toBe(3);
     expect(mockUpdateWikiPage).toHaveBeenCalledTimes(3);
@@ -286,7 +298,9 @@ describe('pushYamlToWiki — retry on transient errors', () => {
 
     mockUpdateWikiPage.mockRejectedValue(new Error('HTTP 415'));
 
-    await expect(pushYamlToWiki(yaml)).rejects.toThrow('HTTP 415');
+    const promise = pushYamlToWiki(yaml);
+    await vi.runAllTimersAsync();
+    await expect(promise).rejects.toThrow('HTTP 415');
     expect(mockUpdateWikiPage).toHaveBeenCalledTimes(3);
   });
 
