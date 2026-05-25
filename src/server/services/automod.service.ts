@@ -1,4 +1,5 @@
 import { context, redis, reddit } from '@devvit/web/server';
+import pkg from '../../../package.json';
 import {
   DEFAULT_AUTOMOD_RULE,
   evaluateRule,
@@ -78,7 +79,8 @@ export async function getCurrentRule(): Promise<AutomodRule> {
 }
 
 export async function saveCurrentRule(rule: AutomodRule): Promise<AutomodRule> {
-  const normalized = parseAutomodRuleDraft(serializeAutomodRule(rule), rule);
+  const versionedRule = { ...rule, version: pkg.version };
+  const normalized = parseAutomodRuleDraft(serializeAutomodRule(versionedRule), versionedRule);
   const yaml = serializeAutomodRule(normalized);
   await redis.set(ruleStorageKey(), yaml);     // keep Redis as draft cache
   await pushYamlToWiki(yaml, rule.name);      // push to live wiki with rule name as reason

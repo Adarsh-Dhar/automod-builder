@@ -1,5 +1,6 @@
 {
   "name": "rulestage",
+  "version": "0.0.0",
   "permissions": {
     "http": {
       "enable": true,
