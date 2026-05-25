@@ -150,7 +150,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0)
 
 async function generateTextWithGitHub(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
   const apiKey = providedApiKey || await resolveServerGitHubApiKey();
-  const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0, systemPrompt, githubModelId = 'openai/gpt-4.1' } = opts;
+  const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0, systemPrompt, githubModelId = 'openai/gpt-4o' } = opts;
 
   if (!apiKey) {
     throw new Error('Missing GITHUB_API_KEY');

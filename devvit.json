@@ -40,7 +40,9 @@
   "triggers": {
     "onModAction": "/internal/triggers/on-mod-action",
     "onPostSubmit": "/internal/triggers/on-post-submit",
-    "onCommentSubmit": "/internal/triggers/on-comment-submit"
+    "onCommentSubmit": "/internal/triggers/on-comment-submit",
+    "onInstall": "/internal/triggers/on-install",
+    "onUninstall": "/internal/triggers/on-uninstall"
   },
   "scripts": {
     "dev": "vite build --watch",

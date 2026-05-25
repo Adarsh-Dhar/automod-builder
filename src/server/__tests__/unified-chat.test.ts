@@ -1602,7 +1602,7 @@ describe('Suite 8 — Blast Radius Engine', () => {
 
   it('8.9 — runBlastRadius returns zero result when Redis cache is empty', async () => {
     vi.mocked(redis.get).mockResolvedValue(undefined);
-    const result = await runBlastRadius(makeTestRule());
+    const result = await runBlastRadius([makeTestRule()]);
     expect(result.totalTested).toBe(0);
     expect(result.catchRate).toBe(0);
   });
@@ -1610,18 +1610,18 @@ describe('Suite 8 — Blast Radius Engine', () => {
   it('8.10 — runBlastRadius reads posts from Redis cache key', async () => {
     const posts = [makeCachedPost({ isSpam: true, title: 'Buy now spam', wasRemoved: true })];
     vi.mocked(redis.get).mockResolvedValue(JSON.stringify(posts));
-    const result = await runBlastRadius(makeTestRule({
+    const result = await runBlastRadius([makeTestRule({
       name: 'Redis Rule',
       conditions: [{ field: 'title', comparator: 'includes', value: 'buy now' }],
       action: 'remove',
-    }));
+    })]);
     expect(result.totalTested).toBe(1);
   });
 
   it('8.11 — runBlastRadius handles malformed Redis JSON without throwing', async () => {
     vi.mocked(redis.get).mockResolvedValue('{bad json}');
-    await expect(runBlastRadius(makeTestRule())).resolves.toBeDefined();
-    const result = await runBlastRadius(makeTestRule());
+    await expect(runBlastRadius([makeTestRule()])).resolves.toBeDefined();
+    const result = await runBlastRadius([makeTestRule()]);
     expect(result.totalTested).toBe(0);
   });
 

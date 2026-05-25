@@ -731,7 +731,11 @@ export function evaluateRule(rule: AutomodRule, posts = createDefaultSimulationP
 
     const textConditions = [titleCondition, bodyCondition].filter((condition): condition is AutomodCondition => !!condition);
 
-    const textMatch = textConditions.length === 0 ? true : (!titleCondition || titleMatch) || (!bodyCondition || bodyMatch);
+    const textMatch = textConditions.length === 0 ? true : textConditions.every((condition) => {
+      if (condition.field === 'title') return titleMatch;
+      if (condition.field === 'body') return bodyMatch;
+      return true;
+    });
 
     const numericMatches: boolean[] = [];
     if (accountAgeCondition) numericMatches.push(ageMatch);

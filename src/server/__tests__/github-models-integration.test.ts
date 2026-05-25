@@ -131,6 +131,67 @@ test('Suite 1 — GitHub Models API Integration (Real API Tests)', () => {
     });
     expect(response).toMatch(/TEST OK/i);
   });
+
+  it('1.4 — generates valid AutoMod YAML from prompt', async () => {
+    const prompt = 'Create an AutoModerator rule that removes posts with "spam" in the title';
+    const response = await generateText(prompt, {
+      provider: 'github' as ModelProvider,
+      systemPrompt: 'You are an AutoModerator YAML generator. Respond only with valid YAML wrapped in ```yaml code fences.',
+    });
+
+    expect(response).toContain('```yaml');
+    expect(response).toContain('```');
+    expect(response).toMatch(/type:\s*submission/i);
+    expect(response).toMatch(/action:\s*remove/i);
+  });
+
+  it('1.5 — generates YAML with complex conditions', async () => {
+    const prompt = 'Create a rule that removes posts from accounts with less than 100 combined karma';
+    const response = await generateText(prompt, {
+      provider: 'github' as ModelProvider,
+      systemPrompt: 'You are an AutoModerator YAML generator. Respond only with valid YAML wrapped in ```yaml code fences.',
+    });
+
+    expect(response).toContain('```yaml');
+    expect(response).toMatch(/combined_karma/i);
+    expect(response).toMatch(/<\s*100/i);
+  });
+
+  it('1.6 — handles conversation history', async () => {
+    const response = await generateText('Make it stricter - use 50 karma instead', {
+      provider: 'github' as ModelProvider,
+      systemPrompt: 'You are an AutoModerator YAML generator.',
+      history: [
+        { role: 'user', content: 'Create a rule that removes posts from accounts with less than 100 combined karma' },
+        { role: 'model', content: '```yaml\n---\ntype: submission\nauthor:\n  combined_karma: "< 100"\naction: remove\n---\n```' },
+      ],
+    });
+
+    expect(response).toMatch(/50/);
+    expect(response).toContain('```yaml');
+  });
+
+  it('1.7 — generates approve action rules', async () => {
+    const prompt = 'Create a rule that approves posts from verified users';
+    const response = await generateText(prompt, {
+      provider: 'github' as ModelProvider,
+      systemPrompt: 'You are an AutoModerator YAML generator. Respond only with valid YAML wrapped in ```yaml code fences.',
+    });
+
+    expect(response).toContain('```yaml');
+    expect(response).toMatch(/action:\s*approve/i);
+  });
+
+  it('1.8 — generates report action rules', async () => {
+    const prompt = 'Create a rule that reports suspicious posts';
+    const response = await generateText(prompt, {
+      provider: 'github' as ModelProvider,
+      systemPrompt: 'You are an AutoModerator YAML generator. Respond only with valid YAML wrapped in ```yaml code fences.',
+    });
+
+    expect(response).toContain('```yaml');
+    expect(response).toMatch(/action:\s*report/i);
+  });
 });
 
 test('Suite 2 — YAML Parsing and Serialization (Mocked)', () => {

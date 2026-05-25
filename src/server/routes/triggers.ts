@@ -173,3 +173,74 @@ triggers.post('/on-comment-submit', async (c) => {
     return c.json<TriggerResponse>({}, 200);
   }
 });
+
+/**
+ * POST /internal/triggers/on-install
+ * Initializes the app when installed in a subreddit.
+ */
+triggers.post('/on-install', async (c) => {
+  try {
+    const subredditName = context.subredditName ?? 'default';
+    console.log(`[RuleStage] App installed in subreddit: ${subredditName}`);
+
+    // Initialize Redis keys for this subreddit
+    const ruleKey = `rulestage:rule:current:${subredditName}`;
+    const postsKey = `rulestage:simulation:posts:${subredditName}`;
+
+    // Check if keys already exist (reinstall scenario)
+    const existingRule = await redis.get(ruleKey);
+    const existingPosts = await redis.get(postsKey);
+
+    if (!existingRule) {
+      // Initialize with default rule
+      const { DEFAULT_AUTOMOD_RULE, serializeAutomodRule } = await import('../../shared/automod');
+      await redis.set(ruleKey, serializeAutomodRule(DEFAULT_AUTOMOD_RULE));
+      console.log(`[RuleStage] Initialized default rule for ${subredditName}`);
+    } else {
+      console.log(`[RuleStage] Existing rule found for ${subredditName}, preserving`);
+    }
+
+    if (!existingPosts) {
+      // Initialize with empty posts array
+      await redis.set(postsKey, JSON.stringify([]));
+      console.log(`[RuleStage] Initialized empty simulation posts for ${subredditName}`);
+    } else {
+      console.log(`[RuleStage] Existing simulation posts found for ${subredditName}, preserving`);
+    }
+
+    return c.json(acknowledgeTrigger('on-install'), 200);
+  } catch (error) {
+    console.error('[RuleStage] Error in OnInstall handler:', error);
+    return c.json(acknowledgeTrigger('on-install'), 200);
+  }
+});
+
+/**
+ * POST /internal/triggers/on-uninstall
+ * Cleans up app data when uninstalled from a subreddit.
+ */
+triggers.post('/on-uninstall', async (c) => {
+  try {
+    const subredditName = context.subredditName ?? 'default';
+    console.log(`[RuleStage] App uninstalled from subreddit: ${subredditName}`);
+
+    // Clean up Redis keys for this subreddit
+    const ruleKey = `rulestage:rule:current:${subredditName}`;
+    const postsKey = `rulestage:simulation:posts:${subredditName}`;
+
+    await redis.del(ruleKey);
+    await redis.del(postsKey);
+
+    console.log(`[RuleStage] Cleaned up Redis keys for ${subredditName}`);
+
+    // Note: We do NOT remove the wiki rules because:
+    // 1. They belong to the subreddit, not the app
+    // 2. Moderators may want to keep the rules even after uninstalling
+    // 3. Removing rules could cause unexpected moderation behavior
+
+    return c.json(acknowledgeTrigger('on-uninstall'), 200);
+  } catch (error) {
+    console.error('[RuleStage] Error in OnUninstall handler:', error);
+    return c.json(acknowledgeTrigger('on-uninstall'), 200);
+  }
+});
