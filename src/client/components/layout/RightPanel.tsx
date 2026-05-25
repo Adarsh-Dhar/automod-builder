@@ -32,25 +32,35 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
         </div>
         {blast ? (
           <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-[--muted-foreground]">Catch Rate</span>
-                <span className="text-[--foreground] font-medium">{(blast.catchRate * 100).toFixed(0)}%</span>
-              </div>
-              <div className="h-1.5 bg-[--surface-3] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[--info] rounded-full"
-                  style={{ width: `${blast.catchRate * 100}%` }}
-                />
-              </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-[--muted-foreground]">Posts tested</span>
+              <span className="font-medium">{blast.totalTested}</span>
             </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-[--muted-foreground]">Would catch</span>
+              <span className="font-medium text-green-400">{blast.caughtPosts?.length ?? 0}</span>
+            </div>
+            {blast.caughtPosts && blast.caughtPosts.length > 0 && (
+              <div>
+                <p className="text-xs text-[--muted-foreground] mb-2">Caught posts:</p>
+                <div className="space-y-1">
+                  {blast.caughtPosts.slice(0, 5).map((post) => (
+                    <div key={post.id} className="text-xs text-green-400/80 truncate">
+                      ✓ {post.title} (u/{post.author})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {blast.falsePositives.length > 0 && (
               <div>
-                <p className="text-xs text-[--muted-foreground] mb-2">False Positives:</p>
+                <p className="text-xs text-[--muted-foreground] mb-2">
+                  False positives ({blast.falsePositives.length}):
+                </p>
                 <div className="space-y-1">
                   {blast.falsePositives.slice(0, 3).map((post) => (
-                    <div key={post.id} className="text-xs text-[--subtle] truncate">
-                      • {post.title} (u/{post.author})
+                    <div key={post.id} className="text-xs text-red-400/80 truncate">
+                      ✗ {post.title} (u/{post.author})
                     </div>
                   ))}
                 </div>
@@ -58,10 +68,7 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
             )}
           </div>
         ) : (
-          <div className="text-center py-4">
-            <div className="text-3xl opacity-20 mb-2">⚡</div>
-            <p className="text-xs text-[--subtle]">Run blast radius to see backtest results</p>
-          </div>
+          <p className="text-xs text-[--subtle]">Run blast radius to see backtest results</p>
         )}
       </div>
 

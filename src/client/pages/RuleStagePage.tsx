@@ -155,6 +155,19 @@ export function RuleStagePage() {
   };
 
   const handleApplyYaml = (yaml: string, source?: HistorySnapshot['source']) => {
+    // Generate meaningful title based on source
+    const title = source === 'chat' 
+      ? 'Added rules from AI chat'
+      : source === 'debugger'
+      ? 'Fixed rules via debugger'
+      : source === 'restore'
+      ? 'Restored rules from history'
+      : source === 'decoder'
+      ? 'Decoded and applied rules'
+      : source === 'escape-hatch'
+      ? 'Added escape hatch trigger'
+      : 'Updated rules via code editor';
+
     // If YAML contains multiple rules, preserve all rules in the draft
     if (hasMultipleRules(yaml)) {
       setDraft(yaml);
@@ -163,7 +176,7 @@ export function RuleStagePage() {
       const parsed = parseAutomodRuleDraft(firstRuleYaml, rule);
       setRule(parsed);
       setMode('code');
-      void persistRawYaml(yaml);
+      void persistRawYaml(yaml, title);
       // Save snapshot with source
       const ruleCount = yaml.split('---').filter((b) => b.trim()).length;
       const updated = saveSnapshot(yaml, ruleCount, undefined, source);
@@ -174,7 +187,7 @@ export function RuleStagePage() {
       setRule(parsed);
       setDraft(serializeAutomodRule(parsed));
       setMode('code');
-      void persistRule(parsed);
+      void persistRule(parsed, title);
       // Save snapshot with source
       const updated = saveSnapshot(serializeAutomodRule(parsed), parsed.conditions.length, undefined, source);
       setChanges(updated);
@@ -253,15 +266,17 @@ export function RuleStagePage() {
     }, 4000);
   };
 
-  const persistRule = async (nextRule: AutomodRule) => {
+  const persistRule = async (nextRule: AutomodRule, title?: string) => {
     try {
       setSaving(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (init?.subredditName) {
+        headers['x-reddit-subreddit'] = init.subredditName;
+      }
       const response = await fetch('/api/rule-stage/rule', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(nextRule),
+        headers,
+        body: JSON.stringify({ ...nextRule, title }),
       });
 
       if (!response.ok) {
@@ -282,13 +297,17 @@ export function RuleStagePage() {
     }
   };
 
-  const persistRawYaml = async (yaml: string) => {
+  const persistRawYaml = async (yaml: string, title?: string) => {
     try {
       setSaving(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (init?.subredditName) {
+        headers['x-reddit-subreddit'] = init.subredditName;
+      }
       const response = await fetch('/api/rule-stage/publish', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yaml }),
+        headers,
+        body: JSON.stringify({ yaml, title }),
       });
       if (!response.ok) throw new Error('Failed to publish');
       await response.json();

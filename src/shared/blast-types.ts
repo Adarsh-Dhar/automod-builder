@@ -15,6 +15,7 @@ export type BlastRadiusResult = {
   wouldCatch: number;
   falsePositives: CachedPost[];
   missedSpam: CachedPost[];
+  caughtPosts: CachedPost[];
   catchRate: number;
   falsePositiveRate: number;
 };

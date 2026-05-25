@@ -28,7 +28,29 @@ type ChatHistoryMessage = {
   content: string;
 };
 
-const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant. Output complete YAML rule blocks.
+// Simple circuit breaker to prevent cascading failures during rate limits
+let circuitBreakerOpen = false;
+let circuitBreakerOpenTime = 0;
+const CIRCUIT_BREAKER_TIMEOUT = 60000; // 60 seconds
+
+function isCircuitBreakerOpen(): boolean {
+  if (!circuitBreakerOpen) return false;
+
+  const now = Date.now();
+  if (now - circuitBreakerOpenTime > CIRCUIT_BREAKER_TIMEOUT) {
+    circuitBreakerOpen = false;
+    return false;
+  }
+
+  return true;
+}
+
+function openCircuitBreaker(): void {
+  circuitBreakerOpen = true;
+  circuitBreakerOpenTime = Date.now();
+}
+
+const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant. Follow the user's EXACT instructions for rule specifications. Do not generate generic rules unless specifically requested.
 
 RULES:
 - type: submission always
@@ -39,11 +61,12 @@ RULES:
 - Rule name as comment after ---
 - Wrap in \`\`\`yaml ... \`\`\`
 - No prose outside code fence
-- For title length: title (matches): ['^.{0,14}$']
 - Author flair: author_flair_text at top level, NOT under author:
 - Negate with ~ prefix: ~author_flair_text: "official"
-- Modmail variables: {{permalink}} {{author}} {{title}} {{body}} {{kind}} {{domain}} {{url}} {{author_flair_text}} {{link_flair_text}}
-- If rule needs author AND title/body checks, split into TWO rules with full author: block each
+- Modmail ONLY uses: {{permalink}} {{author}} {{title}} {{body}} {{kind}} {{domain}} {{url}} {{author_flair_text}} {{link_flair_text}}
+- NEVER use dotted variables like {{author.account_age}} - they don't exist in AutoModerator
+- If rule needs BOTH author thresholds AND title/body keyword matching, split into TWO rules
+- IMPORTANT: Follow the user's specific rule requirements exactly. Do not add generic rules unless asked.
 
 Example:
 \`\`\`yaml
@@ -82,7 +105,7 @@ export async function generateChatReplyOnServer(
     parts.push('Noted. I will keep this subreddit context in mind.');
   }
 
-  for (const message of history.slice(-10)) {
+  for (const message of history.slice(-3)) { // Reduced from -5 to -3 to reduce prompt size
     if (!message?.content?.trim()) continue;
     parts.push(`${message.role === 'model' ? 'Assistant:' : 'User:'} ${message.content}`);
   }
@@ -96,6 +119,10 @@ export async function generateChatReplyOnServer(
     /^(\s*(?:title|body)\s*\(matches\)\s*:\s*\[')(.*?)('\])\s*$/gm,
     (_, prefix, inner, suffix) => `${prefix}${inner.replace(/''/g, "\\'")}${suffix}`
   );
+  // Strip invalid AutoMod template variables from modmail blocks
+  text = text.replace(/\{\{author\.(account_age|combined_karma|link_karma|comment_karma)[^}]*\}\}/g, '');
+  text = text.replace(/\{\{title_length\}\}/g, '');
+  text = text.replace(/\{\{(author|post)\.[^}]+\}\}/g, '');
   return text || 'I could not generate a response.';
 }
 
@@ -169,8 +196,14 @@ ruleStage.get('/rule', async (c) => {
 
 ruleStage.post('/rule', async (c) => {
   try {
-    const payload = (await c.req.json()) as typeof DEFAULT_AUTOMOD_RULE;
-    const saved = await saveCurrentRule(payload);
+    const body = await c.req.json().catch(() => null);
+    const payload = body as typeof DEFAULT_AUTOMOD_RULE;
+    const title = typeof body?.title === 'string' ? body.title : undefined;
+    // Try to get subreddit name from request header first, then fall back to context
+    const headerSub = c.req.header('x-reddit-subreddit');
+    const subredditName = headerSub ?? context.subredditName ?? 'default';
+    console.log('[RuleStage] /rule called with title:', title, 'headerSub:', headerSub, 'context.sub:', context.subredditName, 'using sub:', subredditName);
+    const saved = await saveCurrentRule(payload, title);
     return c.json({ status: 'success', rule: saved });
   } catch (error) {
     console.error('[RuleStage] rule save failed:', error);
@@ -198,6 +231,15 @@ ruleStage.post('/blast', async (c) => {
 
 ruleStage.post('/chat', async (c) => {
   try {
+    // Check circuit breaker
+    if (isCircuitBreakerOpen()) {
+      const waitTime = Math.ceil((CIRCUIT_BREAKER_TIMEOUT - (Date.now() - circuitBreakerOpenTime)) / 1000);
+      return c.json({
+        status: 'error',
+        message: `The chat feature is temporarily unavailable due to rate limiting. Please wait ${waitTime} seconds before trying again.`
+      }, 429);
+    }
+
     const body = (await c.req.json().catch(() => null)) as {
       prompt?: unknown;
       history?: unknown;
@@ -225,18 +267,34 @@ ruleStage.post('/chat', async (c) => {
         content: typeof entry.content === 'string' ? entry.content : '',
       }))
       .filter((entry) => entry.content.trim().length > 0)
-      .slice(-20);
+      .slice(-3); // Reduced from -20 to -3 to reduce prompt size
 
     const response = await generateChatReplyOnServer(prompt, history, subredditContext);
     return c.json({ status: 'success', response });
   } catch (error) {
     console.error('[RuleStage] chat failed:', error);
-    return c.json({ status: 'error', message: (error as Error).message || 'Failed to run chat' }, 500);
+    const errorMessage = (error as Error).message || 'Failed to run chat';
+
+    // Open circuit breaker if it's a rate limit error
+    if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+      openCircuitBreaker();
+    }
+
+    return c.json({ status: 'error', message: errorMessage }, 500);
   }
 });
 
 ruleStage.post('/chat-unified', async (c) => {
   try {
+    // Check circuit breaker
+    if (isCircuitBreakerOpen()) {
+      const waitTime = Math.ceil((CIRCUIT_BREAKER_TIMEOUT - (Date.now() - circuitBreakerOpenTime)) / 1000);
+      return c.json({
+        status: 'error',
+        message: `The chat feature is temporarily unavailable due to rate limiting. Please wait ${waitTime} seconds before trying again.`
+      }, 429);
+    }
+
     const body = await c.req.json().catch(() => null) as {
       prompt?: unknown;
       history?: unknown;
@@ -260,7 +318,7 @@ ruleStage.post('/chat-unified', async (c) => {
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      8192,
+      2048, // Increased to 2048 to prevent response truncation
       apiKey
     );
 
@@ -271,7 +329,7 @@ ruleStage.post('/chat-unified', async (c) => {
         content: typeof e.content === 'string' ? e.content : '',
       }))
       .filter((e) => e.content.trim().length > 0)
-      .slice(-20);
+      .slice(-3); // Reduced from -5 to -3 to reduce prompt size
 
     // Step 2: Generate YAML if needed
     let yamlResponse: string | null = null;
@@ -310,6 +368,12 @@ ruleStage.post('/chat-unified', async (c) => {
   } catch (error) {
     console.error('[RuleStage] chat-unified failed:', error);
     const errorMessage = (error as Error).message || 'Failed to process unified request';
+
+    // Open circuit breaker if it's a rate limit error
+    if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+      openCircuitBreaker();
+    }
+
     return c.json({ status: 'error', message: errorMessage }, 500);
   }
 });
@@ -413,17 +477,23 @@ ruleStage.post('/publish', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
     const yaml = typeof body?.yaml === 'string' ? body.yaml : null;
+    const title = typeof body?.title === 'string' ? body.title : undefined;
+    // Try to get subreddit name from request header first, then fall back to context
+    const headerSub = c.req.header('x-reddit-subreddit');
+    const subredditName = headerSub ?? context.subredditName ?? 'default';
+    console.log('[RuleStage] /publish called with title:', title, 'headerSub:', headerSub, 'context.sub:', context.subredditName, 'using sub:', subredditName, 'yaml length:', yaml?.length);
     if (!yaml) {
       return c.json({ status: 'error', message: 'yaml is required' }, 400);
     }
-    await pushYamlToWiki(yaml);
+    await pushYamlToWiki(yaml, subredditName, title);
     // also update Redis so the next load is consistent
-    const ruleStorageKey = `rulestage:rule:current:${context.subredditName ?? 'default'}`;
+    const ruleStorageKey = `rulestage:rule:current:${subredditName}`;
     await redis.set(ruleStorageKey, yaml);
+    console.log('[RuleStage] /publish completed successfully');
     return c.json({ status: 'success' });
   } catch (error) {
     console.error('[RuleStage] publish failed:', error);
-    return c.json({ status: 'error', message: 'Failed to publish to wiki' }, 500);
+    return c.json({ status: 'error', message: (error as Error).message || 'Failed to publish to wiki' }, 500);
   }
 });
 

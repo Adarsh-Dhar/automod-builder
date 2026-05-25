@@ -1959,10 +1959,11 @@ describe('Suite 10 — Rule Stage Integration', () => {
   });
 
   it('10.12 — pushYamlToWiki calls updateWikiPage with correct page path', async () => {
-    await pushYamlToWiki(MINIMAL_YAML);
-    const call = vi.mocked(reddit.updateWikiPage).mock.calls[0]?.[0] as { page: string; content: string };
+    await pushYamlToWiki(MINIMAL_YAML, 'testsubreddit');
+    const call = vi.mocked(reddit.updateWikiPage).mock.calls[0]?.[0] as { page: string; content: string; subredditName: string };
     expect(call.page).toBe('config/automoderator');
     expect(call.content).toContain('type: submission');
+    expect(call.subredditName).toBe('testsubreddit');
   });
 
   it('10.13 — getLiveAutomodYaml returns serialized DEFAULT when both sources are empty', async () => {

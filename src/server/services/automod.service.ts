@@ -12,7 +12,7 @@ const RULE_KEY = 'rulestage:rule:current';
 const MOCK_POSTS_KEY = 'rulestage:simulation:posts';
 
 function getSubredditKey(): string {
-  return context.subredditName ?? 'default';
+  return context.subredditName || 'default';
 }
 
 function ruleStorageKey(): string {
@@ -24,19 +24,25 @@ function postsStorageKey(): string {
 }
 
 function extractWikiContent(page: unknown): string {
-  if (typeof page === 'string') {
-    return page;
-  }
+  let content = '';
 
-  if (page && typeof page === 'object') {
+  if (typeof page === 'string') {
+    content = page;
+  } else if (page && typeof page === 'object') {
     const record = page as Record<string, unknown>;
-    const content = record.content_md ?? record.content ?? record.wikitext ?? record.body ?? record.md;
-    if (typeof content === 'string') {
-      return content;
+    const rawContent = record.content_md ?? record.content ?? record.wikitext ?? record.body ?? record.md;
+    if (typeof rawContent === 'string') {
+      content = rawContent;
     }
   }
 
-  return '';
+  // Strip markdown code fences if present (```yaml ... ```)
+  const codeBlockMatch = content.match(/^[\s]*```(?:yaml)?\s*([\s\S]*?)\s*```[\s]*$/m);
+  if (codeBlockMatch?.[1]) {
+    return codeBlockMatch[1].trim();
+  }
+
+  return content;
 }
 
 export async function getCurrentRule(): Promise<AutomodRule> {
@@ -58,11 +64,11 @@ export async function getCurrentRule(): Promise<AutomodRule> {
   }
 }
 
-export async function saveCurrentRule(rule: AutomodRule): Promise<AutomodRule> {
+export async function saveCurrentRule(rule: AutomodRule, title?: string): Promise<AutomodRule> {
   const normalized = parseAutomodRuleDraft(serializeAutomodRule(rule), rule);
   const yaml = serializeAutomodRule(normalized);
   await redis.set(ruleStorageKey(), yaml);     // keep Redis as draft cache
-  await pushYamlToWiki(yaml);                  // push to live wiki
+  await pushYamlToWiki(yaml, getSubredditKey(), title);           // push to live wiki
   return normalized;
 }
 
@@ -108,17 +114,25 @@ export async function getLiveAutomodYaml(subredditName: string): Promise<string>
   return draft?.trim() ? draft : serializeAutomodRule(DEFAULT_AUTOMOD_RULE);
 }
 
-export async function pushYamlToWiki(yaml: string): Promise<void> {
-  const subredditName = getSubredditKey();
+export async function pushYamlToWiki(yaml: string, subredditName: string, reason?: string): Promise<void> {
+  console.log('[AutoModService] pushYamlToWiki called for subreddit:', subredditName, 'with reason:', reason);
   if (!subredditName || subredditName === 'default') {
     throw new Error('No subreddit context available');
   }
-  await reddit.updateWikiPage({
-    subredditName,
-    page: 'config/automoderator',
-    content: yaml,
-    reason: 'Updated via AutoMod Builder app',
-  });
+  try {
+    // Wrap YAML in markdown code blocks for Reddit wiki API compatibility
+    const markdownContent = ` \`\`\`yaml\n${yaml}\n\`\`\` `;
+    await reddit.updateWikiPage({
+      subredditName,
+      page: 'config/automoderator',
+      content: markdownContent,
+      reason: reason || 'Updated via AutoMod Builder app',
+    });
+    console.log('[AutoModService] Wiki page updated successfully for subreddit:', subredditName);
+  } catch (error) {
+    console.error('[AutoModService] Failed to update wiki page:', error);
+    throw error;
+  }
 }
 
 export async function resetRuleStageState(): Promise<AutomodRule> {

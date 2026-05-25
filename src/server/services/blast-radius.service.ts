@@ -60,6 +60,7 @@ export async function runBlastRadius(rules: AutomodRule[]): Promise<BlastRadiusR
       wouldCatch: 0,
       falsePositives: [],
       missedSpam: [],
+      caughtPosts: [],
       catchRate: 0,
       falsePositiveRate: 0,
     };
@@ -80,6 +81,7 @@ export async function runBlastRadius(rules: AutomodRule[]): Promise<BlastRadiusR
   const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.isSpam);
   const missedSpam = spamPosts.filter((post) => !caughtIds.has(post.id));
   const wouldCatch = spamPosts.filter((post) => caughtIds.has(post.id)).length;
+  const caughtPosts = posts.filter((post) => caughtIds.has(post.id));
 
   console.log('[BlastRadius] caught:', caughtIds.size, 'spam posts:', spamPosts.length, 'false positives:', falsePositives.length);
 
@@ -88,6 +90,7 @@ export async function runBlastRadius(rules: AutomodRule[]): Promise<BlastRadiusR
     wouldCatch,
     falsePositives,
     missedSpam,
+    caughtPosts,
     catchRate: spamPosts.length > 0 ? wouldCatch / spamPosts.length : 0,
     falsePositiveRate: caughtIds.size > 0 ? falsePositives.length / caughtIds.size : 0,
   };
@@ -101,6 +104,7 @@ export function calculateBlastRadius(posts: CachedPost[], rule: AutomodRule): Bl
       wouldCatch: 0,
       falsePositives: [],
       missedSpam: [],
+      caughtPosts: [],
       catchRate: 0,
       falsePositiveRate: 0,
     };
@@ -113,6 +117,7 @@ export function calculateBlastRadius(posts: CachedPost[], rule: AutomodRule): Bl
   const falsePositives = posts.filter((post) => caughtIds.has(post.id) && !post.isSpam);
   const missedSpam = spamPosts.filter((post) => !caughtIds.has(post.id));
   const wouldCatch = spamPosts.filter((post) => caughtIds.has(post.id)).length;
+  const caughtPosts = posts.filter((post) => caughtIds.has(post.id));
 
   // debug logging removed
 
@@ -121,6 +126,7 @@ export function calculateBlastRadius(posts: CachedPost[], rule: AutomodRule): Bl
     wouldCatch,
     falsePositives,
     missedSpam,
+    caughtPosts,
     catchRate: spamPosts.length > 0 ? wouldCatch / spamPosts.length : 0,
     falsePositiveRate: caughtIds.size > 0 ? falsePositives.length / caughtIds.size : 0,
   };
