@@ -229,6 +229,41 @@ export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, pr
       }
     }
 
+    // If we found an opening brace but no closing brace, the response was truncated
+    // Try to close the JSON object and parse it
+    if (startIndex !== -1 && endIndex === -1) {
+      const partialJson = cleaned.substring(startIndex);
+      console.warn('Response appears truncated, attempting to close JSON object');
+      
+      // Count opening braces to determine how many closing braces we need
+      let openBraces = 0;
+      for (const char of partialJson) {
+        if (char === '{') openBraces++;
+        if (char === '}') openBraces--;
+      }
+      
+      // Add closing braces
+      let closedJson = partialJson;
+      for (let i = 0; i < openBraces; i++) {
+        closedJson += '}';
+      }
+      
+      // Also try to close any open strings (simple heuristic)
+      // If we have an unclosed string, close it
+      const quoteMatches = closedJson.match(/"/g);
+      if (quoteMatches && quoteMatches.length % 2 !== 0) {
+        closedJson += '"';
+      }
+      
+      try {
+        const parsed = JSON.parse(closedJson) as T;
+        console.warn('Successfully parsed truncated JSON after auto-closing');
+        return parsed;
+      } catch (parseError) {
+        console.error('Failed to parse auto-closed JSON:', closedJson);
+      }
+    }
+
     console.error('Failed to find complete JSON in response:', cleaned.substring(0, 500));
     console.error('Full response:', cleaned);
     throw new Error(`Failed to parse JSON from Gemini response. Response: ${cleaned.substring(0, 200)}...`);

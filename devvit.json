@@ -46,6 +46,6 @@
     "build": "vite build"
   },
   "dev": {
-    "subreddit": "sub_vault_dev"
+    "subreddit": "AutoModDemo"
   }
 }
