@@ -145,10 +145,18 @@ export async function pushYamlToWiki(yaml: string, reason?: string): Promise<voi
   validateWikiUpdateInputs(yaml);
 
   const subredditName = getSubredditKey();
-  if (!subredditName || subredditName === 'default' || subredditName === 'AutoModDemo') {
-    throw new Error('Wiki publishing is not available in playtest mode. This feature only works in production subreddits.');
+  const isPlaytest = !subredditName || subredditName === 'default' || subredditName === 'AutoModDemo';
+
+  if (isPlaytest) {
+    // Playtest: simulate a successful wiki write by persisting to Redis
+    console.log('[AutoModService] Playtest mode: mocking wiki publish → storing to Redis.');
+    await redis.set(`wiki:mock:${subredditName}`, yaml);
+    // Also update the rule storage key for consistency
+    await redis.set(ruleStorageKey(), yaml);
+    return; // pretend success
   }
 
+  // Production: real wiki write
   // READ existing content first to preserve existing rules
   let existingContent = '';
   try {

@@ -85,7 +85,9 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0)
 
       // Check for rate limit errors (HTTP 429)
       if (response.status === 429) {
-        const errorText = await response.text();
+        // Clone response before reading body to avoid "Body has already been read" error
+        const clonedResponse = response.clone();
+        const errorText = await clonedResponse.text();
         lastError = new Error(`Rate limited: ${errorText}`);
         console.error(`Fetch attempt ${attempt + 1} rate limited:`, errorText);
 
