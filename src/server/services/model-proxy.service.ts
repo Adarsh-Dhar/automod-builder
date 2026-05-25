@@ -1,5 +1,3 @@
-import { resolveServerGeminiApiKey, resolveServerGitHubApiKey } from './gemini-key.service';
-
 export type ModelProvider = 'gemini' | 'github';
 
 function stripCodeFences(text: string): string {
@@ -149,11 +147,12 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 0)
 }
 
 async function generateTextWithGitHub(input: string, opts: GenerateOptions = {}, providedApiKey?: string): Promise<string> {
-  const apiKey = providedApiKey || await resolveServerGitHubApiKey();
+  // BYOK only - use only the provided API key, no fallback
+  const apiKey = providedApiKey;
   const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0, systemPrompt, githubModelId = 'openai/gpt-4o' } = opts;
 
   if (!apiKey) {
-    throw new Error('Missing GITHUB_API_KEY');
+    throw new Error('Missing API key. Please provide your API key via the settings panel.');
   }
 
   // Truncate input if it's too large
@@ -215,12 +214,13 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
     return generateTextWithGitHub(input, opts, providedApiKey);
   }
 
-  // Default to Gemini
-  const apiKey = providedApiKey || await resolveServerGeminiApiKey();
+  // BYOK only - use only the provided API key, no fallback
+  const apiKey = providedApiKey;
+  console.log('[ModelProxy] generateText - Provider:', provider, 'API key present:', !!apiKey, 'API key length:', apiKey?.length);
   const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0 } = opts;
 
   if (!apiKey) {
-    throw new Error('Missing GEMINI_API_KEY');
+    throw new Error('Missing API key. Please provide your API key via the settings panel.');
   }
 
   // Truncate input if it's too large to avoid URI size limit errors
@@ -305,27 +305,41 @@ export async function generateJson<T>(prompt: string, maxOutputTokens = 1024, pr
     if (startIndex !== -1 && endIndex === -1) {
       const partialJson = cleaned.substring(startIndex);
       console.warn('Response appears truncated, attempting to close JSON object');
-      
+
       // Count opening braces to determine how many closing braces we need
       let openBraces = 0;
       for (const char of partialJson) {
         if (char === '{') openBraces++;
         if (char === '}') openBraces--;
       }
-      
+
       // Add closing braces
       let closedJson = partialJson;
       for (let i = 0; i < openBraces; i++) {
         closedJson += '}';
       }
+
+      // Handle incomplete string values - if we end mid-string, close it and add a placeholder
+      // Check if the last character is a quote (unclosed string)
+      const lastQuoteIndex = closedJson.lastIndexOf('"');
+      const lastColonIndex = closedJson.lastIndexOf(':');
       
-      // Also try to close any open strings (simple heuristic)
-      // If we have an unclosed string, close it
-      const quoteMatches = closedJson.match(/"/g);
-      if (quoteMatches && quoteMatches.length % 2 !== 0) {
-        closedJson += '"';
+      // If we have a colon after the last quote, we're likely mid-string
+      if (lastColonIndex > lastQuoteIndex) {
+        // Find the last opening quote after the colon
+        const stringStartIndex = closedJson.indexOf('"', lastColonIndex);
+        if (stringStartIndex !== -1) {
+          // Remove everything after the opening quote and close with empty string
+          closedJson = closedJson.substring(0, stringStartIndex + 1) + '"';
+        }
+      } else if (lastQuoteIndex !== -1 && closedJson[closedJson.length - 1] !== '"') {
+        // If we have an odd number of quotes and don't end with quote, close the string
+        const quoteMatches = closedJson.match(/"/g);
+        if (quoteMatches && quoteMatches.length % 2 !== 0) {
+          closedJson += '"';
+        }
       }
-      
+
       try {
         const parsed = JSON.parse(closedJson) as T;
         console.warn('Successfully parsed truncated JSON after auto-closing');

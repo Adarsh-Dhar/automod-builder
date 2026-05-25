@@ -145,8 +145,8 @@ export async function pushYamlToWiki(yaml: string, reason?: string): Promise<voi
   validateWikiUpdateInputs(yaml);
 
   const subredditName = getSubredditKey();
-  if (!subredditName || subredditName === 'default') {
-    throw new Error('No subreddit context available');
+  if (!subredditName || subredditName === 'default' || subredditName === 'AutoModDemo') {
+    throw new Error('Wiki publishing is not available in playtest mode. This feature only works in production subreddits.');
   }
 
   // READ existing content first to preserve existing rules
@@ -178,6 +178,7 @@ export async function pushYamlToWiki(yaml: string, reason?: string): Promise<voi
       const isRetryable = errorMessage.includes('415') || errorMessage.includes('unknown') || errorMessage.includes('grpc');
 
       if (!isRetryable || attempt === maxRetries - 1) {
+        console.error('[AutoModService] Failed to publish to wiki after all retries:', error);
         throw error; // Not retryable or last attempt exhausted
       }
 

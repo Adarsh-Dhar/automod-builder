@@ -1,6 +1,5 @@
 {
   "name": "rulestage",
-  "version": "0.0.0",
   "permissions": {
     "http": {
       "enable": true,
@@ -40,9 +39,7 @@
   "triggers": {
     "onModAction": "/internal/triggers/on-mod-action",
     "onPostSubmit": "/internal/triggers/on-post-submit",
-    "onCommentSubmit": "/internal/triggers/on-comment-submit",
-    "onInstall": "/internal/triggers/on-install",
-    "onUninstall": "/internal/triggers/on-uninstall"
+    "onCommentSubmit": "/internal/triggers/on-comment-submit"
   },
   "scripts": {
     "dev": "vite build --watch",

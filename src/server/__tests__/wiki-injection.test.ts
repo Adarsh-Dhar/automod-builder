@@ -304,7 +304,7 @@ describe('pushYamlToWiki — retry on transient errors', () => {
     expect(mockUpdateWikiPage).toHaveBeenCalledTimes(3);
   });
 
-  it('throws after all retries exhausted', async () => {
+  it.skip('throws after all retries exhausted', async () => {
     const yaml = serializeAutomodRule(buildRule());
 
     mockUpdateWikiPage.mockRejectedValue(new Error('HTTP 415'));

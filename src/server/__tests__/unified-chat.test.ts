@@ -39,39 +39,35 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  */
 vi.mock('@devvit/web/server', () => ({
   redis: {
-    get: vi.fn(),
-    set: vi.fn(),
-    del: vi.fn(),
-    sadd: vi.fn(),
-    srem: vi.fn(),
-    sismember: vi.fn(),
-    smembers: vi.fn(),
+    get: vi.fn() as any,
+    set: vi.fn() as any,
+    del: vi.fn() as any,
+    sadd: vi.fn() as any,
+    srem: vi.fn() as any,
+    sismember: vi.fn() as any,
+    smembers: vi.fn() as any,
   },
   reddit: {
-    getPostById: vi.fn(),
-    remove: vi.fn(),
-    getWikiPage: vi.fn(),
-    updateWikiPage: vi.fn(),
-    getModerators: vi.fn(),
-    getPostFlairTemplates: vi.fn(),
-    getUserFlairTemplates: vi.fn(),
-    sendModmail: vi.fn(),
+    getPostById: vi.fn() as any,
+    remove: vi.fn() as any,
+    getWikiPage: vi.fn() as any,
+    updateWikiPage: vi.fn() as any,
+    getModerators: vi.fn() as any,
+    getPostFlairTemplates: vi.fn() as any,
+    getUserFlairTemplates: vi.fn() as any,
+    sendModmail: vi.fn() as any,
   },
   context: { subredditName: 'test_subreddit' },
-  settings: { get: vi.fn() },
+  settings: { get: vi.fn() as any },
 }));
 
 /**
- * Mock model-proxy.service so we never need real API keys.
- *
- * generateText  → returns content keyed by the heuristic in the prompt
- * generateJson  → returns a parsed object keyed by the same heuristic
- *
- * Both fns delegate to a single internal dispatcher so every test that
- * overrides fetch still gets consistent routing.
+ * Mock model-proxy.service with optional real AI calls.
+ * Set USE_REAL_AI=true to use real GitHub Models for YAML generation tests.
  */
+const USE_REAL_AI = process.env.USE_REAL_AI === 'true';
+
 vi.mock('../services/model-proxy.service', async (importOriginal) => {
-  // We still want the real module's types; just replace the implementations.
   const original = await importOriginal<typeof import('../services/model-proxy.service')>();
 
   /** Heuristic dispatcher — mirrors the logic in buildFetchMock() below. */
@@ -276,15 +272,22 @@ export const onPostSubmit = async (event: PostSubmitEvent, context: Context) => 
     };
   }
 
-  const mockGenerateText = vi.fn(async (input: string): Promise<string> => {
+  const mockGenerateText = vi.fn(async (input: string, opts?: { provider?: 'gemini' | 'github' }): Promise<string> => {
+    // Use real AI for YAML generation when requested
+    if (USE_REAL_AI && opts?.provider === 'github') {
+      return original.generateText(input, opts);
+    }
     const { isJson, payload } = dispatch(input);
     if (isJson) return JSON.stringify(payload);
     return payload as string;
   });
 
-  const mockGenerateJson = vi.fn(async <T>(prompt: string): Promise<T> => {
+  const mockGenerateJson = vi.fn(async <T>(prompt: string, maxOutputTokens?: number, providedApiKey?: string, provider?: 'gemini' | 'github'): Promise<T> => {
+    // Use real AI for YAML generation when requested
+    if (USE_REAL_AI && provider === 'github') {
+      return original.generateJson<T>(prompt, maxOutputTokens, providedApiKey, provider);
+    }
     const { payload } = dispatch(prompt);
-    // If payload is already a string (raw YAML text), return it parsed or as-is.
     if (typeof payload === 'string') {
       try { return JSON.parse(payload) as T; } catch { return payload as unknown as T; }
     }
@@ -330,6 +333,7 @@ import {
   type UnifiedAnalysis,
   DEFAULT_AUTOMOD_RULE,
   type AutomodRule,
+  parseAutomodRuleDraft,
 } from '../../shared/automod';
 // generateText and generateJson are imported via vi.mock above; re-import here for direct use in tests.
 import { generateJson, generateText } from '../services/model-proxy.service';
@@ -346,6 +350,7 @@ import { generateChatReplyOnServer } from '../routes/rule-stage';
 const MINIMAL_YAML = MINIMAL_YAML_FIXTURE;
 
 /** A realistic multi-rule YAML config used in save / update tests. */
+// @ts-expect-error - Unused fixture, kept for future tests
 const MULTI_RULE_YAML = `${MINIMAL_YAML}
 
 ---
@@ -716,14 +721,15 @@ describe('Suite 2 — Unified Analysis for YAML Generation', () => {
 // SUITE 3 — REDIS CRUD: Create / Read / Update / Delete
 // ============================================================
 describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
+  const mockRedis = redis as any;
   beforeEach(() => {
-    vi.mocked(redis.get).mockResolvedValue(undefined);
-    vi.mocked(redis.set).mockResolvedValue('OK');
-    vi.mocked(redis.del).mockResolvedValue(undefined);
-    vi.mocked(redis.sadd).mockResolvedValue(1);
-    vi.mocked(redis.srem).mockResolvedValue(1);
-    vi.mocked(redis.sismember).mockResolvedValue(0);
-    vi.mocked(redis.smembers).mockResolvedValue([]);
+    vi.mocked(mockRedis.get).mockResolvedValue(undefined);
+    vi.mocked(mockRedis.set).mockResolvedValue('OK');
+    vi.mocked(mockRedis.del).mockResolvedValue(undefined);
+    vi.mocked(mockRedis.sadd).mockResolvedValue(1);
+    vi.mocked(mockRedis.srem).mockResolvedValue(1);
+    vi.mocked(mockRedis.sismember).mockResolvedValue(0);
+    vi.mocked(mockRedis.smembers).mockResolvedValue([]);
     vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('wiki unavailable'));
     vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
     vi.stubGlobal('fetch', buildFetchMock());
@@ -736,15 +742,15 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   // ---- CREATE -----------------------------------------------------------
 
   it('4.1 — CREATE: sadd adds a user to the scammer-list set and returns 1', async () => {
-    vi.mocked(redis.sadd).mockResolvedValue(1);
-    const result = await redis.sadd('scammer-list', 'baduser123');
+    vi.mocked(mockRedis.sadd).mockResolvedValue(1);
+    const result = await mockRedis.sadd('scammer-list', 'baduser123');
     expect(result).toBe(1);
-    expect(redis.sadd).toHaveBeenCalledWith('scammer-list', 'baduser123');
+    expect(mockRedis.sadd).toHaveBeenCalledWith('scammer-list', 'baduser123');
   });
 
   it('4.2 — CREATE: sadd returns 0 when the user already exists in the set', async () => {
-    vi.mocked(redis.sadd).mockResolvedValue(0);
-    const result = await redis.sadd('scammer-list', 'baduser123');
+    vi.mocked(mockRedis.sadd).mockResolvedValue(0);
+    const result = await mockRedis.sadd('scammer-list', 'baduser123');
     expect(result).toBe(0);
   });
 
@@ -765,9 +771,9 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   it('4.5 — CREATE: multiple users can be batch-added to the scammer-list', async () => {
     const users = ['spammer1', 'spammer2', 'spammer3'];
     for (const user of users) {
-      await redis.sadd('scammer-list', user);
+      await mockRedis.sadd('scammer-list', user);
     }
-    expect(redis.sadd).toHaveBeenCalledTimes(3);
+    expect(mockRedis.sadd).toHaveBeenCalledTimes(3);
   });
 
   it('4.6 — CREATE: saveCurrentRule writes to Redis via set', async () => {
@@ -786,33 +792,33 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   });
 
   it('4.8 — READ: get returns null for a user not on the ban list', async () => {
-    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.get).mockResolvedValue(null as any);
     const result = await redis.get('banned:user:clean_user');
     expect(result).toBeNull();
   });
 
   it('4.9 — READ: sismember returns 1 when user IS in the set', async () => {
-    vi.mocked(redis.sismember).mockResolvedValue(1);
-    const isMember = await redis.sismember('scammer-list', 'baduser123');
+    vi.mocked(mockRedis.sismember).mockResolvedValue(1);
+    const isMember = await mockRedis.sismember('scammer-list', 'baduser123');
     expect(isMember).toBe(1);
   });
 
   it('4.10 — READ: sismember returns 0 when user is NOT in the set', async () => {
-    vi.mocked(redis.sismember).mockResolvedValue(0);
-    const isMember = await redis.sismember('scammer-list', 'good_user');
+    vi.mocked(mockRedis.sismember).mockResolvedValue(0);
+    const isMember = await mockRedis.sismember('scammer-list', 'good_user');
     expect(isMember).toBe(0);
   });
 
   it('4.11 — READ: smembers returns the full scammer-list contents', async () => {
-    vi.mocked(redis.smembers).mockResolvedValue(['spammer1', 'spammer2', 'spammer3']);
-    const members = await redis.smembers('scammer-list');
+    vi.mocked(mockRedis.smembers).mockResolvedValue(['spammer1', 'spammer2', 'spammer3']);
+    const members = await mockRedis.smembers('scammer-list');
     expect(members).toHaveLength(3);
     expect(members).toContain('spammer1');
   });
 
   it('4.12 — READ: smembers returns an empty array when the list is empty', async () => {
-    vi.mocked(redis.smembers).mockResolvedValue([]);
-    const members = await redis.smembers('scammer-list');
+    vi.mocked(mockRedis.smembers).mockResolvedValue([]);
+    const members = await mockRedis.smembers('scammer-list');
     expect(members).toHaveLength(0);
   });
 
@@ -865,11 +871,11 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   });
 
   it('4.19 — UPDATE: sadd on an existing member is idempotent (first call 1, second call 0)', async () => {
-    vi.mocked(redis.sadd)
+    vi.mocked(mockRedis.sadd)
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(0);
-    const first  = await redis.sadd('scammer-list', 'dupe_user');
-    const second = await redis.sadd('scammer-list', 'dupe_user');
+    const first  = await mockRedis.sadd('scammer-list', 'dupe_user');
+    const second = await mockRedis.sadd('scammer-list', 'dupe_user');
     expect(first).toBe(1);
     expect(second).toBe(0);
   });
@@ -877,15 +883,15 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   // ---- DELETE -----------------------------------------------------------
 
   it('4.20 — DELETE: srem removes a user from the scammer-list and returns 1', async () => {
-    vi.mocked(redis.srem).mockResolvedValue(1);
-    const result = await redis.srem('scammer-list', 'baduser123');
+    vi.mocked(mockRedis.srem).mockResolvedValue(1);
+    const result = await mockRedis.srem('scammer-list', 'baduser123');
     expect(result).toBe(1);
-    expect(redis.srem).toHaveBeenCalledWith('scammer-list', 'baduser123');
+    expect(mockRedis.srem).toHaveBeenCalledWith('scammer-list', 'baduser123');
   });
 
   it('4.21 — DELETE: srem returns 0 when the user was not in the set', async () => {
-    vi.mocked(redis.srem).mockResolvedValue(0);
-    const result = await redis.srem('scammer-list', 'nonexistent_user');
+    vi.mocked(mockRedis.srem).mockResolvedValue(0);
+    const result = await mockRedis.srem('scammer-list', 'nonexistent_user');
     expect(result).toBe(0);
   });
 
@@ -906,13 +912,13 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
 
   it('4.24 — FULL LIFECYCLE: add → check → update metadata → remove user from ban list', async () => {
     // ADD
-    vi.mocked(redis.sadd).mockResolvedValue(1);
-    const added = await redis.sadd('scammer-list', 'lifecycle_user');
+    vi.mocked(mockRedis.sadd).mockResolvedValue(1);
+    const added = await mockRedis.sadd('scammer-list', 'lifecycle_user');
     expect(added).toBe(1);
 
     // CHECK EXISTS
-    vi.mocked(redis.sismember).mockResolvedValue(1);
-    const exists = await redis.sismember('scammer-list', 'lifecycle_user');
+    vi.mocked(mockRedis.sismember).mockResolvedValue(1);
+    const exists = await mockRedis.sismember('scammer-list', 'lifecycle_user');
     expect(exists).toBe(1);
 
     // UPDATE BAN METADATA
@@ -926,22 +932,22 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
     );
 
     // REMOVE
-    vi.mocked(redis.srem).mockResolvedValue(1);
-    const removed = await redis.srem('scammer-list', 'lifecycle_user');
+    vi.mocked(mockRedis.srem).mockResolvedValue(1);
+    const removed = await mockRedis.srem('scammer-list', 'lifecycle_user');
     expect(removed).toBe(1);
 
     // CONFIRM GONE
-    vi.mocked(redis.sismember).mockResolvedValue(0);
-    const gone = await redis.sismember('scammer-list', 'lifecycle_user');
+    vi.mocked(mockRedis.sismember).mockResolvedValue(0);
+    const gone = await mockRedis.sismember('scammer-list', 'lifecycle_user');
     expect(gone).toBe(0);
   });
 
   it('4.25 — Redis trigger simulation: banned user causes reddit.remove to be called', async () => {
-    vi.mocked(redis.sismember).mockResolvedValue(1);
+    vi.mocked(mockRedis.sismember).mockResolvedValue(1);
     vi.mocked(reddit.remove).mockResolvedValue(undefined);
 
     const event = { post: { id: 't1_post_1' }, author: { name: 'banned_user' } };
-    const isBanned = await redis.sismember('scammer-list', event.author.name);
+    const isBanned = await mockRedis.sismember('scammer-list', event.author.name);
     if (isBanned) {
       await reddit.remove(event.post.id as `t1_${string}`, true);
     }
@@ -949,11 +955,11 @@ describe('Suite 4 — Redis CRUD: Ban List and Rule Store Operations', () => {
   });
 
   it('4.26 — Redis trigger simulation: clean user does NOT cause reddit.remove', async () => {
-    vi.mocked(redis.sismember).mockResolvedValue(0);
+    vi.mocked(mockRedis.sismember).mockResolvedValue(0);
     vi.mocked(reddit.remove).mockResolvedValue(undefined);
 
     const event = { post: { id: 't1_post_2' }, author: { name: 'clean_user' } };
-    const isBanned = await redis.sismember('scammer-list', event.author.name);
+    const isBanned = await mockRedis.sismember('scammer-list', event.author.name);
     if (isBanned) {
       await reddit.remove(event.post.id as `t1_${string}`, true);
     }
@@ -1651,7 +1657,7 @@ describe('Suite 8 — Blast Radius Engine', () => {
   // ---- formatBlastRadiusResult -------------------------------------------
 
   it('8.14 — formatBlastRadiusResult returns correct shape', () => {
-    const raw = { totalTested: 10, wouldCatch: 7, falsePositives: [], missedSpam: [], catchRate: 0.7, falsePositiveRate: 0 };
+    const raw = { totalTested: 10, wouldCatch: 7, falsePositives: [], missedSpam: [], caughtPosts: [], catchRate: 0.7, falsePositiveRate: 0 };
     const formatted = formatBlastRadiusResult(raw, 'My Rule');
     expect(formatted).toHaveProperty('ruleName', 'My Rule');
     expect(formatted).toHaveProperty('totalTested', 10);
@@ -1661,13 +1667,13 @@ describe('Suite 8 — Blast Radius Engine', () => {
   });
 
   it('8.15 — formatBlastRadiusResult rounds catchRate percentage correctly', () => {
-    const raw = { totalTested: 3, wouldCatch: 1, falsePositives: [], missedSpam: [], catchRate: 1/3, falsePositiveRate: 0 };
+    const raw = { totalTested: 3, wouldCatch: 1, falsePositives: [], missedSpam: [], caughtPosts: [], catchRate: 1/3, falsePositiveRate: 0 };
     const formatted = formatBlastRadiusResult(raw, 'Fraction Rule');
     expect(formatted.catches.percentage).toBe(33);
   });
 
   it('8.16 — formatBlastRadiusResult handles 0% catch rate gracefully', () => {
-    const raw = { totalTested: 5, wouldCatch: 0, falsePositives: [], missedSpam: [], catchRate: 0, falsePositiveRate: 0 };
+    const raw = { totalTested: 5, wouldCatch: 0, falsePositives: [], missedSpam: [], caughtPosts: [], catchRate: 0, falsePositiveRate: 0 };
     const formatted = formatBlastRadiusResult(raw, 'Zero Rule');
     expect(formatted.catches.percentage).toBe(0);
     expect(formatted.missedSpam.count).toBe(0);
@@ -1963,7 +1969,7 @@ describe('Suite 10 — Rule Stage Integration', () => {
     const call = vi.mocked(reddit.updateWikiPage).mock.calls[0]?.[0] as { page: string; content: string; subredditName: string };
     expect(call.page).toBe('config/automoderator');
     expect(call.content).toContain('type: submission');
-    expect(call.subredditName).toBe('testsubreddit');
+    expect(call.subredditName).toBe('test_subreddit');
   });
 
   it('10.13 — getLiveAutomodYaml returns serialized DEFAULT when both sources are empty', async () => {
@@ -1991,5 +1997,72 @@ describe('Suite 10 — Rule Stage Integration', () => {
     await Promise.all(rules.map((r) => saveCurrentRule(r)));
     // Each save calls set (at least once per call)
     expect(vi.mocked(redis.set).mock.calls.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ============================================================
+// SUITE 1B — Real AI Integration Tests
+// ============================================================
+describe('Suite 1B — Real AI Integration Tests', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', makeYamlFetchMock());
+    vi.mocked(redis.get).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue('OK');
+    vi.mocked(reddit.getWikiPage).mockRejectedValue(new Error('wiki unavailable'));
+    vi.mocked(reddit.updateWikiPage).mockResolvedValue({ content: '', revisionId: '1-1-1-1-1' } as unknown as Awaited<ReturnType<typeof reddit.updateWikiPage>>);
+    // Enable real AI for this test suite
+    process.env.USE_REAL_AI = 'true';
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    process.env.USE_REAL_AI = 'false';
+  });
+
+  it('end-to-end: prompt → YAML → parse → simulation executes successfully', async () => {
+    // Generate YAML from prompt using real AI
+    const yamlResponse = await generateChatReplyOnServer('Remove posts with "buy now" in the title', [], undefined, 'github');
+
+    // Verify YAML response is valid (AI should return YAML)
+    expect(yamlResponse).toBeTruthy();
+    expect(typeof yamlResponse).toBe('string');
+
+    // Parse the YAML back to an AutomodRule
+    const parsedRule = parseAutomodRuleDraft(yamlResponse);
+
+    // Verify the parsed rule has expected structure
+    expect(parsedRule).toHaveProperty('type');
+    expect(parsedRule).toHaveProperty('action');
+    expect(parsedRule).toHaveProperty('conditions');
+    expect(Array.isArray(parsedRule.conditions)).toBe(true);
+
+    // Create test posts
+    const testPosts = [
+      {
+        id: 'post-1',
+        title: 'Buy now and save 50%',
+        body: 'Great deal',
+        author: 'spammer',
+        accountAgeDays: 10,
+        combinedKarma: 5,
+      },
+      {
+        id: 'post-2',
+        title: 'Discussion about prices',
+        body: 'What do you think?',
+        author: 'legit_user',
+        accountAgeDays: 100,
+        combinedKarma: 500,
+      },
+    ];
+
+    // Import evaluateRule to run simulation
+    const { evaluateRule } = await import('../../shared/automod');
+    const result = evaluateRule(parsedRule, testPosts);
+
+    // Verify simulation runs without errors and returns expected structure
+    expect(result.items).toHaveLength(2);
+    expect(result.matched).toBeGreaterThanOrEqual(0);
+    expect(result.matched).toBeLessThanOrEqual(2);
   });
 });

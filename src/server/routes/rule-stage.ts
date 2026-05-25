@@ -7,6 +7,7 @@ import {
   type UnifiedAnalysis,
 } from '../../shared/automod';
 import type { DebugResponse, MockPostDebugRequest } from '../../shared/debug-types';
+import type { CachedPost } from '../../shared/blast-types';
 import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { generateText, generateJson, type ModelProvider } from '../services/model-proxy.service';
@@ -68,7 +69,8 @@ export async function generateChatReplyOnServer(
   prompt: string,
   history: ChatHistoryMessage[] = [],
   subredditContext?: string,
-  provider?: ModelProvider
+  provider?: ModelProvider,
+  providedApiKey?: string
 ): Promise<string> {
   // Build the prompt text combining system prompt, optional subreddit context, history and user prompt.
   const parts: string[] = [];
@@ -89,14 +91,10 @@ export async function generateChatReplyOnServer(
 
   const combined = parts.join('\n\n');
 
-  // Auto-detect provider: use GitHub if token is available, otherwise use Gemini
-  let selectedProvider = provider;
-  if (!selectedProvider) {
-    const githubKey = await resolveServerGitHubApiKey();
-    selectedProvider = githubKey ? 'github' : 'gemini';
-  }
+  // Default to Gemini provider if not specified
+  const selectedProvider = provider || 'gemini';
 
-  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 1024, provider: selectedProvider });
+  const text = await generateText(combined, { temperature: 0.1, maxOutputTokens: 8192, provider: selectedProvider }, providedApiKey);
   return text || 'I could not generate a response.';
 }
 
@@ -184,7 +182,9 @@ ruleStage.post('/blast', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
     const rule = body?.rule ?? (await getCurrentRule());
-    const blast = await runBlastRadius(rule);
+    // Ensure rule is an array for runBlastRadius
+    const rules = Array.isArray(rule) ? rule : [rule];
+    const blast = await runBlastRadius(rules);
     return c.json({ status: 'success', blast });
   } catch (error) {
     console.error('[RuleStage] blast failed:', error);
@@ -199,12 +199,14 @@ ruleStage.post('/chat', async (c) => {
       history?: unknown;
       subredditContext?: unknown;
       blastContext?: unknown;
+      apiKey?: unknown;
     } | null;
 
     const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
     const historyInput = Array.isArray(body?.history) ? body.history : [];
     let subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
     const blastContext = typeof body?.blastContext === 'string' ? body.blastContext : null;
+    const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : undefined;
 
     if (!prompt) {
       return c.json({ status: 'error', message: 'Prompt is required' }, 400);
@@ -223,7 +225,7 @@ ruleStage.post('/chat', async (c) => {
       .filter((entry) => entry.content.trim().length > 0)
       .slice(-20);
 
-    const response = await generateChatReplyOnServer(prompt, history, subredditContext);
+    const response = await generateChatReplyOnServer(prompt, history, subredditContext, undefined, apiKey);
     return c.json({ status: 'success', response });
   } catch (error) {
     console.error('[RuleStage] chat failed:', error);
@@ -237,11 +239,15 @@ ruleStage.post('/chat-unified', async (c) => {
       prompt?: unknown;
       history?: unknown;
       subredditContext?: unknown;
+      apiKey?: unknown;
     } | null;
 
     const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
     const historyInput = Array.isArray(body?.history) ? body.history : [];
     const subredditContext = typeof body?.subredditContext === 'string' ? body.subredditContext : undefined;
+    const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : undefined;
+
+    console.log('[RuleStage] chat-unified - API key present:', !!apiKey, 'API key length:', apiKey?.length);
 
     if (!prompt) {
       return c.json({ status: 'error', message: 'Prompt is required' }, 400);
@@ -250,7 +256,8 @@ ruleStage.post('/chat-unified', async (c) => {
     // Step 1: Analyze whether this needs YAML, TypeScript, or both
     const analysis = await generateJson<UnifiedAnalysis>(
       buildUnifiedAnalysisPrompt(prompt),
-      512
+      4096,
+      apiKey
     );
 
     const history = historyInput
@@ -268,7 +275,7 @@ ruleStage.post('/chat-unified', async (c) => {
       const yamlPrompt = analysis.needsTypeScript
         ? `${prompt}\n\nNote: Only generate the YAML portion of this request. Generate as many YAML rule blocks as needed. The TypeScript portion will be handled separately: ${analysis.typescriptPart}`
         : prompt;
-      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext);
+      yamlResponse = await generateChatReplyOnServer(yamlPrompt, history, subredditContext, undefined, apiKey);
     }
 
     // Skip TypeScript trigger generation for now to avoid Devvit HTTP plugin timeouts

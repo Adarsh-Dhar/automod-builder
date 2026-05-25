@@ -69,16 +69,7 @@ export async function resolveServerGeminiApiKey(): Promise<string> {
     loadLocalEnvValue('VITE_GEMINI_API_KEY')
   );
 
-  if (envKey) {
-    return envKey;
-  }
-
-  try {
-    const appSettingKey = await settings.get<string>('GEMINI_API_KEY');
-    return appSettingKey?.trim() ?? '';
-  } catch {
-    return '';
-  }
+  return envKey;
 }
 
 export async function resolveServerGitHubApiKey(): Promise<string> {
@@ -89,14 +80,5 @@ export async function resolveServerGitHubApiKey(): Promise<string> {
     loadLocalEnvValue('VITE_GITHUB_API_KEY')
   );
 
-  if (envKey) {
-    return envKey;
-  }
-
-  try {
-    const appSettingKey = await settings.get<string>('GITHUB_API_KEY');
-    return appSettingKey?.trim() ?? '';
-  } catch {
-    return '';
-  }
+  return envKey;
 }

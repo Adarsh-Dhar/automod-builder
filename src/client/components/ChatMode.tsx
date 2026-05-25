@@ -19,8 +19,10 @@ function ApiKeyModal({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: ()
   }, [isOpen]);
 
   const handleSave = () => {
-    localStorage.setItem('gemini_api_key', key.trim());
-    onSave(key.trim());
+    const trimmedKey = key.trim();
+    localStorage.setItem('gemini_api_key', trimmedKey);
+    console.log('[ChatMode] Saved API key to localStorage, length:', trimmedKey.length);
+    onSave(trimmedKey);
     onClose();
   };
 
@@ -370,6 +372,7 @@ export default function ChatMode({
 
   useEffect(() => {
     const storedKey = localStorage.getItem('gemini_api_key') || '';
+    console.log('[ChatMode] Loaded API key from localStorage:', !!storedKey, 'length:', storedKey.length);
     setApiKey(storedKey);
   }, []);
 
@@ -426,7 +429,9 @@ export default function ChatMode({
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
+    console.log('[ChatMode] sendMessage called - apiKey present:', !!apiKey, 'apiKey length:', apiKey.length);
     if (!apiKey) {
+      console.log('[ChatMode] No API key, showing modal');
       setShowApiKeyModal(true);
       return;
     }
@@ -515,6 +520,7 @@ export default function ChatMode({
         contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
       }
 
+      console.log('[ChatMode] Sending request with API key present:', !!apiKey, 'API key length:', apiKey?.length);
       const chatResponse = await fetch('/api/rule-stage/chat-unified', {
         method: 'POST',
         headers: {
@@ -677,7 +683,10 @@ export default function ChatMode({
       <ApiKeyModal
         isOpen={showApiKeyModal}
         onClose={() => setShowApiKeyModal(false)}
-        onSave={(key) => setApiKey(key)}
+        onSave={(key) => {
+          console.log('[ChatMode] ApiKeyModal onSave called with key length:', key.length);
+          setApiKey(key);
+        }}
       />
     </div>
   );
