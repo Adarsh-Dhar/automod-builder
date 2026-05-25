@@ -24,6 +24,7 @@ import {
   parseAutomodRuleDraft,
   serializeAutomodRule,
   DEFAULT_AUTOMOD_RULE,
+  extractYamlFromFenced,
   type AutomodRule,
 } from '../../shared/automod';
 import { saveCurrentRule, pushYamlToWiki } from '../../server/services/automod.service';
@@ -33,11 +34,6 @@ import { saveCurrentRule, pushYamlToWiki } from '../../server/services/automod.s
 /** Simulates what the AI model returns: YAML wrapped in fences */
 function makeFencedYaml(rule: AutomodRule): string {
   return `\`\`\`yaml\n${serializeAutomodRule(rule)}\n\`\`\``;
-}
-
-/** Simulates the extraction that happens in the service / parseAutomodRuleDraft tolerance */
-function extractYamlFromFenced(fenced: string): string {
-  return fenced.replace(/^[\s]*```(?:yaml)?\s*([\s\S]*?)\s*```[\s]*$/m, '$1').trim();
 }
 
 beforeEach(() => {
@@ -63,6 +59,9 @@ describe('Chat YAML fence extraction → parse → wiki push', () => {
 
     const fenced = makeFencedYaml(original);
     const extracted = extractYamlFromFenced(fenced);
+    if (!extracted) {
+      throw new Error('Failed to extract YAML');
+    }
     const fallbackWithTitle: AutomodRule = {
       ...DEFAULT_AUTOMOD_RULE,
       conditions: [{ field: 'title', comparator: 'includes', value: '' }],
@@ -86,6 +85,9 @@ describe('Chat YAML fence extraction → parse → wiki push', () => {
 
     const fenced = makeFencedYaml(original);
     const extracted = extractYamlFromFenced(fenced);
+    if (!extracted) {
+      throw new Error('Failed to extract YAML');
+    }
     const fallbackWithBody: AutomodRule = {
       ...DEFAULT_AUTOMOD_RULE,
       conditions: [{ field: 'body', comparator: 'includes', value: '' }],
@@ -111,6 +113,9 @@ describe('Chat YAML fence extraction → parse → wiki push', () => {
 
     const fenced = makeFencedYaml(original);
     const extracted = extractYamlFromFenced(fenced);
+    if (!extracted) {
+      throw new Error('Failed to extract YAML');
+    }
     // Use a fallback with only the combined_karma condition
     const fallbackWithKarma: AutomodRule = {
       ...DEFAULT_AUTOMOD_RULE,
@@ -144,6 +149,9 @@ describe('Full workflow: prompt → extracted YAML → wiki', () => {
 
     // STEP 2: Front-end extracts the YAML
     const rawYaml = extractYamlFromFenced(fencedResponse);
+    if (!rawYaml) {
+      throw new Error('Failed to extract YAML');
+    }
     expect(rawYaml.startsWith('---')).toBe(true);
     expect(rawYaml.endsWith('---')).toBe(true);
 

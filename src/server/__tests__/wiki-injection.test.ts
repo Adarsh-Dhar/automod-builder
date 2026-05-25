@@ -240,6 +240,16 @@ describe('pushYamlToWiki — input validation', () => {
     const largeYaml = '---\n# Test\ntype: submission\n' + 'x'.repeat(100_001);
     await expect(pushYamlToWiki(largeYaml)).rejects.toThrow('exceeds maximum size of 100KB');
   });
+
+  it('throws when YAML contains multiple code blocks', async () => {
+    const multiBlockYaml = '---\n# Test\ntype: submission\n```yaml\nblock1\n```\n```yaml\nblock2\n```';
+    await expect(pushYamlToWiki(multiBlockYaml)).rejects.toThrow('contains multiple code blocks');
+  });
+
+  it('throws when YAML contains unclosed code block', async () => {
+    const unclosedBlockYaml = '---\n# Test\ntype: submission\n```yaml\nunclosed content';
+    await expect(pushYamlToWiki(unclosedBlockYaml)).rejects.toThrow('contains unclosed code block');
+  });
 });
 
 // ─── Retry Logic Tests ─────────────────────────────────────────────────────────

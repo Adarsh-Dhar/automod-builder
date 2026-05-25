@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AutomodAST, ChatMessage } from '../types';
 import { astToYaml } from '../utils/yaml-ast';
-import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft, buildRichContextPrompt, type RichContext } from '../../shared/automod';
+import { DEFAULT_AUTOMOD_RULE, parseAutomodRuleDraft, buildRichContextPrompt, extractYamlFromFenced, type RichContext } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
 import type { DebugResponse } from '../../shared/debug-types';
 import DebugResultCard from './DebugResultCard';
@@ -132,18 +132,13 @@ function extractLastYaml(messages: ChatMessage[]): string | null {
       continue;
     }
 
-    const match = msg.content.match(/```(?:yaml)?\n([\s\S]*?)```/);
-    if (match?.[1]) {
-      return match[1].trim();
+    const yaml = extractYamlFromFenced(msg.content);
+    if (yaml) {
+      return yaml;
     }
   }
 
   return null;
-}
-
-function extractYamlBlock(content: string): string | null {
-  const match = content.match(/```(?:yaml)?\n([\s\S]*?)```/);
-  return match?.[1] ? match[1].trim() : null;
 }
 
 function detectDebugIntent(text: string): string | null {
@@ -551,7 +546,7 @@ export default function ChatMode({
         });
 
         // Run blast radius on the YAML as before
-        const yamlInReply = extractYamlBlock(unified.yamlResponse);
+        const yamlInReply = extractYamlFromFenced(unified.yamlResponse);
         if (yamlInReply) {
           try {
             const parsedRule = parseAutomodRuleDraft(yamlInReply, DEFAULT_AUTOMOD_RULE);

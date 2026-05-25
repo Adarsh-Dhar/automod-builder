@@ -882,3 +882,14 @@ export function buildRichContextPrompt(ctx: RichContext): string {
 
   return parts.join('\n');
 }
+
+/**
+ * Extracts YAML content from a fenced code block.
+ * Handles leading/trailing whitespace and optional "yaml" language identifier.
+ * @param fenced - String containing fenced YAML (e.g., ```yaml\ncontent\n```)
+ * @returns Extracted YAML content without fences, or null if no match
+ */
+export function extractYamlFromFenced(fenced: string): string | null {
+  const match = fenced.match(/^[\s]*```(?:yaml)?\s*([\s\S]*?)\s*```[\s]*$/m);
+  return match?.[1] ? match[1].trim() : null;
+}

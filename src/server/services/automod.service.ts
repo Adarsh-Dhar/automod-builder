@@ -57,6 +57,18 @@ function validateWikiUpdateInputs(yaml: string): void {
   if (yaml.length > 100_000) {
     throw new Error('YAML content exceeds maximum size of 100KB');
   }
+
+  // Check for multiple code blocks
+  const codeBlockMatches = yaml.match(/```/g);
+  if (codeBlockMatches && codeBlockMatches.length > 2) {
+    throw new Error('YAML content contains multiple code blocks');
+  }
+
+  // Check for unclosed code block
+  const openMatches = yaml.match(/```/g);
+  if (openMatches && openMatches.length === 1) {
+    throw new Error('YAML content contains unclosed code block');
+  }
 }
 
 export async function getCurrentRule(): Promise<AutomodRule> {
