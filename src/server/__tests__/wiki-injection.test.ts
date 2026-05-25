@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // --- Mock @devvit/web/server before importing service ---
-// (mirroring your existing setup.ts pattern but explicit here for clarity)
-const mockRedisGet = vi.fn();
-const mockRedisSet = vi.fn();
-const mockRedisDel = vi.fn();
-const mockUpdateWikiPage = vi.fn();
-const mockGetWikiPage = vi.fn();
+const { mockRedisGet, mockRedisSet, mockRedisDel, mockUpdateWikiPage, mockGetWikiPage } = vi.hoisted(() => ({
+  mockRedisGet: vi.fn(),
+  mockRedisSet: vi.fn(),
+  mockRedisDel: vi.fn(),
+  mockUpdateWikiPage: vi.fn(),
+  mockGetWikiPage: vi.fn(),
+}));
 
 vi.mock('@devvit/web/server', () => ({
   redis: {

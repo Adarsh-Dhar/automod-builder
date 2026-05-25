@@ -113,10 +113,24 @@ export async function pushYamlToWiki(yaml: string): Promise<void> {
   if (!subredditName || subredditName === 'default') {
     throw new Error('No subreddit context available');
   }
+
+  // READ existing content first to preserve existing rules
+  let existingContent = '';
+  try {
+    existingContent = await getLiveAutomodYaml(subredditName);
+  } catch {
+    // Wiki doesn't exist yet, that's fine
+  }
+
+  // MERGE new rule with existing content
+  const mergedContent = existingContent.trim()
+    ? existingContent + '\n\n' + yaml
+    : yaml;
+
   await reddit.updateWikiPage({
     subredditName,
     page: 'config/automoderator',
-    content: yaml,
+    content: mergedContent,
     reason: 'Updated via AutoMod Builder app',
   });
 }
