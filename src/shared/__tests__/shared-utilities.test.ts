@@ -5,6 +5,7 @@ import {
   buildEscapeHatchAnalysisPrompt,
   buildEscapeHatchGenerationPrompt,
   replaceOrAppendRule,
+  extractYamlFromFenced,
 } from '../automod';
 import type {
   AutomodRule,
@@ -723,5 +724,30 @@ modmail: Test
       // Should just return new rule
       expect(result).toContain('# First rule');
     });
+  });
+});
+
+describe('extractYamlFromFenced', () => {
+  it('extracts content from a ```yaml fence', () => {
+    const result = extractYamlFromFenced('```yaml\n---\n# Rule\n---\n```');
+    expect(result).toBe('---\n# Rule\n---');
+  });
+
+  it('extracts content from a plain ``` fence', () => {
+    const result = extractYamlFromFenced('```\n---\n# Rule\n---\n```');
+    expect(result).toBe('---\n# Rule\n---');
+  });
+
+  it('returns null when input has no fences', () => {
+    expect(extractYamlFromFenced('---\n# Rule\n---')).toBeNull();
+  });
+
+  it('returns null for an empty string', () => {
+    expect(extractYamlFromFenced('')).toBeNull();
+  });
+
+  it('extracted content starts with --- (AutoMod delimiter)', () => {
+    const result = extractYamlFromFenced('```yaml\n---\n# Rule\ntype: submission\n---\n```');
+    expect(result?.startsWith('---')).toBe(true);
   });
 });
