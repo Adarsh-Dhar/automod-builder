@@ -173,7 +173,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="e.g. https://reddit.com/r/sub/comments/abc123/ or abc123"
-              className="flex-1 rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+              className="flex-1 rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
             />
             <Button onClick={handleDebug} disabled={loading} size="sm">
               {loading ? 'Running...' : 'Debug Post'}
@@ -193,25 +193,25 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                 value={mockTitle}
                 onChange={(e) => setMockTitle(e.target.value)}
                 placeholder="Post title"
-                className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
               />
               <Textarea
                 value={mockBody}
                 onChange={(e) => setMockBody(e.target.value)}
                 placeholder="Post body"
-                className="min-h-[60px] w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                className="min-h-[60px] w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
               />
               <input
                 value={mockAuthor}
                 onChange={(e) => setMockAuthor(e.target.value)}
                 placeholder="Author username"
-                className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
               />
               <input
                 value={mockSubreddit}
                 onChange={(e) => setMockSubreddit(e.target.value)}
                 placeholder="Subreddit (e.g., r/AskReddit)"
-                className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
               />
             </div>
 
@@ -225,7 +225,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     type="number"
                     value={mockAccountAge}
                     onChange={(e) => setMockAccountAge(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -234,7 +234,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     type="number"
                     value={mockCombinedKarma}
                     onChange={(e) => setMockCombinedKarma(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -243,7 +243,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     type="number"
                     value={mockLinkKarma}
                     onChange={(e) => setMockLinkKarma(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -252,7 +252,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     type="number"
                     value={mockCommentKarma}
                     onChange={(e) => setMockCommentKarma(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
               </div>
@@ -268,7 +268,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     type="number"
                     value={mockNumComments}
                     onChange={(e) => setMockNumComments(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -277,7 +277,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     type="number"
                     value={mockScore}
                     onChange={(e) => setMockScore(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -289,7 +289,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                     max="1"
                     value={mockUpvoteRatio}
                     onChange={(e) => setMockUpvoteRatio(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
               </div>
@@ -304,7 +304,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                   <input
                     value={mockDomain}
                     onChange={(e) => setMockDomain(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -312,7 +312,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                   <input
                     value={mockUrl}
                     onChange={(e) => setMockUrl(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
               </div>
@@ -365,7 +365,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                   <input
                     value={mockAuthorFlairText}
                     onChange={(e) => setMockAuthorFlairText(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
                 <div>
@@ -373,7 +373,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                   <input
                     value={mockLinkFlairText}
                     onChange={(e) => setMockLinkFlairText(e.target.value)}
-                    className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                    className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                   />
                 </div>
               </div>
@@ -382,7 +382,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
                 <input
                   value={mockDistinguished}
                   onChange={(e) => setMockDistinguished(e.target.value)}
-                  className="w-full rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm"
+                  className="w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
                 />
               </div>
             </div>
@@ -406,11 +406,11 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
           <h3 className="text-sm font-semibold text-[--foreground] mb-3">Moderation Comparison</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Draft Rule Result */}
-            <div className="p-3 rounded-lg bg-[--surface-2]">
+            <div className="p-3 rounded-xl bg-[--surface-2]">
               <p className="text-xs font-medium text-[--muted-foreground] mb-2">Draft Rule</p>
               <div className="space-y-1">
                 <p className="text-sm text-[--foreground]">
-                  Status: <span className={comparison.draftResult.matched ? 'text-red-500' : 'text-green-500'}>
+                  Status: <span className={comparison.draftResult.matched ? 'text-[--danger]' : 'text-[--success]'}>
                     {comparison.draftResult.matched ? 'Would Match' : 'Would Pass'}
                   </span>
                 </p>
@@ -426,11 +426,11 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
             </div>
 
             {/* Live Config Result */}
-            <div className="p-3 rounded-lg bg-[--surface-2]">
+            <div className="p-3 rounded-xl bg-[--surface-2]">
               <p className="text-xs font-medium text-[--muted-foreground] mb-2">Live Config</p>
               <div className="space-y-1">
                 <p className="text-sm text-[--foreground]">
-                  Status: <span className={comparison.liveResult.matched ? 'text-red-500' : 'text-green-500'}>
+                  Status: <span className={comparison.liveResult.matched ? 'text-[--danger]' : 'text-[--success]'}>
                     {comparison.liveResult.matched ? 'Would Match' : 'Would Pass'}
                   </span>
                 </p>
@@ -450,7 +450,7 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
 
           {/* Differences */}
           {comparison.differences.length > 0 && (
-            <div className="mt-3 p-3 rounded-lg bg-[--warning]/10 border border-[--warning]/30">
+            <div className="mt-3 p-3 rounded-xl bg-[--warning]/10 border border-[--warning]/30">
               <p className="text-xs font-medium text-[--warning] mb-1">Differences detected:</p>
               <ul className="text-xs text-[--foreground] list-disc list-inside space-y-1">
                 {comparison.differences.map((diff, i) => (

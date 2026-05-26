@@ -20,15 +20,15 @@ export function ModeTabStrip({ mode, setMode }: ModeTabStripProps) {
           key={m.id}
           onClick={() => setMode(m.id)}
           className={cn(
-            'relative px-3 py-2 text-sm font-medium transition-colors shrink-0 whitespace-nowrap',
+            'relative px-4 py-2 text-sm font-medium transition-all shrink-0 whitespace-nowrap rounded-lg',
             mode === m.id
-              ? 'text-[--foreground]'
+              ? 'text-[--foreground] bg-[--surface-2]'
               : 'text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3]'
           )}
         >
           {m.label}
           {mode === m.id && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[--primary]" />
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[--primary]" />
           )}
           <span className="ml-2 text-[10px] text-[--subtle] hidden sm:inline">{m.shortcut}</span>
         </button>

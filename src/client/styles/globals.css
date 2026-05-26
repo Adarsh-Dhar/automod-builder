@@ -1,48 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Surface */
-  --background:        #0E0C14;
-  --surface-1:         #16121F;
-  --surface-2:         #1E192B;
-  --surface-3:         #261F36;
+  /* Surface - MindMerge-inspired dark tones */
+  --background:        #0A0A0A;
+  --surface-1:         #141414;
+  --surface-2:         #1C1C1C;
+  --surface-3:         #252525;
 
-  /* Brand */
-  --primary:           #F5C842;
-  --primary-foreground: #0E0C14;
+  /* Brand - Orange accent */
+  --primary:           #FF6B35;
+  --primary-foreground: #0A0A0A;
 
   /* Semantic */
-  --success:           #3FB950;
-  --warning:           #E3A000;
-  --danger:            #F85149;
-  --info:              #58A6FF;
+  --success:           #22C55E;
+  --warning:           #F59E0B;
+  --danger:            #EF4444;
+  --info:              #3B82F6;
 
-  /* Text */
-  --foreground:        #EDE8F5;
-  --muted-foreground:  #8B7FA8;
-  --subtle:            #5A5070;
+  /* Text - Better contrast */
+  --foreground:        #F5F5F5;
+  --muted-foreground:  #A0A0A0;
+  --subtle:            #666666;
 
   /* Borders */
-  --border:            rgba(255,255,255,0.08);
-  --border-strong:     rgba(255,255,255,0.14);
+  --border:            rgba(255,255,255,0.1);
+  --border-strong:     rgba(255,255,255,0.15);
 
-  /* Radius */
-  --radius:            0.5rem;
-  --radius-lg:         0.75rem;
-  --radius-xl:         1rem;
+  /* Radius - More rounded like MindMerge */
+  --radius:            0.75rem;
+  --radius-lg:         1rem;
+  --radius-xl:         1.25rem;
 
   /* Sidebar */
   --sidebar-width:     220px;
-  --sidebar-bg:        #0A0812;
-  --sidebar-border:    rgba(255,255,255,0.06);
+  --sidebar-bg:        #141414;
+  --sidebar-border:    rgba(255,255,255,0.1);
 }
 
 @theme inline {
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Geist Mono', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);

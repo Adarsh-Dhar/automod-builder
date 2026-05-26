@@ -5,20 +5,17 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  // @replit
-  // Whitespace-nowrap: Badges should never wrap.
-  "whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" +
-  " hover-elevate ",
+  "whitespace-nowrap inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[--primary]/50",
   {
     variants: {
       variant: {
         default:
-          "border border-[--border] bg-[--surface-2] text-[--foreground] rounded-full px-3 font-medium",
+          "border border-[--border] bg-[--surface-2] text-[--foreground]",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground",
+          "border-transparent bg-[--surface-3] text-[--muted-foreground]",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow-xs",
-        outline: "text-foreground border [border-color:var(--badge-outline)]",
+          "border-transparent bg-[--danger] text-white",
+        outline: "text-[--foreground] border-[--border]",
         success: "bg-[--success]/15 text-[--success] border-[--success]/25",
         warning: "bg-[--warning]/15 text-[--warning] border-[--warning]/25",
         danger: "bg-[--danger]/15 text-[--danger] border-[--danger]/25",

@@ -50,15 +50,15 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
   const lineCount = localYaml.split("\n").length;
 
   return (
-    <div className="h-full flex flex-col bg-[#0D1117]">
+    <div className="h-full flex flex-col bg-[--surface-3]">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-[#090D13] border-b border-[#21262D] shrink-0 overflow-x-auto">
-        <span className="text-xs text-[#484F58] font-mono shrink-0">insert:</span>
+      <div className="flex items-center gap-2 px-4 py-2 bg-[--surface-2] border-b border-[--border] shrink-0 overflow-x-auto">
+        <span className="text-xs text-[--muted-foreground] font-mono shrink-0">insert:</span>
         {SNIPPETS.map((s) => (
           <button
             key={s.label}
             onClick={() => insertSnippet(s.code)}
-            className="text-xs px-2 py-1 rounded bg-[#161B22] hover:bg-[#21262D] border border-[#21262D] text-[#8B949E] hover:text-[#E6EDF3] transition-colors font-mono shrink-0"
+            className="text-xs px-2 py-1 rounded-xl bg-[--surface-3] hover:bg-[--surface-1] border border-[--border] text-[--muted-foreground] hover:text-[--foreground] transition-colors font-mono shrink-0"
           >
             + {s.label}
           </button>
@@ -66,17 +66,17 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
         <div className="flex-1" />
         <div className="flex items-center gap-3 shrink-0">
           {validation.valid ? (
-            <span className="text-xs flex items-center gap-1 text-[#3FB950]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" />
+            <span className="text-xs flex items-center gap-1 text-[--success]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[--success]" />
               Valid
             </span>
           ) : (
-            <span className="text-xs flex items-center gap-1 text-[#F85149]" title={validation.error}>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#F85149]" />
+            <span className="text-xs flex items-center gap-1 text-[--danger]" title={validation.error}>
+              <span className="w-1.5 h-1.5 rounded-full bg-[--danger]" />
               Invalid
             </span>
           )}
-          <span className="text-xs text-[#484F58] font-mono">
+          <span className="text-xs text-[--muted-foreground] font-mono">
             {lineCount}L · {ast.length}R
           </span>
         </div>
@@ -85,11 +85,11 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
       {/* Editor + Inspector */}
       <div className="flex-1 flex overflow-hidden">
         {/* Line numbers */}
-        <div className="select-none bg-[#090D13] border-r border-[#21262D] py-4 px-2 text-right w-10 sm:w-12 overflow-hidden">
+        <div className="select-none bg-[--surface-2] border-r border-[--border] py-4 px-2 text-right w-10 sm:w-12 overflow-hidden">
           {Array.from({ length: lineCount }, (_, i) => (
             <div
               key={i + 1}
-              className="text-[11px] font-mono text-[#484F58] leading-[1.6] h-[20.8px]"
+              className="text-[11px] font-mono text-[--muted-foreground] leading-[1.6] h-[20.8px]"
             >
               {i + 1}
             </div>
@@ -103,37 +103,37 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
             onChange={handleChange}
             spellCheck={false}
             data-testid="code-editor"
-            className="w-full h-full bg-transparent text-[#E6EDF3] p-4 resize-none border-none focus:outline-none font-mono text-[13px] leading-[1.6]"
-            style={{ minHeight: "100%", caretColor: "#FF4500" }}
+            className="w-full h-full bg-transparent text-[--foreground] p-4 resize-none border-none focus:outline-none font-mono text-[13px] leading-[1.6]"
+            style={{ minHeight: "100%", caretColor: "var(--primary)" }}
             placeholder="# Write your AutoModerator YAML rules here..."
           />
         </div>
 
         {/* AST Inspector */}
-        <div className="w-48 md:w-64 border-l border-[#21262D] bg-[#090D13] overflow-auto p-3 shrink-0 hidden sm:block">
-          <div className="text-[10px] font-semibold text-[#484F58] uppercase tracking-wider mb-3">
+        <div className="w-48 md:w-64 border-l border-[--border] bg-[--surface-2] overflow-auto p-3 shrink-0 hidden sm:block">
+          <div className="text-[10px] font-semibold text-[--muted-foreground] uppercase tracking-wider mb-3">
             JSON AST
           </div>
           {ast.length === 0 ? (
-            <div className="text-xs text-[#484F58] italic">No rules parsed</div>
+            <div className="text-xs text-[--muted-foreground] italic">No rules parsed</div>
           ) : (
             ast.map((rule, idx) => (
               <div key={rule.id} className="mb-3">
-                <div className="text-xs font-semibold text-[#FF4500] mb-1 truncate">
+                <div className="text-xs font-semibold text-[--primary] mb-1 truncate">
                   [{idx}] {rule.name}
                 </div>
                 {rule.conditions.map((c) => (
                   <div key={c.id} className="text-[11px] font-mono mb-0.5">
-                    <span className="text-[#58A6FF]">{c.type}</span>{" "}
-                    <span className="text-[#D29922]">{c.operator}</span>{" "}
-                    <span className="text-[#3FB950]">"{String(c.value)}"</span>
+                    <span className="text-[--info]">{c.type}</span>{" "}
+                    <span className="text-[--warning]">{c.operator}</span>{" "}
+                    <span className="text-[--success]">"{String(c.value)}"</span>
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-1 mt-1">
                   {rule.actions.map((a) => (
                     <span
                       key={a.id}
-                      className="text-[10px] font-mono px-1.5 py-0.5 rounded border bg-[#F85149]/10 text-[#F85149] border-[#F85149]/30"
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded-xl border bg-[--danger]/10 text-[--danger] border-[--danger]/30"
                     >
                       {a.type}
                     </span>
@@ -146,7 +146,7 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
       </div>
 
       {validation.error && (
-        <div className="shrink-0 px-4 py-2 bg-[#F85149]/10 border-t border-[#F85149]/30 text-xs text-[#F85149] font-mono truncate">
+        <div className="shrink-0 px-4 py-2 bg-[--danger]/10 border-t border-[--danger]/30 text-xs text-[--danger] font-mono truncate">
           ⚠ {validation.error}
         </div>
       )}

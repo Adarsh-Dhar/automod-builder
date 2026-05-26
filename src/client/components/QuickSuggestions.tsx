@@ -17,7 +17,7 @@ export default function QuickSuggestions({ onSelectSuggestion, className = '' }:
         <button
           key={suggestion}
           onClick={() => onSelectSuggestion(suggestion)}
-          className="px-3 py-1.5 text-xs rounded-full border border-[rgba(255,255,255,0.08)] bg-[#261F36] text-[#8B7FA8] hover:border-[#F5C842]/50 hover:text-[#F5C842] transition-colors"
+          className="px-3 py-1.5 text-xs rounded-full border border-[--border] bg-[--surface-3] text-[--muted-foreground] hover:border-[--primary]/50 hover:text-[--primary] transition-colors"
         >
           💡 {suggestion}
         </button>

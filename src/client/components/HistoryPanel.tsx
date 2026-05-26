@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { HistorySnapshot } from "../utils/history";
 import { deleteSnapshot, clearHistory, saveSnapshot } from "../utils/history";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
@@ -109,7 +109,7 @@ export default function HistoryPanel({
                           onClick={() =>
                             setSelected(isSelected ? null : snap.id)
                           }
-                          className={`w-full text-left px-4 py-3 border-b border-[--border] transition-colors ${
+                          className={`w-full text-left px-4 py-3 border-b border-[--border] transition-colors rounded-xl ${
                             isSelected
                               ? "bg-[--surface-3]"
                               : "hover:bg-[--surface-3]"

@@ -5,28 +5,24 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[14px] text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
-" hover-elevate active-elevate-2",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--primary]/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow-sm hover:shadow-md active:scale-[0.98]",
   {
     variants: {
       variant: {
-        default: "bg-[#F5C842] text-[#1A1020] font-semibold shadow-none hover:bg-[#e6b93c]",
+        default: "bg-[--primary] text-[--primary-foreground] font-semibold shadow-sm hover:bg-[--primary]/90 hover:shadow-md",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
-        outline: "border border-[#EBEBEB] bg-white text-[#1A1020] hover:bg-[#F4F2F7]",
+          "bg-[--danger] text-white shadow-sm hover:bg-[--danger]/90 hover:shadow-md",
+        outline: "border-2 border-[--border] bg-transparent text-[--foreground] hover:bg-[--surface-3] hover:border-[--border-strong]",
         secondary:
-          // @replit border, no hover, no shadow, secondary border.
-          "border bg-secondary text-secondary-foreground border border-secondary-border ",
-        // @replit no hover, transparent border
+          "bg-[--surface-2] text-[--foreground] border border-[--border] hover:bg-[--surface-3]",
         ghost: "hover:bg-[--surface-3] hover:text-[--foreground] text-[--muted-foreground]",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-[--primary] underline-offset-4 hover:underline",
       },
       size: {
-        // @replit changed sizes
         default: "min-h-9 px-5 py-2",
-        sm: "min-h-8 rounded-[14px] px-3 text-xs",
-        lg: "min-h-10 rounded-[14px] px-8",
-        icon: "h-9 w-9",
+        sm: "min-h-8 rounded-xl px-3 text-xs",
+        lg: "min-h-10 rounded-2xl px-8",
+        icon: "h-9 w-9 rounded-xl",
       },
     },
     defaultVariants: {

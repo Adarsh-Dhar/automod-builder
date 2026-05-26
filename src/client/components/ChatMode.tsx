@@ -45,24 +45,24 @@ function ApiKeyModal({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#1E192B] p-6 shadow-lg">
-        <h3 className="mb-4 text-lg font-semibold text-[#EDE8F5]">Gemini API Key</h3>
-        <p className="mb-4 text-sm text-[#8B7FA8]">
+      <div className="w-full max-w-md rounded-2xl border border-[--border] bg-[--surface-2] p-6 shadow-lg">
+        <h3 className="mb-4 text-lg font-semibold text-[--foreground]">Gemini API Key</h3>
+        <p className="mb-4 text-sm text-[--muted-foreground]">
           Enter your Gemini API key to use the chat feature. Your key is stored locally in your browser.
         </p>
         <div className="mb-4">
-          <label className="mb-2 block text-xs font-medium text-[#8B7FA8]">API Key</label>
+          <label className="mb-2 block text-xs font-medium text-[--muted-foreground]">API Key</label>
           <div className="flex gap-2">
             <input
               type={showKey ? 'text' : 'password'}
               value={key}
               onChange={(e) => setKey(e.target.value)}
               placeholder="AIzaSy..."
-              className="flex-1 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 py-2 text-sm text-[#EDE8F5] outline-none focus:border-[#F5C842]"
+              className="flex-1 rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-sm text-[--foreground] outline-none focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50"
             />
             <button
               onClick={() => setShowKey(!showKey)}
-              className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 py-2 text-[#8B7FA8] hover:border-[#F5C842]/50"
+              className="rounded-xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--muted-foreground] hover:border-[--primary]/50 hover:text-[--primary]"
             >
               {showKey ? '🙈' : '👁️'}
             </button>
@@ -72,21 +72,21 @@ function ApiKeyModal({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: ()
           {key && (
             <button
               onClick={handleClear}
-              className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-4 py-2 text-sm text-[#F85149] hover:bg-[#F85149]/10"
+              className="rounded-xl border border-[--border] bg-[--surface-3] px-4 py-2 text-sm text-[--danger] hover:bg-[--danger]/10"
             >
               Clear
             </button>
           )}
           <button
             onClick={onClose}
-            className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-4 py-2 text-sm text-[#EDE8F5] hover:border-[rgba(255,255,255,0.15)]"
+            className="rounded-xl border border-[--border] bg-[--surface-3] px-4 py-2 text-sm text-[--foreground] hover:bg-[--surface-2]"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!key.trim()}
-            className="rounded-lg bg-[#F5C842] px-4 py-2 text-sm font-semibold text-[#0E0C14] transition-colors hover:bg-[#F5C842]/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-xl bg-[--primary] px-4 py-2 text-sm font-semibold text-[--primary-foreground] transition-colors hover:bg-[--primary]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Save
           </button>
@@ -190,11 +190,11 @@ function SessionStatusIndicator({ session }: { session: ChatSession }) {
     'Error';
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#261F36] text-xs">
+    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[--surface-3] text-xs">
       <div className={`w-2 h-2 rounded-full ${statusColor}`} />
-      <span className="text-[#8B7FA8]">{statusText}</span>
+      <span className="text-[--muted-foreground]">{statusText}</span>
       {session.error && (
-        <span className="text-[#F85149] ml-1" title={session.error}>
+        <span className="text-[--danger] ml-1" title={session.error}>
           ({session.error.substring(0, 20)}...)
         </span>
       )}
@@ -212,34 +212,34 @@ function TypeScriptTriggerCard({ escapeHatch }: { escapeHatch: EscapeHatchResult
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-[rgba(255,200,0,0.2)] bg-[#1E192B]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[rgba(255,255,255,0.08)]">
-        <span className="text-xs font-medium text-[#F5C842]">
+    <div className="mt-3 rounded-2xl border border-[--primary]/20 bg-[--surface-2]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[--border]">
+        <span className="text-xs font-medium text-[--primary]">
           ⚡ TypeScript Trigger Required
         </span>
         <span className={`text-xs px-2 py-0.5 rounded-full border ${
           escapeHatch.confidence === 'high'
-            ? 'bg-green-500/15 text-green-400 border-green-500/25'
+            ? 'bg-[--success]/15 text-[--success] border-[--success]/25'
             : escapeHatch.confidence === 'medium'
-            ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25'
-            : 'bg-red-500/15 text-red-400 border-red-500/25'
+            ? 'bg-[--warning]/15 text-[--warning] border-[--warning]/25'
+            : 'bg-[--danger]/15 text-[--danger] border-[--danger]/25'
         }`}>
           {escapeHatch.confidence} confidence
         </span>
       </div>
       <div className="p-3">
-        <p className="text-xs text-[#8B7FA8] mb-2">{escapeHatch.description}</p>
-        <pre className="max-h-48 overflow-auto rounded-lg bg-[#16121F] p-3 font-mono text-xs leading-5 text-[#EDE8F5]">
+        <p className="text-xs text-[--muted-foreground] mb-2">{escapeHatch.description}</p>
+        <pre className="max-h-48 overflow-auto rounded-xl bg-[--surface-3] p-3 font-mono text-xs leading-5 text-[--foreground]">
           {escapeHatch.triggerCode}
         </pre>
         <button
           onClick={handleCopy}
-          className="mt-2 text-xs text-[#F5C842] hover:text-[#F5C842]/80 transition-colors"
+          className="mt-2 text-xs text-[--primary] hover:text-[--primary]/80 transition-colors"
         >
           {copied ? '✓ Copied' : 'Copy trigger code'}
         </button>
         {escapeHatch.limitations.length > 0 && (
-          <div className="mt-2 text-xs text-[#8B7FA8]">
+          <div className="mt-2 text-xs text-[--muted-foreground]">
             <p className="font-medium mb-1">Limitations:</p>
             {escapeHatch.limitations.map((l, i) => (
               <p key={i}>— {l}</p>
@@ -340,17 +340,17 @@ function MessageBubble({
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
           msg.role === 'user'
             ? 'bg-gradient-to-br from-purple-400 to-pink-400 text-white'
-            : 'bg-[#1E192B] border border-[rgba(255,255,255,0.08)] text-[#EDE8F5] shadow-sm'
+            : 'bg-[--surface-2] border border-[--border] text-[--foreground] shadow-sm'
         }`}
       >
         {msg.role === 'user' ? '👤' : '✳'}
       </div>
       <div className="flex-1">
         <div
-          className={`max-w-[85%] sm:max-w-[82%] rounded-xl p-2.5 sm:p-3.5 text-sm ${
+          className={`max-w-[85%] sm:max-w-[82%] rounded-2xl p-2.5 sm:p-3.5 text-sm ${
             msg.role === 'user'
-              ? 'bg-[#F5C842]/15 border border-[#F5C842]/25 text-[#EDE8F5] rounded-br-sm self-end'
-              : 'bg-[#1E192B] border border-[rgba(255,255,255,0.08)] text-[#EDE8F5] rounded-bl-sm self-start shadow-sm'
+              ? 'bg-[--primary]/15 border border-[--primary]/25 text-[--foreground] rounded-br-2xl self-end'
+              : 'bg-[--surface-2] border border-[--border] text-[--foreground] rounded-bl-2xl self-start shadow-sm'
           }`}
         >
           {hasRealDebugYaml ? (
@@ -358,16 +358,16 @@ function MessageBubble({
           ) : (
             textParts.map((part, index) => (
               <span key={index}>
-                {part && <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#EDE8F5]">{part}</p>}
+                {part && <p className="whitespace-pre-wrap text-sm leading-relaxed text-[--foreground]">{part}</p>}
                 {index === 0 && hasRealYaml && (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#16121F]">
-                    <div className="flex items-center justify-between bg-[#1E192B] px-3 py-1.5 border-b border-[rgba(255,255,255,0.08)]">
-                      <span className="font-mono text-[10px] text-[#8B7FA8]">yaml</span>
+                  <div className="mt-2 overflow-hidden rounded-2xl border border-[--border] bg-[--surface-3]">
+                    <div className="flex items-center justify-between bg-[--surface-2] px-3 py-1.5 border-b border-[--border]">
+                      <span className="font-mono text-[10px] text-[--muted-foreground]">yaml</span>
                       {onApply !== undefined && (
                         <button
                           onClick={() => handleApply(yamlValue)}
                           className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 ${
-                            showApplied ? 'text-[#3FB950]' : 'text-[#F5C842] hover:text-[#F5C842]/80'
+                            showApplied ? 'text-[--success]' : 'text-[--primary] hover:text-[--primary]/80'
                           }`}
                         >
                           {showApplied ? (
@@ -388,7 +388,7 @@ function MessageBubble({
                         </button>
                       )}
                     </div>
-                    <pre className="overflow-auto whitespace-pre-wrap wrap-break-word bg-[#16121F] p-3 font-mono text-xs leading-6 text-[#EDE8F5]">
+                    <pre className="overflow-auto whitespace-pre-wrap wrap-break-word bg-[--surface-3] p-3 font-mono text-xs leading-6 text-[--foreground]">
                       {yamlValue}
                     </pre>
                   </div>
@@ -404,7 +404,7 @@ function MessageBubble({
             {onCopy && (
               <button
                 onClick={handleCopy}
-                className="text-[10px] text-[#8B7FA8] hover:text-[#F5C842] transition-colors flex items-center gap-1"
+                className="text-[10px] text-[--muted-foreground] hover:text-[--primary] transition-colors flex items-center gap-1"
                 title="Copy message"
               >
                 {copied ? '✓ Copied' : '📋 Copy'}
@@ -413,7 +413,7 @@ function MessageBubble({
             {onRegenerate && isLastMessage && (
               <button
                 onClick={onRegenerate}
-                className="text-[10px] text-[#8B7FA8] hover:text-[#F5C842] transition-colors flex items-center gap-1"
+                className="text-[10px] text-[--muted-foreground] hover:text-[--primary] transition-colors flex items-center gap-1"
                 title="Regenerate response"
               >
                 🔄 Regenerate
@@ -426,7 +426,7 @@ function MessageBubble({
           <div className="flex gap-2 mt-2 mr-1 justify-end">
             <button
               onClick={() => onEdit(msg.id, msg.content)}
-              className="text-[10px] text-[#8B7FA8] hover:text-[#F5C842] transition-colors flex items-center gap-1"
+              className="text-[10px] text-[--muted-foreground] hover:text-[--primary] transition-colors flex items-center gap-1"
               title="Edit message"
             >
               ✏️ Edit
@@ -434,7 +434,7 @@ function MessageBubble({
           </div>
         )}
         
-        <div className="mt-1.5 text-[10px] text-[#8B7FA8]">{new Date(msg.timestamp).toLocaleTimeString()}</div>
+        <div className="mt-1.5 text-[10px] text-[--muted-foreground]">{new Date(msg.timestamp).toLocaleTimeString()}</div>
       </div>
     </div>
   );
@@ -866,13 +866,13 @@ export default function ChatMode({
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#1E192B]">
+    <div className="flex flex-1 flex-col overflow-hidden bg-[--surface-2]">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[rgba(255,255,255,0.08)]">
+      <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[--border]">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-[#EDE8F5]">AI Rules Assistant</h2>
-            <p className="text-[10px] text-[#8B7FA8]">{messages.length} messages in this conversation</p>
+            <h2 className="text-sm font-semibold text-[--foreground]">AI Rules Assistant</h2>
+            <p className="text-[10px] text-[--muted-foreground]">{messages.length} messages in this conversation</p>
           </div>
           {chatSession && <SessionStatusIndicator session={chatSession} />}
         </div>
@@ -882,7 +882,7 @@ export default function ChatMode({
             variant="ghost"
             size="sm"
             onClick={handleClearChat}
-            className="text-[#8B7FA8] hover:text-[#F85149] hover:bg-[#F85149]/10"
+            className="text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10"
           >
             🗑 Clear
           </Button>
@@ -890,7 +890,7 @@ export default function ChatMode({
             variant="ghost"
             size="sm"
             onClick={() => setShowApiKeyModal(true)}
-            className="text-[#8B7FA8] hover:text-[#F5C842]"
+            className="text-[--muted-foreground] hover:text-[--primary]"
             title="Configure API Key"
           >
             ⚙️
@@ -899,7 +899,7 @@ export default function ChatMode({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-auto px-3 sm:px-5 py-3 sm:py-5 bg-[#1E192B]">
+      <div className="flex-1 overflow-auto px-3 sm:px-5 py-3 sm:py-5 bg-[--surface-2]">
         {messages.length === 0 ? (
           <EmptyState />
         ) : (
@@ -933,8 +933,8 @@ export default function ChatMode({
             })}
 
             {error && (
-              <div className="rounded-2xl border border-[#F85149]/30 bg-[#F85149]/15 p-3 text-xs text-[#F85149] shadow-sm">
-                Error: {error}
+              <div className="rounded-2xl border border-[--danger]/30 bg-[--danger]/15 p-3 text-xs text-[--danger] shadow-sm">
+                ⚠️ {error}
               </div>
             )}
 
@@ -944,9 +944,9 @@ export default function ChatMode({
       </div>
 
       {/* Input Area */}
-      <div className="shrink-0 border-t border-[rgba(255,255,255,0.08)] bg-[#1E192B] px-3 sm:px-5 py-3 sm:py-4">
+      <div className="shrink-0 border-t border-[--border] bg-[--surface-2] px-3 sm:px-5 py-3 sm:py-4">
         {isLoading && (
-          <div className="flex items-center gap-2 mb-3 text-xs text-[#8B7FA8]">
+          <div className="flex items-center gap-2 mb-3 text-xs text-[--muted-foreground]">
             <TypingIndicator />
             <span>Thinking...</span>
           </div>
@@ -957,6 +957,7 @@ export default function ChatMode({
             onSelectSuggestion={(suggestion) => {
               setInput(suggestion);
             }}
+            className="mb-3"
           />
         )}
         
@@ -969,20 +970,20 @@ export default function ChatMode({
             placeholder='Ask me to create rules... or type "apply" to use the last rule'
             rows={2}
             data-testid="chat-input"
-            className="min-h-13.5 flex-1 resize-none rounded-[--radius] border border-[rgba(255,255,255,0.08)] bg-[#261F36] px-3 sm:px-4 py-3 text-sm text-[#EDE8F5] outline-none transition-colors placeholder:text-[#5A5070] focus:border-[#F5C842] disabled:opacity-50"
+            className="min-h-13.5 flex-1 resize-none rounded-2xl border border-[--border] bg-[--surface-3] px-3 sm:px-4 py-3 text-sm text-[--foreground] outline-none transition-colors placeholder:text-[--subtle] focus:border-[--primary] focus:ring-2 focus:ring-[--primary]/50 disabled:opacity-50"
           />
           <Button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             data-testid="btn-send"
-            className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-[--radius] bg-[#F5C842] text-[#0E0C14] transition-colors hover:bg-[#F5C842]/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl bg-[--primary] text-[--primary-foreground] transition-colors hover:bg-[--primary]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
               <path d="M2 7.5L13 2L8.5 13L7 8.5L2 7.5Z" fill="currentColor" />
             </svg>
           </Button>
         </div>
-        <p className="mt-2 text-[10px] text-[#5A5070] hidden sm:block">Shift+Enter for new line · Enter to send · Ctrl+Enter to send</p>
+        <p className="mt-2 text-[10px] text-[--subtle] hidden sm:block">Shift+Enter for new line · Enter to send · Ctrl+Enter to send</p>
       </div>
 
       {/* Edit Dialog */}

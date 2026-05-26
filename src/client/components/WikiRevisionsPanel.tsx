@@ -163,13 +163,13 @@ export default function WikiRevisionsPanel({
   // Playtest mode - locked state
   if (isPlaytest) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#1E192B]">
+      <div className="h-full flex items-center justify-center bg-[--surface-2]">
         <div className="text-center space-y-4 px-6">
           <div className="text-6xl opacity-30">🔒</div>
-          <h3 className="text-lg font-semibold text-[#EDE8F5]">
+          <h3 className="text-lg font-semibold text-[--foreground]">
             Wiki revisions not available in playtest mode
           </h3>
-          <p className="text-sm text-[#8B7FA8] max-w-md">
+          <p className="text-sm text-[--muted-foreground] max-w-md">
             Deploy to production to view your subreddit's version history
           </p>
         </div>
@@ -178,12 +178,12 @@ export default function WikiRevisionsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#1E192B]">
+    <div className="h-full flex flex-col bg-[--surface-2]">
       {/* Header with refresh */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,0.08)]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[--border]">
         <div>
-          <h2 className="text-lg font-semibold text-[#EDE8F5]">Version History</h2>
-          <p className="text-xs text-[#8B7FA8]">
+          <h2 className="text-lg font-semibold text-[--foreground]">Version History</h2>
+          <p className="text-xs text-[--muted-foreground]">
             {revisions.length} revision{revisions.length !== 1 ? 's' : ''} from Reddit wiki
           </p>
         </div>
@@ -191,7 +191,7 @@ export default function WikiRevisionsPanel({
           onClick={loadRevisions}
           disabled={loading}
           variant="outline"
-          className="border-[rgba(255,255,255,0.08)] bg-[#261F36] text-[#EDE8F5] hover:border-[#F5C842]/50"
+          className="border-[--border] bg-[--surface-3] text-[--foreground] hover:border-[--primary]/50"
         >
           {loading ? 'Loading...' : 'Refresh'}
         </Button>
@@ -199,7 +199,7 @@ export default function WikiRevisionsPanel({
 
       {/* Error display */}
       {error && (
-        <div className="mx-6 mt-4 p-3 rounded-lg bg-[#F85149]/15 border border-[#F85149]/30 text-[#F85149] text-sm">
+        <div className="mx-6 mt-4 p-3 rounded-xl bg-[--danger]/15 border border-[--danger]/30 text-[--danger] text-sm">
           {error}
         </div>
       )}
@@ -207,44 +207,44 @@ export default function WikiRevisionsPanel({
       {/* Main content area - two columns */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left column: revision table */}
-        <div className="flex-1 overflow-auto border-r border-[rgba(255,255,255,0.08)]">
+        <div className="flex-1 overflow-auto border-r border-[--border]">
           {revisions.length === 0 && !loading ? (
             <div className="flex items-center justify-center h-full text-center px-6">
               <div className="space-y-3">
                 <div className="text-3xl opacity-20">📝</div>
-                <p className="text-sm text-[#8B7FA8]">No wiki revisions found</p>
-                <p className="text-xs text-[#5A5070]">
+                <p className="text-sm text-[--muted-foreground]">No wiki revisions found</p>
+                <p className="text-xs text-[--subtle]">
                   Wiki revisions appear here after publishing rules to your subreddit
                 </p>
               </div>
             </div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[#1E192B] border-b border-[rgba(255,255,255,0.08)]">
+              <thead className="sticky top-0 bg-[--surface-2] border-b border-[--border]">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#8B7FA8] uppercase">Author</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#8B7FA8] uppercase">Note / Reason</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#8B7FA8] uppercase">Time</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-[#8B7FA8] uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[--muted-foreground] uppercase">Author</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[--muted-foreground] uppercase">Note / Reason</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[--muted-foreground] uppercase">Time</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-[--muted-foreground] uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {revisions.map((revision, idx) => (
                   <tr
                     key={`${revision.timestamp}-${idx}`}
-                    className={`border-b border-[rgba(255,255,255,0.08)] hover:bg-[#261F36] transition-colors ${
-                      selectedRevision?.timestamp === revision.timestamp ? 'bg-[#F5C842]/10' : ''
+                    className={`border-b border-[--border] hover:bg-[--surface-3] transition-colors ${
+                      selectedRevision?.timestamp === revision.timestamp ? 'bg-[--primary]/10' : ''
                     }`}
                   >
-                    <td className="px-4 py-3 text-[#EDE8F5] font-mono text-xs">
+                    <td className="px-4 py-3 text-[--foreground] font-mono text-xs">
                       u/{revision.author}
                     </td>
-                    <td className="px-4 py-3 text-[#8B7FA8] text-xs italic">
+                    <td className="px-4 py-3 text-[--muted-foreground] text-xs italic">
                       {revision.reason || '(no reason)'}
                     </td>
-                    <td className="px-4 py-3 text-[#8B7FA8] text-xs">
+                    <td className="px-4 py-3 text-[--muted-foreground] text-xs">
                       <div>{formatDate(revision.timestamp)}</div>
-                      <div className="text-[10px] text-[#5A5070]">{timeAgo(revision.timestamp)}</div>
+                      <div className="text-[10px] text-[--subtle]">{timeAgo(revision.timestamp)}</div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex gap-2 justify-end">
@@ -252,7 +252,7 @@ export default function WikiRevisionsPanel({
                           onClick={() => handleLook(revision)}
                           size="sm"
                           variant="ghost"
-                          className="text-[#8B7FA8] hover:text-[#EDE8F5] hover:bg-[rgba(255,255,255,0.08)]"
+                          className="text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3]"
                         >
                           👁 Look
                         </Button>
@@ -260,7 +260,7 @@ export default function WikiRevisionsPanel({
                           onClick={() => handleRestoreFromRow(revision)}
                           size="sm"
                           variant="ghost"
-                          className="text-[#8B7FA8] hover:text-[#3FB950] hover:bg-[rgba(63,185,80,0.1)]"
+                          className="text-[--muted-foreground] hover:text-[--success] hover:bg-[--success]/10"
                         >
                           ↩ Restore
                         </Button>
@@ -274,21 +274,21 @@ export default function WikiRevisionsPanel({
         </div>
 
         {/* Right column: YAML preview pane */}
-        <div className="w-1/2 flex flex-col bg-[#16121F]">
+        <div className="w-1/2 flex flex-col bg-[--surface-3]">
           {!selectedRevision ? (
-            <div className="flex items-center justify-center h-full text-[#8B7FA8] text-sm">
+            <div className="flex items-center justify-center h-full text-[--muted-foreground] text-sm">
               Select a revision to preview its configuration
             </div>
           ) : (
             <>
               {/* Preview header */}
-              <div className="flex-shrink-0 px-4 py-3 border-b border-[rgba(255,255,255,0.08)] bg-[#1E192B]">
+              <div className="flex-shrink-0 px-4 py-3 border-b border-[--border] bg-[--surface-2]">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-[#8B7FA8]">Revision by u/{selectedRevision.author}</div>
-                    <div className="text-xs text-[#5A5070]">{formatDate(selectedRevision.timestamp)}</div>
+                    <div className="text-xs text-[--muted-foreground]">Revision by u/{selectedRevision.author}</div>
+                    <div className="text-xs text-[--subtle]">{formatDate(selectedRevision.timestamp)}</div>
                     {selectedRevision.reason && (
-                      <div className="text-xs text-[#EDE8F5] italic mt-1 truncate">
+                      <div className="text-xs text-[--foreground] italic mt-1 truncate">
                         {selectedRevision.reason}
                       </div>
                     )}
@@ -297,7 +297,7 @@ export default function WikiRevisionsPanel({
                     onClick={handleRestoreFromPreview}
                     disabled={!previewContent || isRestoring}
                     size="sm"
-                    className="bg-[#F5C842] text-[#0E0C14] hover:bg-[#F5C842]/90"
+                    className="bg-[--primary] text-[--primary-foreground] hover:bg-[--primary]/90"
                   >
                     {isRestoring ? 'Restoring...' : '↩ Restore This Version'}
                   </Button>
@@ -306,14 +306,14 @@ export default function WikiRevisionsPanel({
 
               {/* Restore error */}
               {restoreError && (
-                <div className="mx-4 mt-3 p-3 rounded-lg bg-[#F85149]/15 border border-[#F85149]/30 text-[#F85149] text-xs">
+                <div className="mx-4 mt-3 p-3 rounded-xl bg-[--danger]/15 border border-[--danger]/30 text-[--danger] text-xs">
                   {restoreError}
                 </div>
               )}
 
               {/* YAML content */}
               <div className="flex-1 overflow-auto p-4">
-                <pre className="text-xs font-mono text-[#3FB950] leading-relaxed whitespace-pre-wrap">
+                <pre className="text-xs font-mono text-[--success] leading-relaxed whitespace-pre-wrap">
                   {previewContent || 'Loading...'}
                 </pre>
               </div>
@@ -324,11 +324,11 @@ export default function WikiRevisionsPanel({
 
       {/* Restore confirmation dialog */}
       <AlertDialog open={showRestoreConfirm} onOpenChange={setShowRestoreConfirm}>
-        <AlertDialogContent className="bg-[#1E192B] border-[rgba(255,255,255,0.08)]">
-          <AlertDialogTitle className="text-[#EDE8F5]">
+        <AlertDialogContent className="bg-[--surface-2] border-[--border]">
+          <AlertDialogTitle className="text-[--foreground]">
             Restore Revision?
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-[#8B7FA8]">
+          <AlertDialogDescription className="text-[--muted-foreground]">
             <div className="space-y-2">
               <p>
                 You're about to restore the AutoModerator configuration from{' '}
@@ -337,20 +337,20 @@ export default function WikiRevisionsPanel({
               <p>
                 by <strong>u/{selectedRevision?.author}</strong>
               </p>
-              <p className="text-[#F85149] pt-2">
+              <p className="text-[--danger] pt-2">
                 ⚠️ This will overwrite your current configuration. This action can be undone by
                 restoring another revision.
               </p>
             </div>
           </AlertDialogDescription>
           <div className="flex gap-2 justify-end">
-            <AlertDialogCancel className="border-[rgba(255,255,255,0.08)] text-[#EDE8F5]">
+            <AlertDialogCancel className="border-[--border] text-[--foreground]">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRestore}
               disabled={isRestoring}
-              className="bg-[#F5C842] text-[#0E0C14] hover:bg-[#F5C842]/90"
+              className="bg-[--primary] text-[--primary-foreground] hover:bg-[--primary]/90"
             >
               {isRestoring ? 'Restoring...' : 'Restore'}
             </AlertDialogAction>

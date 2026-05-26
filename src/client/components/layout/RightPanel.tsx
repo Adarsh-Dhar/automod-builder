@@ -38,14 +38,14 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-[--muted-foreground]">Would catch</span>
-              <span className="font-medium text-green-400">{blast.caughtPosts?.length ?? 0}</span>
+              <span className="font-medium text-[--success]">{blast.caughtPosts?.length ?? 0}</span>
             </div>
             {blast.caughtPosts && blast.caughtPosts.length > 0 && (
               <div>
                 <p className="text-xs text-[--muted-foreground] mb-2">Caught posts:</p>
                 <div className="space-y-1">
                   {blast.caughtPosts.slice(0, 5).map((post) => (
-                    <div key={post.id} className="text-xs text-green-400/80 truncate">
+                    <div key={post.id} className="text-xs text-[--success]/80 truncate">
                       ✓ {post.title} (u/{post.author})
                     </div>
                   ))}
@@ -59,7 +59,7 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
                 </p>
                 <div className="space-y-1">
                   {blast.falsePositives.slice(0, 3).map((post) => (
-                    <div key={post.id} className="text-xs text-red-400/80 truncate">
+                    <div key={post.id} className="text-xs text-[--danger]/80 truncate">
                       ✗ {post.title} (u/{post.author})
                     </div>
                   ))}
@@ -76,11 +76,11 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
       <div className="flex-1 overflow-auto p-4">
         <span className="text-sm font-medium text-[--foreground]">Status</span>
         <div className="mt-3 space-y-2">
-          <div className="p-3 rounded-lg bg-[--surface-2]">
+          <div className="p-3 rounded-xl bg-[--surface-2]">
             <p className="text-[10px] uppercase tracking-wider text-[--muted-foreground]">Rule State</p>
             <p className="text-sm text-[--foreground]">{saving ? 'Saving...' : 'Saved'}</p>
           </div>
-          <div className="p-3 rounded-lg bg-[--surface-2]">
+          <div className="p-3 rounded-xl bg-[--surface-2]">
             <p className="text-[10px] uppercase tracking-wider text-[--muted-foreground]">Debug Mode</p>
             <p className="text-sm text-[--foreground]">Test posts via link or mock</p>
           </div>

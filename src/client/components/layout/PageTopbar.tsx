@@ -22,14 +22,14 @@ export function PageTopbar({ ruleName, saving, onReset, onOpenHistory }: PageTop
       {/* Right: Actions */}
       <div className="flex items-center gap-1 sm:gap-2">
         {saving && (
-          <RefreshCw className="w-4 h-4 text-[--muted-foreground] animate-spin shrink-0" />
+          <RefreshCw className="w-4 h-4 text-[--primary] animate-spin shrink-0" />
         )}
 
         <Button
           variant="ghost"
           size="sm"
           onClick={onOpenHistory}
-          className="text-xs text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3] px-2 hidden sm:inline"
+          className="text-xs text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3] px-3 hidden sm:inline"
         >
           History
         </Button>
@@ -37,7 +37,7 @@ export function PageTopbar({ ruleName, saving, onReset, onOpenHistory }: PageTop
           variant="ghost"
           size="sm"
           onClick={onReset}
-          className="text-xs text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3] px-2 hidden sm:inline"
+          className="text-xs text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 px-3 hidden sm:inline"
         >
           Reset
         </Button>
