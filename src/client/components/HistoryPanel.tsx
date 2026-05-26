@@ -3,14 +3,6 @@ import type { HistorySnapshot } from "../utils/history";
 import { deleteSnapshot, clearHistory, saveSnapshot } from "../utils/history";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-
-// Add new interface for wiki revisions
-interface WikiRevision {
-  timestamp: number;
-  author: string;
-  reason?: string;
-}
 
 interface HistoryPanelProps {
   open: boolean;
@@ -50,41 +42,8 @@ export default function HistoryPanel({
 }: HistoryPanelProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [activeTab, setActiveTab] = useState<"local" | "wiki">("local");
-  const [wikiRevisions, setWikiRevisions] = useState<WikiRevision[]>([]);
-  const [loadingWiki, setLoadingWiki] = useState(false);
-  const [wikiError, setWikiError] = useState<string | null>(null);
 
   const selectedSnap = snapshots.find((s) => s.id === selected) ?? null;
-
-  // Load wiki revisions when tab is opened
-  useEffect(() => {
-    if (open && activeTab === "wiki" && wikiRevisions.length === 0) {
-      void fetchWikiRevisions();
-    }
-  }, [open, activeTab, wikiRevisions.length]);
-
-  const fetchWikiRevisions = async () => {
-    setLoadingWiki(true);
-    setWikiError(null);
-    try {
-      const response = await fetch("/api/rule-stage/wiki-revisions");
-      const data = await response.json();
-
-      if (data.status === "success") {
-        setWikiRevisions(data.revisions || []);
-      } else {
-        setWikiError(data.message || "Failed to load wiki revisions");
-      }
-    } catch (error) {
-      setWikiError(
-        error instanceof Error ? error.message : "Failed to load wiki revisions"
-      );
-      console.error("Failed to fetch wiki revisions:", error);
-    } finally {
-      setLoadingWiki(false);
-    }
-  };
 
   const handleSaveNow = () => {
     const updated = saveSnapshot(currentYaml, ruleCount, "Manual save", 'code');
@@ -110,27 +69,11 @@ export default function HistoryPanel({
         <SheetHeader>
           <SheetTitle className="text-[--foreground]">Version History</SheetTitle>
           <SheetDescription className="text-[--muted-foreground]">
-            {activeTab === "local"
-              ? `${snapshots.length} snapshot${snapshots.length !== 1 ? "s" : ""} · auto-saved locally`
-              : `${wikiRevisions.length} revision${wikiRevisions.length !== 1 ? "s" : ""} · from Reddit wiki`}
+            {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""} · auto-saved locally
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as "local" | "wiki")}
-          className="w-full mt-4"
-        >
-          <TabsList className="grid w-full grid-cols-2 bg-[--surface-3]">
-            <TabsTrigger value="local" className="data-[state=active]:bg-[--primary]">
-              Local Snapshots
-            </TabsTrigger>
-            <TabsTrigger value="wiki" className="data-[state=active]:bg-[--primary]">
-              Wiki Versions
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="local" className="flex flex-col h-[calc(100vh-12rem)] overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-12rem)] overflow-hidden mt-4">
             {/* Save button */}
             <Button
               onClick={handleSaveNow}
@@ -281,74 +224,7 @@ export default function HistoryPanel({
                 )}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="wiki" className="flex flex-col h-[calc(100vh-12rem)] overflow-hidden">
-            {/* Wiki revisions list */}
-            <Button
-              onClick={fetchWikiRevisions}
-              disabled={loadingWiki}
-              variant="outline"
-              className="w-full mb-4 border-[--border]"
-            >
-              {loadingWiki ? "Loading..." : "Refresh Versions"}
-            </Button>
-
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {wikiError ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
-                  <div className="text-3xl opacity-20">⚠️</div>
-                  <p className="text-sm text-[--danger]">{wikiError}</p>
-                  <p className="text-xs text-[--subtle]">
-                    Note: Wiki versions only available in production (not in playtest)
-                  </p>
-                </div>
-              ) : wikiRevisions.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
-                  <div className="text-3xl opacity-20">📝</div>
-                  <p className="text-sm text-[--muted-foreground]">
-                    {loadingWiki ? "Loading revisions..." : "No wiki revisions found"}
-                  </p>
-                  <p className="text-xs text-[--subtle]">
-                    Wiki revisions appear here after publishing rules to your subreddit
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-auto">
-                  {wikiRevisions.map((revision, idx) => (
-                    <div
-                      key={`${revision.timestamp}-${idx}`}
-                      className="w-full text-left px-4 py-3 border-b border-[--border] hover:bg-[--surface-3] transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full shrink-0 bg-[--info]" />
-                        <span className="text-xs font-semibold text-[--foreground] flex-1">
-                          {revision.author}
-                        </span>
-                        <span className="text-[10px] text-[--muted-foreground]">
-                          {timeAgo(revision.timestamp)}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-[--muted-foreground] mt-1 ml-4">
-                        {revision.reason || "(no reason provided)"}
-                      </div>
-                      <div className="text-[10px] text-[--subtle] mt-1 ml-4">
-                        {new Date(revision.timestamp).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="shrink-0 px-4 py-2.5 border-t border-[--border]">
-              <p className="text-[10px] text-[--subtle]">
-                📌 Wiki revisions are only available when deployed to production
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
       </SheetContent>
     </Sheet>
   );

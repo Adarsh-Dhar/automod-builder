@@ -1,6 +1,6 @@
 import type { DebugMatch, MockPostDebugRequest } from './debug-types';
 
-export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'escape-hatch' | 'debug' | 'test-matrix';
+export type RuleStageMode = 'code' | 'chat' | 'decoder' | 'escape-hatch' | 'debug' | 'wiki-history';
 
 export type YamlLimitation =
   | 'external-api'

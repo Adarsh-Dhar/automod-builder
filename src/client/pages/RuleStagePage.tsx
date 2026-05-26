@@ -15,16 +15,12 @@ import {
   hasMultipleRules,
   parseAutomodRuleDraft,
   serializeAutomodRule,
-  buildSimulationPost,
-  evaluateRule,
   type AutomodRule,
   type RuleStageMode,
 } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
 import { getSnapshots, saveSnapshot, type HistorySnapshot } from '../utils/history';
-import { getMockTests, type SavedMockTest } from '../utils/mock-tests';
-import { saveMatrixCell, type MatrixCell } from '../utils/test-matrix';
-import TestMatrixView from '../components/TestMatrixView';
+import WikiRevisionsPanel from '../components/WikiRevisionsPanel';
 
 type RuleStageInitResponse = {
   status: 'success';
@@ -50,7 +46,6 @@ export function RuleStagePage() {
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
   const [changes, setChanges] = useState<HistorySnapshot[]>(getSnapshots());
-  const [mockTests, setMockTests] = useState<SavedMockTest[]>(getMockTests());
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -316,46 +311,8 @@ export function RuleStagePage() {
     }
   };
 
-  const handleTestSaved = () => {
-    setMockTests(getMockTests());
-  };
 
-  const handleRunMatrixCell = async (changeId: string, testId: string): Promise<MatrixCell> => {
-    const change = changes.find((c) => c.id === changeId);
-    const test = mockTests.find((t) => t.id === testId);
-    if (!change || !test) {
-      throw new Error('Change or test not found');
-    }
 
-    const rule = parseAutomodRuleDraft(change.yaml, DEFAULT_AUTOMOD_RULE);
-    const post = buildSimulationPost(test.post, test.id, test.label);
-    const result = evaluateRule(rule, [post]);
-
-    const item = result.items[0];
-    if (!item) {
-      throw new Error('No result item found');
-    }
-
-    const cell: MatrixCell = {
-      changeId,
-      testId,
-      outcome: item.outcome,
-      matchedCondition: result.matched > 0 ? `${rule.name} matched` : '',
-      reason: item.reason,
-      runAt: Date.now(),
-    };
-
-    saveMatrixCell(cell);
-    return cell;
-  };
-
-  const handleRunAll = async () => {
-    for (const change of changes) {
-      for (const test of mockTests) {
-        await handleRunMatrixCell(change.id, test.id);
-      }
-    }
-  };
 
   const handleHistoryRestore = (yaml: string) => {
     handleApplyYaml(yaml, 'restore');
@@ -404,7 +361,7 @@ export function RuleStagePage() {
               )}
 
               {mode === 'debug' && (
-                <DebuggerMode onApplyYaml={handleApplyYaml} onTestSaved={handleTestSaved} />
+                <DebuggerMode onApplyYaml={handleApplyYaml} />
               )}
 
               {mode === 'chat' && (
@@ -421,13 +378,13 @@ export function RuleStagePage() {
                 </div>
               )}
 
-              {mode === 'test-matrix' && (
-                <TestMatrixView
-                  changes={changes}
-                  mockTests={mockTests}
-                  onRunCell={handleRunMatrixCell}
-                  onRunAll={handleRunAll}
-                />
+              {mode === 'wiki-history' && (
+                <div className="h-full -m-4 md:-m-6">
+                  <WikiRevisionsPanel
+                    subredditName={init?.subredditName}
+                    onRestore={handleHistoryRestore}
+                  />
+                </div>
               )}
             </>
           )}
