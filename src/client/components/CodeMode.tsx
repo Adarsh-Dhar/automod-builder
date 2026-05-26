@@ -52,13 +52,13 @@ export default function CodeMode({ yaml, ast, onYamlChange }: CodeModeProps) {
   return (
     <div className="h-full flex flex-col bg-[--surface-3]">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-[--surface-2] border-b border-[--border] shrink-0 overflow-x-auto">
+      <div className="flex items-center gap-3 px-4 md:px-6 py-3 bg-[--surface-2] border-b border-[--border] shrink-0 overflow-x-auto shadow-sm">
         <span className="text-xs text-[--muted-foreground] font-mono shrink-0">insert:</span>
         {SNIPPETS.map((s) => (
           <button
             key={s.label}
             onClick={() => insertSnippet(s.code)}
-            className="text-xs px-2 py-1 rounded-xl bg-[--surface-3] hover:bg-[--surface-1] border border-[--border] text-[--muted-foreground] hover:text-[--foreground] transition-colors font-mono shrink-0"
+            className="text-xs px-3 py-1.5 rounded-lg bg-[--surface-3] hover:bg-[--primary]/10 hover:text-[--primary] border border-[--border] text-[--muted-foreground] transition-colors font-medium shrink-0"
           >
             + {s.label}
           </button>

@@ -868,11 +868,11 @@ export default function ChatMode({
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[--surface-2]">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[--border]">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-[--border] shadow-sm">
+        <div className="flex items-center gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-[--foreground]">AI Rules Assistant</h2>
-            <p className="text-[10px] text-[--muted-foreground]">{messages.length} messages in this conversation</p>
+            <h2 className="text-base font-semibold text-[--foreground]">AI Rules Assistant</h2>
+            <p className="text-[10px] text-[--muted-foreground] mt-0.5">{messages.length} messages in this conversation</p>
           </div>
           {chatSession && <SessionStatusIndicator session={chatSession} />}
         </div>
@@ -882,7 +882,7 @@ export default function ChatMode({
             variant="ghost"
             size="sm"
             onClick={handleClearChat}
-            className="text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10"
+            className="text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 font-medium"
           >
             🗑 Clear
           </Button>
@@ -890,7 +890,7 @@ export default function ChatMode({
             variant="ghost"
             size="sm"
             onClick={() => setShowApiKeyModal(true)}
-            className="text-[--muted-foreground] hover:text-[--primary]"
+            className="text-[--muted-foreground] hover:text-[--primary] hover:bg-[--primary]/10 font-medium"
             title="Configure API Key"
           >
             ⚙️
@@ -899,7 +899,7 @@ export default function ChatMode({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-auto px-3 sm:px-5 py-3 sm:py-5 bg-[--surface-2]">
+      <div className="flex-1 overflow-auto px-4 md:px-6 py-4 md:py-6 bg-[--surface-2]">
         {messages.length === 0 ? (
           <EmptyState />
         ) : (
@@ -944,7 +944,7 @@ export default function ChatMode({
       </div>
 
       {/* Input Area */}
-      <div className="shrink-0 border-t border-[--border] bg-[--surface-2] px-3 sm:px-5 py-3 sm:py-4">
+      <div className="shrink-0 border-t border-[--border] bg-[--surface-2] px-4 md:px-6 py-4 md:py-5 shadow-lg">
         {isLoading && (
           <div className="flex items-center gap-2 mb-3 text-xs text-[--muted-foreground]">
             <TypingIndicator />

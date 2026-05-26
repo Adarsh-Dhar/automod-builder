@@ -1,0 +1,108 @@
+import { Menu, X, Settings, LayoutGrid, Zap } from 'lucide-react';
+import { useState } from 'react';
+
+interface SidebarProps {
+  ruleName: string;
+  isCollapsed?: boolean;
+  onToggle?: (collapsed: boolean) => void;
+}
+
+export function Sidebar({ ruleName, isCollapsed = false, onToggle }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(isCollapsed);
+
+  const handleToggle = () => {
+    const newState = !collapsed;
+    setCollapsed(newState);
+    onToggle?.(newState);
+  };
+
+  return (
+    <div
+      className={`flex flex-col bg-[--surface-1] border-r border-[--border] transition-all duration-300 shrink-0 ${
+        collapsed ? 'w-16' : 'w-[220px]'
+      }`}
+    >
+      {/* Logo / Brand Area */}
+      <div className="flex items-center justify-between h-14 px-3 border-b border-[--border] shrink-0">
+        {!collapsed && (
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-[--primary] flex items-center justify-center text-[--primary-foreground] font-bold text-sm shrink-0">
+              ⚙️
+            </div>
+            <span className="text-sm font-semibold text-[--foreground] truncate">AutoMod</span>
+          </div>
+        )}
+        <button
+          onClick={handleToggle}
+          className="p-1.5 hover:bg-[--surface-2] rounded-lg transition-colors text-[--muted-foreground] hover:text-[--foreground]"
+          aria-label="Toggle sidebar"
+        >
+          {collapsed ? <Menu size={18} /> : <X size={18} />}
+        </button>
+      </div>
+
+      {/* Navigation Items */}
+      <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+        {/* Current Rule */}
+        <div className={`px-3 py-2 rounded-lg bg-[--surface-2] border border-[--primary]/30 ${!collapsed ? 'block' : 'hidden'}`}>
+          <p className="text-xs uppercase tracking-wider text-[--muted-foreground] mb-1">Active Rule</p>
+          <p className="text-sm font-medium text-[--foreground] truncate">{ruleName}</p>
+        </div>
+
+        {/* Quick Actions */}
+        <div className={`mt-4 ${!collapsed ? 'block' : 'hidden'}`}>
+          <p className="text-xs uppercase tracking-wider text-[--muted-foreground] px-3 mb-2">Quick Actions</p>
+          <SidebarItem
+            icon={<Zap size={18} />}
+            label="Blast Radius"
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon={<LayoutGrid size={18} />}
+            label="Code Mode"
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            icon={<Settings size={18} />}
+            label="Settings"
+            collapsed={collapsed}
+          />
+        </div>
+      </nav>
+
+      {/* Footer Area */}
+      <div className={`border-t border-[--border] p-2 ${!collapsed ? 'block' : 'hidden'}`}>
+        <div className="px-3 py-2 rounded-lg bg-[--surface-2]">
+          <p className="text-xs text-[--muted-foreground] mb-1">Version</p>
+          <p className="text-xs font-medium text-[--foreground]">v1.0</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SidebarItem({
+  icon,
+  label,
+  collapsed,
+  active = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  collapsed: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+        active
+          ? 'bg-[--primary]/20 text-[--primary] border border-[--primary]/30'
+          : 'text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-2]'
+      } ${collapsed ? 'justify-center' : ''}`}
+      title={collapsed ? label : undefined}
+    >
+      <span className="shrink-0">{icon}</span>
+      {!collapsed && <span className="text-sm font-medium">{label}</span>}
+    </button>
+  );
+}
