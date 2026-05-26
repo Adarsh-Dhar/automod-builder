@@ -69,6 +69,8 @@ function validateWikiUpdateInputs(yaml: string): void {
   if (openMatches && openMatches.length === 1) {
     throw new Error('YAML content contains unclosed code block');
   }
+
+  console.log('[AutoModService] Validation passed - Content length:', yaml.length, 'bytes');
 }
 
 export async function getCurrentRule(): Promise<AutomodRule> {
@@ -161,12 +163,36 @@ export async function pushYamlToWiki(yaml: string, reason?: string): Promise<voi
   let existingContent = '';
   try {
     existingContent = await getLiveAutomodYaml(subredditName);
-  } catch {
+    console.log('[AutoModService] Existing wiki content length:', existingContent.length);
+  } catch (error) {
+    console.log('[AutoModService] Wiki page does not exist yet or could not be read:', error);
     // Wiki doesn't exist yet, that's fine
   }
 
   // MERGE new rule with existing content (replace by name, append if new)
   const mergedContent = replaceOrAppendRule(existingContent, yaml);
+
+  console.log('[AutoModService] Wiki update - Content length:', mergedContent.length, 'bytes');
+  console.log('[AutoModService] Wiki update - Content preview:', mergedContent.substring(0, 200));
+  console.log('[AutoModService] Wiki update - Subreddit:', subredditName, 'Page: config/automoderator');
+
+  // AutoModerator config page expects plain YAML, not markdown
+  // The 415 error might be due to content size or other issues
+  // Try sending plain YAML as-is
+
+  // Check if content is too large - Devvit might have a lower limit than 100KB
+  const MAX_WIKI_CONTENT_SIZE = 50000; // 50KB limit to be safe
+  let contentToSend = mergedContent;
+  if (mergedContent.length > MAX_WIKI_CONTENT_SIZE) {
+    console.warn('[AutoModService] Content exceeds 50KB, truncating to avoid 415 error');
+    contentToSend = mergedContent.substring(0, MAX_WIKI_CONTENT_SIZE);
+  }
+
+  // Normalize subreddit name to lowercase (Reddit API expects lowercase)
+  const normalizedSubredditName = subredditName.toLowerCase();
+
+  console.log('[AutoModService] Using normalized subreddit name:', normalizedSubredditName);
+  console.log('[AutoModService] Content to send length:', contentToSend.length);
 
   // RETRY logic with exponential backoff
   const maxRetries = 3;
@@ -174,15 +200,23 @@ export async function pushYamlToWiki(yaml: string, reason?: string): Promise<voi
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      console.log(`[AutoModService] Wiki update attempt ${attempt + 1}/${maxRetries}`);
       await reddit.updateWikiPage({
-        subredditName,
+        subredditName: normalizedSubredditName,
         page: 'config/automoderator',
-        content: mergedContent,
+        content: contentToSend,
         reason: reason ?? 'Updated via AutoMod Builder app',
       });
+      console.log('[AutoModService] Wiki update successful');
       return; // Success, exit retry loop
     } catch (error) {
       const errorMessage = (error as Error).message.toLowerCase();
+      console.error(`[AutoModService] Wiki update attempt ${attempt + 1} failed:`, error);
+      console.error(`[AutoModService] Error details:`, {
+        message: (error as Error).message,
+        name: (error as Error).name,
+        stack: (error as Error).stack,
+      });
       const isRetryable = errorMessage.includes('415') || errorMessage.includes('unknown') || errorMessage.includes('grpc');
 
       if (!isRetryable || attempt === maxRetries - 1) {

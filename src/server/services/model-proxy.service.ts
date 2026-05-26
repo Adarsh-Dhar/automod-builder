@@ -26,9 +26,11 @@ export type GenerateOptions = {
   githubModelId?: string;
 };
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  console.log(`[ModelProxy] Fetch with timeout: ${timeoutMs}ms, URL length: ${url.length}`);
 
   try {
     const response = await fetch(url, {
@@ -188,6 +190,8 @@ async function generateTextWithGitHub(input: string, opts: GenerateOptions = {},
   // Add the main input
   messages.push({ role: 'user', content: truncatedInput });
 
+  console.log("🚀 Attempting to call GitHub Models API...");
+
   const res = await fetchWithRetry(url, {
     method: 'POST',
     headers: {
@@ -206,6 +210,7 @@ async function generateTextWithGitHub(input: string, opts: GenerateOptions = {},
 
   if (!res.ok) {
     const txt = await res.text();
+    console.error("🔥 GitHub Models API Failed:", txt);
     throw new Error(`GitHub Models API error ${res.status}: ${txt}`);
   }
 
@@ -225,7 +230,8 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
   const apiKey = providedApiKey;
   const maskedKey = apiKey ? `${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}` : 'none';
   console.log('[ModelProxy] generateText - Provider:', provider, 'API key present:', !!apiKey, 'API key length:', apiKey?.length, 'API key:', maskedKey);
-  const { temperature = 0.2, maxOutputTokens = 8192, maxRetries = 0 } = opts;
+  // Reduce maxOutputTokens to avoid Devvit HTTP plugin timeouts
+  const { temperature = 0.2, maxOutputTokens = 2048, maxRetries = 0 } = opts;
 
   if (!apiKey) {
     throw new Error('Missing API key. Please provide your API key via the settings panel.');
@@ -233,10 +239,13 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
 
   // Truncate input if it's too large to avoid URI size limit errors
   // Devvit HTTP plugin has a URI size limit and internal deadline, so we need to keep the request body reasonable
-  const MAX_INPUT_LENGTH = 4000; // Increased from 2k to 4k to preserve user's detailed rule specifications
+  // Reduced to 1500 to avoid "Call cancelled" errors from Devvit HTTP plugin
+  const MAX_INPUT_LENGTH = 1500;
   const truncatedInput = input.length > MAX_INPUT_LENGTH
     ? input.substring(0, MAX_INPUT_LENGTH) + '\n\n[Content truncated due to size limit]'
     : input;
+
+  console.log('[ModelProxy] Input length:', input.length, 'Truncated to:', truncatedInput.length);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
     apiKey
@@ -245,6 +254,8 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
   const contents = opts.systemPrompt
     ? [{ role: 'user', parts: [{ text: opts.systemPrompt }] }, { role: 'model', parts: [{ text: 'Understood.' }] }, { role: 'user', parts: [{ text: truncatedInput }] }]
     : [{ role: 'user', parts: [{ text: truncatedInput }] }];
+
+  console.log("🚀 Attempting to call Gemini API...");
 
   const res = await fetchWithRetry(url, {
     method: 'POST',
@@ -260,6 +271,7 @@ export async function generateText(input: string, opts: GenerateOptions = {}, pr
 
   if (!res.ok) {
     const txt = await res.text();
+    console.error("🔥 Gemini API Failed:", txt);
     throw new Error(`Gemini API error ${res.status}: ${txt}`);
   }
 
