@@ -6,10 +6,8 @@ import type { BlastRadiusResult } from '../../shared/blast-types';
 import type { DebugResponse } from '../../shared/debug-types';
 import DebugResultCard from './DebugResultCard';
 import { formatDebugMessage, parsePostId } from '../utils/debug';
-import { getChatSessionManager, type ChatSession } from '../utils/chat-session';
 import TypingIndicator from './TypingIndicator';
 import QuickSuggestions from './QuickSuggestions';
-import ExportDropdown, { type ExportFormat as DropdownExportFormat } from './ExportDropdown';
 import EmptyState from './EmptyState';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -176,30 +174,6 @@ function formatBlastMessage(result: BlastRadiusResult): string {
       : '✅ No false positives detected',
     `Catch rate: ${(result.catchRate * 100).toFixed(0)}% | False positive rate: ${(result.falsePositiveRate * 100).toFixed(0)}%`,
   ].join('\n\n');
-}
-
-function SessionStatusIndicator({ session }: { session: ChatSession }) {
-  const statusColor = 
-    session.status === 'active' ? 'bg-green-500' :
-    session.status === 'paused' ? 'bg-yellow-500' :
-    'bg-red-500';
-
-  const statusText =
-    session.status === 'active' ? 'Connected' :
-    session.status === 'paused' ? 'Paused' :
-    'Error';
-
-  return (
-    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[--surface-3] text-xs">
-      <div className={`w-2 h-2 rounded-full ${statusColor}`} />
-      <span className="text-[--muted-foreground]">{statusText}</span>
-      {session.error && (
-        <span className="text-[--danger] ml-1" title={session.error}>
-          ({session.error.substring(0, 20)}...)
-        </span>
-      )}
-    </div>
-  );
 }
 
 function TypeScriptTriggerCard({ escapeHatch }: { escapeHatch: EscapeHatchResult }) {
@@ -456,11 +430,9 @@ export default function ChatMode({
   const [subredditContext, setSubredditContext] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [chatSession, setChatSession] = useState<ChatSession | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -514,18 +486,6 @@ export default function ChatMode({
     };
   }, [subredditName]);
 
-  useEffect(() => {
-    const sessionManager = getChatSessionManager();
-    const session = sessionManager.getSession();
-    setChatSession(session);
-
-    const interval = setInterval(() => {
-      setChatSession(sessionManager.getSession());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleApplyYaml = (yamlStr: string, msgId: string) => {
     onApplyYaml(yamlStr);
     setAppliedMsgId(msgId);
@@ -564,59 +524,6 @@ export default function ChatMode({
     }
   };
 
-  const handleExport = async (format: DropdownExportFormat) => {
-    setIsExporting(true);
-    try {
-      let content = '';
-      const timestamp = new Date().toISOString();
-
-      if (format === 'text') {
-        content = messages.map(msg => {
-          const role = msg.role === 'user' ? 'You' : 'AI';
-          const time = new Date(msg.timestamp).toLocaleTimeString();
-          return `${role} [${time}]:\n${msg.content}\n`;
-        }).join('\n');
-        content += `\n--- Exported at ${timestamp} ---`;
-      } else if (format === 'json') {
-        content = JSON.stringify({
-          exportedAt: timestamp,
-          messageCount: messages.length,
-          messages: messages.map(msg => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            timestamp: msg.timestamp,
-          })),
-        }, null, 2);
-      } else if (format === 'markdown') {
-        content = `# Chat Export\n\nExported at ${timestamp}\n\n---\n\n`;
-        messages.forEach(msg => {
-          const role = msg.role === 'user' ? '👤 **You**' : '🤖 **AI**';
-          const time = new Date(msg.timestamp).toLocaleTimeString();
-          content += `${role} *${time}*\n\n`;
-          content += `${msg.content}\n\n---\n\n`;
-        });
-      }
-
-      // Create download
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chat-export-${format}-${timestamp.split('T')[0]}.${format === 'json' ? 'json' : format === 'markdown' ? 'md' : 'txt'}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      console.log('[ChatMode] Exported conversation as', format);
-    } catch (error) {
-      console.error('[ChatMode] Failed to export:', error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const handleClearChat = () => {
     // Clear all messages by setting them to empty array
     // We need to call a function to clear messages in the parent
@@ -629,8 +536,6 @@ export default function ChatMode({
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
-
-    const sessionManager = getChatSessionManager();
 
     console.log('[ChatMode] sendMessage called - apiKey present:', !!apiKey, 'apiKey length:', apiKey.length);
     if (!apiKey) {
@@ -723,8 +628,6 @@ export default function ChatMode({
         contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
       }
 
-      console.log('[ChatMode] Sending message with session:', sessionManager.getSessionId());
-
       // Silent retry logic - no UI updates during retries
       let attempt = 0;
       const maxAttempts = 3;
@@ -746,7 +649,6 @@ export default function ChatMode({
               history,
               subredditContext,
               apiKey,
-              sessionId: sessionManager.getSessionId(),
             }),
           });
 
@@ -868,32 +770,26 @@ export default function ChatMode({
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[--surface-2]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-[--border] shadow-sm">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-base font-semibold text-[--foreground]">AI Rules Assistant</h2>
-            <p className="text-[10px] text-[--muted-foreground] mt-0.5">{messages.length} messages in this conversation</p>
-          </div>
-          {chatSession && <SessionStatusIndicator session={chatSession} />}
+      <div className="flex items-center justify-between px-4 md:px-6 py-2 border-b border-[--border] shadow-sm">
+        <div className="flex items-center gap-1">
         </div>
-        <div className="flex items-center gap-2">
-          <ExportDropdown onExport={handleExport} disabled={isExporting || messages.length === 0} />
+        <div className="flex items-center gap-8">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleClearChat}
-            className="text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 font-medium"
+            className="text-sm text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 font-medium"
           >
-            🗑 Clear
+            Clear
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => setShowApiKeyModal(true)}
-            className="text-[--muted-foreground] hover:text-[--primary] hover:bg-[--primary]/10 font-medium"
+            className="text-sm text-[--muted-foreground] hover:text-[--primary] hover:bg-[--primary]/10 font-medium"
             title="Configure API Key"
           >
-            ⚙️
+            Settings
           </Button>
         </div>
       </div>

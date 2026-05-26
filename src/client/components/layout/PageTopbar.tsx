@@ -6,12 +6,13 @@ interface PageTopbarProps {
   saving: boolean;
   onReset: () => void;
   onOpenHistory?: () => void;
+  className?: string;
 }
 
-export function PageTopbar({ ruleName, saving, onReset, onOpenHistory }: PageTopbarProps) {
+export function PageTopbar({ ruleName, saving, onReset, onOpenHistory, className }: PageTopbarProps) {
 
   return (
-    <div className="h-14 flex items-center justify-between px-4 md:px-6 bg-[--surface-1] border-b border-[--border] shrink-0 shadow-sm">
+    <div className={`h-14 flex items-center justify-between px-4 md:px-6 bg-[--surface-1] border-b border-[--border] shrink-0 shadow-sm ${className || ''}`}>
       {/* Left: Breadcrumb */}
       <div className="flex items-center gap-3 text-sm min-w-0">
         <span className="text-[--muted-foreground] text-xs uppercase tracking-wider hidden sm:inline font-medium">Rule Builder</span>

@@ -9,6 +9,7 @@ import { useToast } from '../hooks/use-toast';
 import { PageTopbar } from '../components/layout/PageTopbar';
 import { Sidebar } from '../components/layout/Sidebar';
 import { RightPanel } from '../components/layout/RightPanel';
+import { Menu } from 'lucide-react';
 import {
   DEFAULT_AUTOMOD_RULE,
   extractFirstRule,
@@ -47,6 +48,7 @@ export function RuleStagePage() {
   const [blasting, setBlasting] = useState(false);
   const [changes, setChanges] = useState<HistorySnapshot[]>(getSnapshots());
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -319,28 +321,41 @@ export function RuleStagePage() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Page Topbar */}
+    <div className="flex flex-col h-screen">
+      {/* Mobile Header */}
+      <div className="md:hidden h-14 flex items-center justify-between px-4 bg-[--surface-1] border-b border-[--border] shrink-0">
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="p-2 text-[--muted-foreground] hover:text-[--foreground]"
+          aria-label="Open sidebar"
+        >
+          <Menu size={20} />
+        </button>
+        <span className="text-sm font-semibold text-[--foreground] truncate">{rule.name}</span>
+        <div className="w-8" />
+      </div>
+
+      {/* Desktop Page Topbar */}
       <PageTopbar
         ruleName={rule.name}
         saving={saving}
         onReset={handleReset}
         onOpenHistory={() => setHistoryPanelOpen(true)}
+        className="hidden md:flex"
       />
 
-      {/* Sidebar - fixed positioned overlay */}
-      <div className="fixed left-0 top-14 bottom-0 z-30">
+      {/* Main workspace */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* Sidebar */}
         <Sidebar
           ruleName={rule.name}
           mode={mode}
           setMode={setMode}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
-      </div>
-
-      {/* Main workspace */}
-      <div className="flex-1 overflow-hidden">
         {/* Main content area */}
-        <div className="flex-1 overflow-auto p-6 md:p-8 bg-[var(--background)]">
+        <div className="flex-1 overflow-auto p-6 md:p-8 bg-background">
           {loading && (
             <div className="space-y-4">
               <Skeleton className="h-8 w-1/3" />
@@ -359,7 +374,7 @@ export function RuleStagePage() {
                     onChange={(event) => handleDraftChange(event.target.value)}
                     className="flex-1 min-h-0 font-mono text-sm"
                   />
-                  <div className="flex items-center justify-between mt-2 text-xs text-[var(--muted-foreground)]">
+                  <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
                     <span>Editing the YAML draft updates the shared rule state immediately.</span>
                     <span>{draft.split('\n').length} lines</span>
                   </div>
@@ -371,7 +386,7 @@ export function RuleStagePage() {
               )}
 
               {mode === 'chat' && (
-                <div className="h-full flex flex-col bg-[var(--background)]">
+                <div className="h-full flex flex-col bg-background">
                   <ChatMode
                     ast={[]}
                     messages={chatMessages}

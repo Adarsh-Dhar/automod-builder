@@ -18,8 +18,8 @@ export default function ExportDropdown({ onExport, disabled = false, className =
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={disabled} className={className}>
-          📥 Export
+        <Button variant="ghost" size="sm" disabled={disabled} className={`text-sm font-medium ${className}`}>
+          Export
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

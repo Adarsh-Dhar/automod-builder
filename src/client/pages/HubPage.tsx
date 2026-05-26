@@ -202,7 +202,7 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
   const requirements = buildRequirements();
 
   return (
-    <div className="min-h-screen bg-[--background] p-4">
+    <div className="min-h-screen bg-[var(--background)] p-4 overflow-y-auto">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Community Passport</h1>
@@ -232,36 +232,36 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
       </div>
 
       {/* Current Level Card */}
-      <Card className="p-8 mb-8 text-center bg-[--surface-2] text-[--foreground]">
+      <Card className="p-8 mb-8 text-center bg-[var(--surface-2)] text-[var(--foreground)]">
         <div className="text-6xl mb-4 animate-bounce">{currentBadge}</div>
-        <h2 className="text-3xl font-bold mb-2 text-[--primary]">{currentName}</h2>
-        <p className="text-[--muted-foreground] mb-6">Level {profile.level}</p>
+        <h2 className="text-3xl font-bold mb-2 text-[var(--primary)]">{currentName}</h2>
+        <p className="text-[var(--muted-foreground)] mb-6">Level {profile.level}</p>
 
         {profile.level < 4 && (
           <div>
-            <p className="text-sm text-[--muted-foreground] mb-2">
+            <p className="text-sm text-[var(--muted-foreground)] mb-2">
               Next: {nextBadge} {nextName}
             </p>
             <Progress value={progress.percentage} className="mb-2" />
-            <p className="text-xs text-[--subtle]">{progress.percentage}% Complete</p>
+            <p className="text-xs text-[var(--subtle)]">{progress.percentage}% Complete</p>
           </div>
         )}
 
         {profile.level === 4 && (
-          <p className="text-lg font-semibold text-[--primary]">You've reached the highest level! 🌟</p>
+          <p className="text-lg font-semibold text-[var(--primary)]">You've reached the highest level! 🌟</p>
         )}
       </Card>
 
       {/* Time Tracker */}
-      <Card className="p-6 mb-8 bg-[--surface-2]">
+      <Card className="p-6 mb-8 bg-[var(--surface-2)]">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-[--muted-foreground] mb-1">Time in Hub (This Session)</p>
-            <p className="text-3xl font-bold text-[--foreground]">{formatTime(displayedSeconds)}</p>
+            <p className="text-sm text-[var(--muted-foreground)] mb-1">Time in Hub (This Session)</p>
+            <p className="text-3xl font-bold text-[var(--foreground)]">{formatTime(displayedSeconds)}</p>
           </div>
           <div className="text-4xl">⏱️</div>
         </div>
-        <p className="text-xs text-[--subtle] mt-3">Updates every 30 seconds</p>
+        <p className="text-xs text-[var(--subtle)] mt-3">Updates every 30 seconds</p>
       </Card>
 
       {/* Requirements to Next Level */}
@@ -279,18 +279,18 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
               );
 
               return (
-                <Card key={idx} className="p-4 bg-[--surface-2]">
+                <Card key={idx} className="p-4 bg-[var(--surface-2)]">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{req.icon}</span>
                       <span className="font-semibold">{req.label}</span>
                     </div>
-                    <span className="text-sm text-[--muted-foreground]">
+                    <span className="text-sm text-[var(--muted-foreground)]">
                       {req.current} / {req.target} {req.unit}
                     </span>
                   </div>
                   <Progress value={percentage} className="h-2" />
-                  <p className="text-xs text-[--subtle] mt-1">{percentage}%</p>
+                  <p className="text-xs text-[var(--subtle)] mt-1">{percentage}%</p>
                 </Card>
               );
             })}
@@ -301,26 +301,26 @@ export function HubPage({ onNavigate, onLevelUp }: HubPageProps) {
       {/* Feed Button */}
       <Button
         onClick={() => onNavigate('feed')}
-        className="w-full mb-4 h-14 text-base flex items-center justify-between bg-[--primary] text-[--primary-foreground] font-semibold px-5 rounded-[--radius] hover:bg-[--primary]/90 border-0"
+        className="w-full mb-4 h-14 text-base flex items-center justify-between bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold px-5 rounded-[--radius] hover:bg-[var(--primary)]/90 border-0"
       >
         <span>📄 Browse Community Posts</span>
-        <span className="w-8 h-8 rounded-full bg-[--primary-foreground] flex items-center justify-center text-[--primary]">→</span>
+        <span className="w-8 h-8 rounded-full bg-[var(--primary-foreground)] flex items-center justify-center text-[var(--primary)]">→</span>
       </Button>
 
       {/* Stats */}
-      <Card className="p-4 bg-[--surface-2] text-center">
+      <Card className="p-4 bg-[var(--surface-2)] text-center">
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <p className="text-xs text-[--muted-foreground]">Posts</p>
-            <p className="text-2xl font-bold text-[--foreground]">{progress.postsViewed.current}</p>
+            <p className="text-xs text-[var(--muted-foreground)]">Posts</p>
+            <p className="text-2xl font-bold text-[var(--foreground)]">{progress.postsViewed.current}</p>
           </div>
           <div>
-            <p className="text-xs text-[--muted-foreground]">Comments</p>
-            <p className="text-2xl font-bold text-[--foreground]">{progress.comments.current}</p>
+            <p className="text-xs text-[var(--muted-foreground)]">Comments</p>
+            <p className="text-2xl font-bold text-[var(--foreground)]">{progress.comments.current}</p>
           </div>
           <div>
-            <p className="text-xs text-[--muted-foreground]">Level</p>
-            <p className="text-2xl font-bold text-[--foreground]">{profile.level}</p>
+            <p className="text-xs text-[var(--muted-foreground)]">Level</p>
+            <p className="text-2xl font-bold text-[var(--foreground)]">{profile.level}</p>
           </div>
         </div>
       </Card>
