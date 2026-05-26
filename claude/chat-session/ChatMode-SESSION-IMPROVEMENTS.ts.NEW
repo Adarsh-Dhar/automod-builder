@@ -1,0 +1,311 @@
+// UPDATED: src/client/components/ChatMode.tsx (Key parts showing session integration)
+// Replace the sendMessage function and add these new features
+
+// Add these imports at the top:
+import { useEffect, useRef, useState } from 'react';
+import { getChatSessionManager, type ChatSession } from '../utils/chat-session';
+
+// Add this new component for session status display
+function SessionStatusIndicator({ session }: { session: ChatSession }) {
+  const statusColor = 
+    session.status === 'active' ? 'bg-green-500' :
+    session.status === 'paused' ? 'bg-yellow-500' :
+    'bg-red-500';
+
+  const statusText =
+    session.status === 'active' ? 'Connected' :
+    session.status === 'paused' ? 'Paused' :
+    'Error';
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[--surface-3] text-xs">
+      <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+      <span className="text-[--muted-foreground]">{statusText}</span>
+      {session.error && (
+        <span className="text-[--danger] ml-1" title={session.error}>
+          ({session.error.substring(0, 20)}...)
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Add this new component for retry indicator
+function RetryIndicator({ isRetrying, attempt, maxAttempts }: { 
+  isRetrying: boolean; 
+  attempt: number;
+  maxAttempts: number;
+}) {
+  if (!isRetrying) return null;
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-[--muted-foreground] bg-[--surface-3] px-3 py-2 rounded-lg">
+      <div className="animate-spin text-[--info]">⚡</div>
+      <span>Retrying... (Attempt {attempt}/{maxAttempts})</span>
+    </div>
+  );
+}
+
+// REPLACE the sendMessage function with this improved version:
+const sendMessage = async (text: string) => {
+  if (!text.trim() || isLoading) return;
+
+  const sessionManager = getChatSessionManager();
+  const currentSession = sessionManager.getSession();
+
+  // Validate API key
+  if (!apiKey) {
+    setShowApiKeyModal(true);
+    return;
+  }
+
+  const trimmed = text.trim();
+  const debugPostId = detectDebugIntent(trimmed);
+
+  // Handle "apply" intent
+  if (APPLY_INTENT_RE.test(trimmed)) {
+    const lastYaml = extractLastYaml(messages);
+    if (lastYaml) {
+      const userMsg: ChatMessage = {
+        id: genId(),
+        role: 'user',
+        content: trimmed,
+        timestamp: Date.now(),
+      };
+      const lastAiMsg = [...messages].reverse().find(
+        (message) => message.role === 'assistant' && message.content.includes('```')
+      );
+      const confirmMsg: ChatMessage = {
+        id: genId(),
+        role: 'assistant',
+        content: 'Done! The rules have been applied to your Code editor. Switch to **Code** or **Drag** mode to see them.',
+        timestamp: Date.now(),
+      };
+      onAddMessage(userMsg);
+      onApplyYaml(lastYaml);
+      if (lastAiMsg) {
+        setAppliedMsgId(lastAiMsg.id);
+      }
+      onAddMessage(confirmMsg);
+      setInput('');
+      return;
+    }
+  }
+
+  setError(null);
+  const userMsg: ChatMessage = {
+    id: genId(),
+    role: 'user',
+    content: trimmed,
+    timestamp: Date.now(),
+  };
+  onAddMessage(userMsg);
+  setInput('');
+  setIsLoading(true);
+  
+  // Reset retry counter
+  setRetryAttempt(0);
+
+  try {
+    // Handle debug requests (no retry needed - direct API call)
+    if (debugPostId) {
+      const response = await fetch('/api/rule-stage/debug', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId: debugPostId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to debug post');
+      }
+
+      const data = (await response.json()) as { status: 'success'; debug: DebugResponse };
+      onAddMessage({
+        id: genId(),
+        role: 'assistant',
+        content: formatDebugMessage(data.debug),
+        timestamp: Date.now(),
+        debugResult: data.debug,
+      });
+      return;
+    }
+
+    // Prepare context and history
+    const history = messages
+      .slice(-6)
+      .map((message) => ({
+        role: (message.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+        content: 
+          message.role === 'assistant' && message.content.includes('```yaml')
+            ? '[Previous YAML response — omitted from context]'
+            : message.content,
+      }));
+
+    let contextual = trimmed;
+    const currentYaml = contextYaml ?? (ast.length > 0 ? astToYaml(ast) : '');
+    if (currentYaml) {
+      contextual = `Current rules:\n\`\`\`yaml\n${currentYaml}\n\`\`\`\n\nRequest: ${trimmed}`;
+    }
+
+    console.log('[ChatMode] Sending message with session:', sessionManager.getSessionId());
+
+    // SEND WITH RETRY LOGIC
+    let attempt = 0;
+    const maxAttempts = 3;
+    let lastError: Error | null = null;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      setRetryAttempt(attempt);
+
+      try {
+        console.log(`[ChatMode] Attempt ${attempt}/${maxAttempts}`);
+
+        // Use session manager to send with retry
+        const result = await sessionManager.sendMessage(contextual, history, {
+          subredditContext,
+          apiKey,
+          blastContext: undefined,
+        });
+
+        // Parse the response
+        const chatResponse = await fetch('/api/rule-stage/chat-unified', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: contextual,
+            history,
+            subredditContext,
+            apiKey,
+            sessionId: sessionManager.getSessionId(),
+          }),
+        });
+
+        if (!chatResponse.ok) {
+          const payload = (await chatResponse.json().catch(() => null)) as { message?: string } | null;
+          throw new Error(payload?.message || 'Failed to fetch chat response');
+        }
+
+        const unified = (await chatResponse.json()) as UnifiedResponse;
+
+        // Process YAML response
+        if (unified.yamlResponse) {
+          const msgId = genId();
+          onAddMessage({
+            id: msgId,
+            role: 'assistant',
+            content: unified.yamlResponse,
+            timestamp: Date.now(),
+          });
+
+          // Run blast radius
+          const yamlInReply = extractYamlFromFenced(unified.yamlResponse);
+          if (yamlInReply) {
+            try {
+              const parsedRule = parseAutomodRuleDraft(yamlInReply, DEFAULT_AUTOMOD_RULE);
+              const blastResponse = await fetch('/api/rule-stage/blast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rule: parsedRule }),
+              });
+
+              if (blastResponse.ok) {
+                const blastData = (await blastResponse.json()) as {
+                  status: 'success';
+                  blast: BlastRadiusResult;
+                };
+                if (blastData.status === 'success') {
+                  onAddMessage({
+                    id: genId(),
+                    role: 'assistant',
+                    content: formatBlastMessage(blastData.blast),
+                    timestamp: Date.now(),
+                  });
+                }
+              }
+            } catch (blastError) {
+              console.warn('Blast Radius backtest failed:', blastError);
+            }
+          }
+        }
+
+        // Process escape hatch if needed
+        if (unified.escapeHatch) {
+          onAddMessage({
+            id: genId(),
+            role: 'assistant',
+            content: '__escape_hatch__',
+            timestamp: Date.now(),
+            escapeHatch: unified.escapeHatch,
+          });
+        }
+
+        // Success - exit retry loop
+        setRetryAttempt(0);
+        break;
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`[ChatMode] Attempt ${attempt} failed:`, lastError.message);
+
+        const message = lastError.message.toLowerCase();
+        const isRetryable = 
+          message.includes('grpc') ||
+          message.includes('deadline') ||
+          message.includes('timeout') ||
+          message.includes('network') ||
+          message.includes('connection');
+
+        if (!isRetryable || attempt >= maxAttempts) {
+          // Not retryable or exhausted retries
+          break;
+        }
+
+        // Wait before retry with exponential backoff
+        const delay = Math.min(10000, 1000 * Math.pow(2, attempt - 1));
+        console.log(`[ChatMode] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    // If all retries failed
+    if (lastError) {
+      setError(lastError.message);
+      onAddMessage({
+        id: genId(),
+        role: 'assistant',
+        content: `⚠️ **Error after ${attempt} attempts:** ${lastError.message}\n\nPlease try again or use a shorter prompt.`,
+        timestamp: Date.now(),
+      });
+    }
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[ChatMode] Error:', errorMsg);
+    setError(errorMsg);
+  } finally {
+    setIsLoading(false);
+    setRetryAttempt(0);
+  }
+};
+
+// Add these state variables to the ChatMode component:
+const [retryAttempt, setRetryAttempt] = useState(0);
+const [chatSession, setChatSession] = useState<ChatSession | null>(null);
+
+// Add this useEffect to monitor session status
+useEffect(() => {
+  const sessionManager = getChatSessionManager();
+  const session = sessionManager.getSession();
+  setChatSession(session);
+
+  const interval = setInterval(() => {
+    setChatSession(sessionManager.getSession());
+  }, 1000); // Update every second
+
+  return () => clearInterval(interval);
+}, []);
+
+// In the render section, add the session indicator and retry indicator near the input:
+{chatSession && <SessionStatusIndicator session={chatSession} />}
+{isLoading && <RetryIndicator isRetrying={isLoading} attempt={retryAttempt} maxAttempts={3} />}

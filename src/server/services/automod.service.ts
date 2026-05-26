@@ -213,113 +213,207 @@ export interface WikiRevision {
 }
 
 /**
- * Fetch wiki revision history for the automod config page.
+ * Fetch wiki revision history for the automod config page with retry logic.
  * This allows users to see historical versions from Reddit's wiki.
  * 
  * Note: Requires OAuth token with wiki read permissions.
  */
 export async function getWikiRevisions(
   subredditName: string,
-  limit: number = 20
+  limit: number = 20,
+  maxRetries: number = 3,
+  delayMs: number = 1000
 ): Promise<WikiRevision[]> {
   if (!subredditName || subredditName === 'default') {
     console.warn('[AutoModService] Cannot fetch wiki revisions in playtest mode');
     return [];
   }
 
-  try {
-    // Construct Reddit API URL for wiki revisions
-    // Reddit's wiki revisions endpoint requires OAuth access
-    const wikiRevisionsUrl = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator/revisions?limit=${limit}`;
+  let lastError: Error | null = null;
 
-    // Fetch using the reddit API wrapper (Devvit provides authenticated requests)
-    // This uses the app's configured OAuth credentials
-    const response = await fetch(wikiRevisionsUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'AutoModBuilder/1.0 by YourUsername',
-      },
-    });
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[AutoModService] Fetching wiki revisions, attempt ${attempt + 1}/${maxRetries + 1}`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.warn(`[AutoModService] Failed to fetch wiki revisions (HTTP ${response.status}):`, errorText);
-      
-      if (response.status === 404) {
-        // Wiki page doesn't exist yet
-        return [];
+      // Construct Reddit API URL for wiki revisions
+      // Reddit's wiki revisions endpoint requires OAuth access
+      const wikiRevisionsUrl = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator/revisions?limit=${limit}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+      try {
+        // Fetch using the reddit API wrapper (Devvit provides authenticated requests)
+        // This uses the app's configured OAuth credentials
+        const response = await fetch(wikiRevisionsUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'AutoModBuilder/1.0 by YourUsername',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`[AutoModService] Failed to fetch wiki revisions (HTTP ${response.status}):`, errorText);
+          
+          if (response.status === 404) {
+            // Wiki page doesn't exist yet
+            return [];
+          }
+          
+          if (response.status === 403) {
+            // No permission to view revisions
+            console.warn('[AutoModService] No permission to view wiki revisions');
+            return [];
+          }
+          
+          if (response.status >= 500) {
+            // Server error - retryable
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
+          // Client error - not retryable
+          throw new Error(`Failed to fetch: HTTP ${response.status}`);
+        }
+
+        const data = (await response.json()) as any;
+        
+        if (!data.data?.children) {
+          return [];
+        }
+
+        // Parse revision data from Reddit's response format
+        const revisions: WikiRevision[] = data.data.children
+          .map((child: any) => {
+            const rev = child.data;
+            return {
+              timestamp: (rev.timestamp || 0) * 1000, // Convert Unix seconds to milliseconds
+              author: rev.author || 'Unknown',
+              reason: rev.reason || undefined,
+            };
+          })
+          .sort((a: WikiRevision, b: WikiRevision) => b.timestamp - a.timestamp); // Newest first
+
+        return revisions;
+      } finally {
+        clearTimeout(timeoutId);
       }
-      
-      if (response.status === 403) {
-        // No permission to view revisions
-        console.warn('[AutoModService] No permission to view wiki revisions');
-        return [];
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`[AutoModService] Revision fetch attempt ${attempt + 1} failed:`, lastError.message);
+
+      // Check if retryable
+      const message = lastError.message.toLowerCase();
+      const isRetryable =
+        message.includes('timeout') ||
+        message.includes('connection') ||
+        message.includes('network') ||
+        message.includes('server error');
+
+      if (!isRetryable || attempt >= maxRetries) {
+        break;
       }
-      
-      throw new Error(`Wiki revisions API returned ${response.status}`);
+
+      // Exponential backoff
+      const nextDelay = Math.min(10000, delayMs * Math.pow(2, attempt));
+      console.log(`[AutoModService] Waiting ${nextDelay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, nextDelay));
     }
-
-    const data = (await response.json()) as any;
-    
-    if (!data.data?.children) {
-      return [];
-    }
-
-    // Parse revision data from Reddit's response format
-    const revisions: WikiRevision[] = data.data.children
-      .map((child: any) => {
-        const rev = child.data;
-        return {
-          timestamp: (rev.timestamp || 0) * 1000, // Convert Unix seconds to milliseconds
-          author: rev.author || 'Unknown',
-          reason: rev.reason || undefined,
-        };
-      })
-      .sort((a: WikiRevision, b: WikiRevision) => b.timestamp - a.timestamp); // Newest first
-
-    return revisions;
-  } catch (error) {
-    console.warn('[AutoModService] Failed to fetch wiki revisions:', error);
-    // Don't throw - return empty array so app continues to work
-    return [];
   }
+
+  console.warn('[AutoModService] Failed to fetch wiki revisions after all retries');
+  return []; // Return empty array instead of throwing
 }
 
 /**
- * Get the content of a specific wiki revision.
+ * Get the content of a specific wiki revision with retry logic.
  * This allows users to view or restore old rule versions.
  */
 export async function getWikiRevisionContent(
   subredditName: string,
-  revisionId: string
+  revisionId: string,
+  maxRetries: number = 3,
+  delayMs: number = 1000
 ): Promise<string> {
   if (!subredditName || subredditName === 'default') {
     console.warn('[AutoModService] Cannot fetch wiki revision content in playtest mode');
     return '';
   }
 
-  try {
-    // Fetch specific revision by ID
-    const revisionUrl = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator?v=${revisionId}`;
+  let lastError: Error | null = null;
 
-    const response = await fetch(revisionUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'AutoModBuilder/1.0 by YourUsername',
-      },
-    });
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `[AutoModService] Fetching revision content (${revisionId}), attempt ${attempt + 1}/${maxRetries + 1}`
+      );
 
-    if (!response.ok) {
-      console.warn(`[AutoModService] Failed to fetch wiki revision content (HTTP ${response.status})`);
-      return '';
+      // Fetch specific revision by ID
+      const revisionUrl = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator?v=${revisionId}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        const response = await fetch(revisionUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'AutoModBuilder/1.0 by YourUsername',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          console.warn(`[AutoModService] Failed to fetch wiki revision content (HTTP ${response.status})`);
+
+          if (response.status === 404) {
+            return ''; // Revision not found
+          }
+
+          if (response.status >= 500) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+
+          throw new Error(`Failed to fetch: HTTP ${response.status}`);
+        }
+
+        const data = (await response.json()) as any;
+        const content = extractWikiContent(data);
+
+        return content;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (error) {
+      lastError = error as Error;
+      console.error(
+        `[AutoModService] Revision content fetch attempt ${attempt + 1} failed:`,
+        lastError.message
+      );
+
+      const message = lastError.message.toLowerCase();
+      const isRetryable =
+        message.includes('timeout') ||
+        message.includes('connection') ||
+        message.includes('network') ||
+        message.includes('server error');
+
+      if (!isRetryable || attempt >= maxRetries) {
+        break;
+      }
+
+      const nextDelay = Math.min(10000, delayMs * Math.pow(2, attempt));
+      await new Promise(resolve => setTimeout(resolve, nextDelay));
     }
-
-    const data = (await response.json()) as any;
-    return extractWikiContent(data);
-  } catch (error) {
-    console.warn('[AutoModService] Failed to fetch wiki revision content:', error);
-    return '';
   }
+
+  console.warn('[AutoModService] Failed to fetch revision content after all retries');
+  return '';
 }
 
 // ============================================================================

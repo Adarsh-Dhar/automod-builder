@@ -1,0 +1,307 @@
+// NEW FILE: src/client/components/WikiRevisionsPanel.tsx
+// Display Reddit wiki revisions with restore functionality
+
+import { useState, useEffect } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from './ui/sheet';
+import { Button } from './ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from './ui/alert-dialog';
+
+export interface WikiRevision {
+  timestamp: number;
+  author: string;
+  reason?: string;
+  id?: string;
+}
+
+interface WikiRevisionsPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subredditName?: string;
+  onRestore: (yaml: string) => Promise<void>;
+}
+
+function formatDate(timestamp: number): string {
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 2592000) return `${Math.floor(seconds / 86400)}d ago`;
+  return `${Math.floor(seconds / 2592000)}mo ago`;
+}
+
+export default function WikiRevisionsPanel({
+  open,
+  onOpenChange,
+  subredditName,
+  onRestore,
+}: WikiRevisionsPanelProps) {
+  const [revisions, setRevisions] = useState<WikiRevision[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<WikiRevision | null>(null);
+  const [previewContent, setPreviewContent] = useState<string>('');
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // Load revisions when panel opens
+  useEffect(() => {
+    if (open) {
+      loadRevisions();
+    }
+  }, [open, subredditName]);
+
+  const loadRevisions = async () => {
+    if (!subredditName || subredditName === 'default') {
+      setError('Wiki revisions are only available in production (not in playtest)');
+      setRevisions([]);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/rule-stage/wiki-revisions');
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setRevisions(data.revisions || []);
+        if (!data.revisions || data.revisions.length === 0) {
+          setError('No wiki revisions found for this subreddit');
+        }
+      } else {
+        setError(data.message || 'Failed to load wiki revisions');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load revisions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectRevision = async (revision: WikiRevision) => {
+    setSelectedRevision(revision);
+    
+    // Fetch the content of this revision
+    try {
+      const response = await fetch(`/api/rule-stage/wiki-revisions/${revision.id}`);
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        setPreviewContent(data.content);
+      } else {
+        setPreviewContent('(Could not load revision content)');
+      }
+    } catch (err) {
+      setPreviewContent('(Failed to load revision content)');
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!selectedRevision || !previewContent) return;
+
+    setIsRestoring(true);
+    try {
+      await onRestore(previewContent);
+      setShowRestoreConfirm(false);
+      setSelectedRevision(null);
+      setPreviewContent('');
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to restore revision');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-full sm:w-[500px] bg-[--surface-2] border-[--border] flex flex-col">
+          <SheetHeader>
+            <SheetTitle className="text-[--foreground]">Wiki Revisions</SheetTitle>
+            <SheetDescription className="text-[--muted-foreground]">
+              Historical changes to your AutoModerator configuration
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* Refresh button */}
+          <div className="flex gap-2 mt-4">
+            <Button
+              onClick={loadRevisions}
+              disabled={loading}
+              variant="outline"
+              className="flex-1 border-[--border]"
+            >
+              {loading ? 'Loading...' : 'Refresh'}
+            </Button>
+            <Button
+              onClick={() => {
+                setSelectedRevision(null);
+                setPreviewContent('');
+              }}
+              disabled={!selectedRevision}
+              variant="outline"
+              className="flex-1 border-[--border]"
+            >
+              Clear Selection
+            </Button>
+          </div>
+
+          {/* Error display */}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-[--danger]/10 border border-[--danger]/20 text-[--danger] text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Main content area */}
+          <div className="flex-1 flex gap-4 overflow-hidden mt-4">
+            {/* Revisions list */}
+            <div className="flex-shrink-0 w-40 flex flex-col gap-2 overflow-y-auto border-r border-[--border] pr-3">
+              <div className="text-xs font-semibold text-[--muted-foreground] uppercase">
+                {revisions.length} Revisions
+              </div>
+
+              {revisions.length === 0 ? (
+                <div className="flex items-center justify-center h-32 text-xs text-[--muted-foreground] text-center">
+                  {loading ? 'Loading...' : 'No revisions found'}
+                </div>
+              ) : (
+                revisions.map((revision, idx) => (
+                  <button
+                    key={`${revision.timestamp}-${idx}`}
+                    onClick={() => handleSelectRevision(revision)}
+                    className={`text-left p-2 rounded-lg transition-colors text-xs border ${
+                      selectedRevision?.timestamp === revision.timestamp
+                        ? 'bg-[--primary]/20 border-[--primary]/50'
+                        : 'border-[--border] hover:bg-[--surface-3]'
+                    }`}
+                  >
+                    <div className="font-mono text-[10px] text-[--success] leading-tight">
+                      {formatDate(revision.timestamp).split(' ').slice(0, 2).join(' ')}
+                      <br />
+                      {formatDate(revision.timestamp).split(' ').slice(2).join(' ')}
+                    </div>
+                    <div className="text-[--muted-foreground] mt-1 truncate">
+                      {revision.author}
+                    </div>
+                    <div className="text-[--subtle] text-[9px] mt-0.5">
+                      {timeAgo(revision.timestamp)}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Preview area */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {!selectedRevision ? (
+                <div className="flex items-center justify-center h-full text-[--muted-foreground] text-sm">
+                  Select a revision to view
+                </div>
+              ) : (
+                <>
+                  {/* Revision info */}
+                  <div className="flex-shrink-0 border-b border-[--border] pb-3">
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <div className="text-[--muted-foreground]">Author</div>
+                        <div className="text-[--foreground] font-mono">
+                          u/{selectedRevision.author}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[--muted-foreground]">Date</div>
+                        <div className="text-[--foreground] font-mono text-[10px]">
+                          {formatDate(selectedRevision.timestamp)}
+                        </div>
+                      </div>
+                      {selectedRevision.reason && (
+                        <div className="col-span-2">
+                          <div className="text-[--muted-foreground]">Reason</div>
+                          <div className="text-[--foreground] italic">
+                            {selectedRevision.reason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* YAML preview */}
+                  <div className="flex-1 overflow-hidden flex flex-col mt-3">
+                    <div className="text-xs text-[--muted-foreground] mb-2">Configuration</div>
+                    <pre className="flex-1 overflow-auto text-[10px] font-mono text-[--success] bg-[--surface-3] p-3 rounded-lg leading-relaxed border border-[--border]">
+                      {previewContent}
+                    </pre>
+                  </div>
+
+                  {/* Restore button */}
+                  <div className="flex-shrink-0 mt-3 pt-3 border-t border-[--border]">
+                    <Button
+                      onClick={() => setShowRestoreConfirm(true)}
+                      disabled={!previewContent}
+                      className="w-full bg-[--warning] text-[--foreground] hover:bg-[--warning]/90"
+                    >
+                      Restore This Revision
+                    </Button>
+                    <p className="text-[10px] text-[--subtle] mt-2">
+                      ⚠️ This will replace your current configuration with this revision
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Restore confirmation dialog */}
+      <AlertDialog open={showRestoreConfirm} onOpenChange={setShowRestoreConfirm}>
+        <AlertDialogContent className="bg-[--surface-2] border-[--border]">
+          <AlertDialogTitle className="text-[--foreground]">
+            Restore Revision?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-[--muted-foreground]">
+            <div className="space-y-2">
+              <p>
+                You're about to restore the AutoModerator configuration from{' '}
+                <strong>{formatDate(selectedRevision?.timestamp || 0)}</strong>
+              </p>
+              <p>
+                by <strong>u/{selectedRevision?.author}</strong>
+              </p>
+              <p className="text-[--danger] pt-2">
+                ⚠️ This will overwrite your current configuration. This action can be undone by
+                restoring another revision.
+              </p>
+            </div>
+          </AlertDialogDescription>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel className="border-[--border]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRestore}
+              disabled={isRestoring}
+              className="bg-[--warning] text-[--foreground] hover:bg-[--warning]/90"
+            >
+              {isRestoring ? 'Restoring...' : 'Restore'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

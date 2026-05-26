@@ -483,6 +483,54 @@ ruleStage.get('/wiki-revisions/:revisionId', async (c) => {
   }
 });
 
+ruleStage.post('/wiki-revisions/restore/:revisionId', async (c) => {
+  try {
+    const revisionId = c.req.param('revisionId');
+    const subredditName = context.subredditName ?? '';
+    const body = await c.req.json().catch(() => null);
+    const reason = typeof body?.reason === 'string' ? body.reason : 'Restored via AutoMod Builder';
+
+    if (!subredditName || subredditName === 'default') {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Cannot restore revisions in playtest mode',
+        },
+        400
+      );
+    }
+
+    // Fetch the revision content
+    const yaml = await getWikiRevisionContent(subredditName, revisionId);
+    if (!yaml) {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Revision not found',
+        },
+        404
+      );
+    }
+
+    // Push it back to wiki with a reason
+    await pushYamlToWiki(yaml, `${reason} (from revision ${revisionId})`);
+
+    return c.json({
+      status: 'success',
+      message: 'Revision restored successfully',
+    });
+  } catch (error) {
+    console.error('[RuleStage] wiki-revision-restore failed:', error);
+    return c.json(
+      {
+        status: 'error',
+        message: 'Failed to restore revision',
+      },
+      500
+    );
+  }
+});
+
 // ============================================================================
 // END NEW CODE
 // ============================================================================

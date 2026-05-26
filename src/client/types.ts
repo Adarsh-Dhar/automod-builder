@@ -80,3 +80,5 @@ export type SimulationDiff = {
   totalPosts: number;
   runAt: number;
 };
+
+export type ExportFormat = 'text' | 'json' | 'markdown';

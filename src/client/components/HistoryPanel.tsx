@@ -60,9 +60,9 @@ export default function HistoryPanel({
   // Load wiki revisions when tab is opened
   useEffect(() => {
     if (open && activeTab === "wiki" && wikiRevisions.length === 0) {
-      fetchWikiRevisions();
+      void fetchWikiRevisions();
     }
-  }, [open, activeTab]);
+  }, [open, activeTab, wikiRevisions.length]);
 
   const fetchWikiRevisions = async () => {
     setLoadingWiki(true);
