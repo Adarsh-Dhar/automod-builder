@@ -3,12 +3,7 @@ interface QuickSuggestionsProps {
   className?: string;
 }
 
-const SUGGESTIONS = [
-  'Create spam filter rule',
-  'Best practices for moderation',
-  'Reduce false positives',
-  'Improve performance',
-];
+const SUGGESTIONS: string[] = [];
 
 export default function QuickSuggestions({ onSelectSuggestion, className = '' }: QuickSuggestionsProps) {
   return (

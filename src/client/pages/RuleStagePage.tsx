@@ -7,7 +7,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Skeleton } from '../components/ui/skeleton';
 import { useToast } from '../hooks/use-toast';
 import { PageTopbar } from '../components/layout/PageTopbar';
-import { ModeTabStrip } from '../components/layout/ModeTabStrip';
+import { Sidebar } from '../components/layout/Sidebar';
 import { RightPanel } from '../components/layout/RightPanel';
 import {
   DEFAULT_AUTOMOD_RULE,
@@ -328,11 +328,17 @@ export function RuleStagePage() {
         onOpenHistory={() => setHistoryPanelOpen(true)}
       />
 
-      {/* Mode Tab Strip */}
-      <ModeTabStrip mode={mode} setMode={setMode} />
+      {/* Sidebar - fixed positioned overlay */}
+      <div className="fixed left-0 top-14 bottom-0 z-30">
+        <Sidebar
+          ruleName={rule.name}
+          mode={mode}
+          setMode={setMode}
+        />
+      </div>
 
-      {/* Three-column workspace */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main workspace */}
+      <div className="flex-1 overflow-hidden">
         {/* Main content area */}
         <div className="flex-1 overflow-auto p-6 md:p-8 bg-[--background]">
           {loading && (

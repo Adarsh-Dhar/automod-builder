@@ -1,13 +1,16 @@
-import { Menu, X, Settings, LayoutGrid, Zap } from 'lucide-react';
+import { Menu, X, Code, MessageSquare, Bug, History } from 'lucide-react';
 import { useState } from 'react';
+import type { RuleStageMode } from '../../../shared/automod';
 
 interface SidebarProps {
   ruleName: string;
   isCollapsed?: boolean;
   onToggle?: (collapsed: boolean) => void;
+  mode: RuleStageMode;
+  setMode: (mode: RuleStageMode) => void;
 }
 
-export function Sidebar({ ruleName, isCollapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ ruleName, isCollapsed = false, onToggle, mode, setMode }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(isCollapsed);
 
   const handleToggle = () => {
@@ -49,23 +52,36 @@ export function Sidebar({ ruleName, isCollapsed = false, onToggle }: SidebarProp
           <p className="text-sm font-medium text-[--foreground] truncate">{ruleName}</p>
         </div>
 
-        {/* Quick Actions */}
+        {/* Mode Selection */}
         <div className={`mt-4 ${!collapsed ? 'block' : 'hidden'}`}>
-          <p className="text-xs uppercase tracking-wider text-[--muted-foreground] px-3 mb-2">Quick Actions</p>
+          <p className="text-xs uppercase tracking-wider text-[--muted-foreground] px-3 mb-2">Mode</p>
           <SidebarItem
-            icon={<Zap size={18} />}
-            label="Blast Radius"
+            icon={<Code size={18} />}
+            label="Code"
             collapsed={collapsed}
+            active={mode === 'code'}
+            onClick={() => setMode('code')}
           />
           <SidebarItem
-            icon={<LayoutGrid size={18} />}
-            label="Code Mode"
+            icon={<MessageSquare size={18} />}
+            label="Chat"
             collapsed={collapsed}
+            active={mode === 'chat'}
+            onClick={() => setMode('chat')}
           />
           <SidebarItem
-            icon={<Settings size={18} />}
-            label="Settings"
+            icon={<Bug size={18} />}
+            label="Debugger"
             collapsed={collapsed}
+            active={mode === 'debug'}
+            onClick={() => setMode('debug')}
+          />
+          <SidebarItem
+            icon={<History size={18} />}
+            label="Version History"
+            collapsed={collapsed}
+            active={mode === 'wiki-history'}
+            onClick={() => setMode('wiki-history')}
           />
         </div>
       </nav>
@@ -86,14 +102,17 @@ function SidebarItem({
   label,
   collapsed,
   active = false,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   collapsed: boolean;
   active?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
+      onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
         active
           ? 'bg-[--primary]/20 text-[--primary] border border-[--primary]/30'

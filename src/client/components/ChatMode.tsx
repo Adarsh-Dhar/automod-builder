@@ -45,7 +45,7 @@ function ApiKeyModal({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-2xl border border-[--border] bg-[--surface-2] p-6 shadow-lg">
+      <div className="w-full max-w-md rounded-2xl border border-[#333] bg-[#1C1C1C] p-6 shadow-lg">
         <h3 className="mb-4 text-lg font-semibold text-[--foreground]">Gemini API Key</h3>
         <p className="mb-4 text-sm text-[--muted-foreground]">
           Enter your Gemini API key to use the chat feature. Your key is stored locally in your browser.
