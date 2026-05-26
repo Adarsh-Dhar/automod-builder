@@ -381,7 +381,7 @@ export function RuleStagePage() {
               {mode === 'wiki-history' && (
                 <div className="h-full -m-4 md:-m-6">
                   <WikiRevisionsPanel
-                    subredditName={init?.subredditName}
+                    {...(init?.subredditName && { subredditName: init.subredditName })}
                     onRestore={handleHistoryRestore}
                   />
                 </div>

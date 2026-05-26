@@ -539,10 +539,11 @@ ruleStage.post('/publish', async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
     const yaml = typeof body?.yaml === 'string' ? body.yaml : null;
+    const title = typeof body?.title === 'string' ? body.title : 'Updated via AutoMod Builder app';
     if (!yaml) {
       return c.json({ status: 'error', message: 'yaml is required' }, 400);
     }
-    await pushYamlToWiki(yaml);
+    await pushYamlToWiki(yaml, title);
     // also update Redis so the next load is consistent
     const ruleStorageKey = `rulestage:rule:current:${context.subredditName ?? 'default'}`;
     await redis.set(ruleStorageKey, yaml);

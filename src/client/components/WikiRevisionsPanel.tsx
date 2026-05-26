@@ -66,9 +66,13 @@ export default function WikiRevisionsPanel({
       const data = await response.json();
 
       if (data.status === 'success') {
-        setRevisions(data.revisions || []);
+        const revs = data.revisions ?? [];
+        setRevisions(revs);
+        if (revs.length === 0) {
+          setError('No revisions found. This subreddit may not have any AutoModerator wiki history yet.');
+        }
       } else {
-        setError(data.message || 'Failed to load wiki revisions');
+        setError(data.message ?? 'Failed to load wiki revisions');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load revisions');
@@ -85,12 +89,18 @@ export default function WikiRevisionsPanel({
   }, [isPlaytest, loadRevisions]);
 
   const handleLook = async (revision: WikiRevision) => {
+    if (selectedRevision?.id === revision.id && previewContent) {
+      setSelectedRevision(null);
+      setPreviewContent('');
+      return;
+    }
     setSelectedRevision(revision);
+    setPreviewContent('');
     setRestoreError(null);
     
     // Fetch the content of this revision
     try {
-      const response = await fetch(`/api/rule-stage/wiki-revisions/${revision.id}`);
+      const response = await fetch(`/api/rule-stage/wiki-revisions/${encodeURIComponent(revision.id ?? '')}`);
       const data = await response.json();
       
       if (data.status === 'success') {
@@ -104,23 +114,29 @@ export default function WikiRevisionsPanel({
   };
 
   const handleRestoreFromRow = async (revision: WikiRevision) => {
-    setSelectedRevision(revision);
-    setRestoreError(null);
-    
-    // Fetch content first, then confirm
-    try {
-      const response = await fetch(`/api/rule-stage/wiki-revisions/${revision.id}`);
-      const data = await response.json();
+    let yaml = selectedRevision?.id === revision.id ? previewContent : '';
+    if (!yaml) {
+      setSelectedRevision(revision);
+      setRestoreError(null);
       
-      if (data.status === 'success') {
-        setPreviewContent(data.content);
-        setShowRestoreConfirm(true);
-      } else {
-        setRestoreError('Could not load revision content');
+      // Fetch content first, then confirm
+      try {
+        const response = await fetch(`/api/rule-stage/wiki-revisions/${encodeURIComponent(revision.id ?? '')}`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+          yaml = data.content ?? '';
+          setPreviewContent(yaml);
+        } else {
+          setRestoreError(data.message ?? 'Could not load revision content');
+          return;
+        }
+      } catch (err) {
+        setRestoreError('Failed to load revision content');
+        return;
       }
-    } catch (err) {
-      setRestoreError('Failed to load revision content');
     }
+    setShowRestoreConfirm(true);
   };
 
   const handleRestoreFromPreview = () => {

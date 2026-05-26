@@ -4,7 +4,8 @@
     "http": {
       "enable": true,
       "domains": [
-        "generativelanguage.googleapis.com"
+        "generativelanguage.googleapis.com",
+        "oauth.reddit.com"
       ]
     },
     "reddit": true
