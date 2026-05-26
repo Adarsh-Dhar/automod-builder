@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { settings } from '@devvit/web/server';
 
 function loadLocalEnvValue(key: string): string {
   // Resolve to project root from the current file location

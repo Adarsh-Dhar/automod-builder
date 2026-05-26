@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import type { HistorySnapshot } from '../utils/history';
 import type { SavedMockTest } from '../utils/mock-tests';
 import type { MatrixCell } from '../utils/test-matrix';
-import { getMatrixCell, getAllMatrixCells } from '../utils/test-matrix';
+import { getAllMatrixCells } from '../utils/test-matrix';
 import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Skeleton } from './ui/skeleton';
 
 type TestMatrixViewProps = {
   changes: HistorySnapshot[];

@@ -1,0 +1,92 @@
+// FIX: Add this endpoint to src/server/routes/rule-stage.ts
+// Add after the /live-yaml endpoint (around line 405)
+
+// ============================================================================
+// NEW: Wiki Revisions Endpoint
+// ============================================================================
+
+ruleStage.get('/wiki-revisions', async (c) => {
+  try {
+    const subredditName = context.subredditName ?? '';
+    
+    if (!subredditName || subredditName === 'default') {
+      // In playtest mode, return empty revisions
+      return c.json({
+        status: 'success',
+        revisions: [],
+        message: 'Wiki revisions not available in playtest mode',
+      });
+    }
+
+    // Import the new function at the top of the file:
+    // import { ..., getWikiRevisions } from '../services/automod.service';
+
+    const revisions = await getWikiRevisions(subredditName, 50);
+
+    return c.json({
+      status: 'success',
+      revisions,
+      count: revisions.length,
+    });
+  } catch (error) {
+    console.error('[RuleStage] wiki-revisions fetch failed:', error);
+    return c.json(
+      {
+        status: 'error',
+        message: (error as Error).message || 'Failed to fetch wiki revisions',
+      },
+      500
+    );
+  }
+});
+
+ruleStage.get('/wiki-revisions/:revisionId', async (c) => {
+  try {
+    const revisionId = c.req.param('revisionId');
+    const subredditName = context.subredditName ?? '';
+
+    if (!subredditName || subredditName === 'default') {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Cannot fetch revision content in playtest mode',
+        },
+        400
+      );
+    }
+
+    // Import the new function at the top of the file:
+    // import { ..., getWikiRevisionContent } from '../services/automod.service';
+
+    const content = await getWikiRevisionContent(subredditName, revisionId);
+
+    if (!content) {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Revision not found or no permission to access',
+        },
+        404
+      );
+    }
+
+    return c.json({
+      status: 'success',
+      content,
+      revisionId,
+    });
+  } catch (error) {
+    console.error('[RuleStage] wiki-revision-content fetch failed:', error);
+    return c.json(
+      {
+        status: 'error',
+        message: 'Failed to fetch revision content',
+      },
+      500
+    );
+  }
+});
+
+// ============================================================================
+// END NEW CODE
+// ============================================================================

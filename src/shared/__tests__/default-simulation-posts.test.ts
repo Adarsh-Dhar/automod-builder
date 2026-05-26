@@ -14,7 +14,7 @@ describe('createDefaultSimulationPosts', () => {
 
   it('Post 1 should match the reference - Promo / low-karma new account', () => {
     const posts = createDefaultSimulationPosts();
-    const post = posts[0];
+    const post = posts[0]!;
 
     expect(post.id).toBe('post-1');
     expect(post.title).toBe('Look what I got in the mail today');
@@ -41,7 +41,7 @@ describe('createDefaultSimulationPosts', () => {
 
   it('Post 2 should match the reference - Established mod / stickied discussion', () => {
     const posts = createDefaultSimulationPosts();
-    const post = posts[1];
+    const post = posts[1]!;
 
     expect(post.id).toBe('post-2');
     expect(post.title).toBe('Weekly discussion thread');
@@ -68,7 +68,7 @@ describe('createDefaultSimulationPosts', () => {
 
   it('Post 3 should match the reference - Vendor throwaway / link to imgur / promo flair', () => {
     const posts = createDefaultSimulationPosts();
-    const post = posts[2];
+    const post = posts[2]!;
 
     expect(post.id).toBe('post-3');
     expect(post.title).toBe('Just arrived - shipping update');
@@ -95,7 +95,7 @@ describe('createDefaultSimulationPosts', () => {
 
   it('Post 4 should match the reference - Amazon deal / low upvote ratio', () => {
     const posts = createDefaultSimulationPosts();
-    const post = posts[3];
+    const post = posts[3]!;
 
     expect(post.id).toBe('post-4');
     expect(post.title).toBe('Grab yours here before it is gone');

@@ -125,7 +125,7 @@ describe('Concurrent Wiki Writes', () => {
 
     // Update the same rule
     vi.clearAllMocks();
-    const updatedRule = { ...rule, conditions: [{ field: 'title', comparator: 'includes', value: 'spam2' }] };
+    const updatedRule = { ...rule, conditions: [{ field: 'title' as const, comparator: 'includes' as const, value: 'spam2' }] };
     const yaml2 = serializeAutomodRule(updatedRule);
     mockGetWikiPage.mockResolvedValue({ content_md: firstContent });
     await pushYamlToWiki(yaml2);

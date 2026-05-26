@@ -148,7 +148,7 @@ comment_stickied: false
     const currentVersion = '2.0.0';
     const ruleVersion = '1.0.0';
 
-    const isCompatible = currentVersion === ruleVersion;
+    const isCompatible = currentVersion === ruleVersion as any;
     expect(isCompatible).toBe(false);
   });
 });

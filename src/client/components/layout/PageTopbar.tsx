@@ -1,38 +1,14 @@
-import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
-import type { AutomodAction } from '../../../shared/automod';
 
 interface PageTopbarProps {
   ruleName: string;
-  action: AutomodAction;
   saving: boolean;
   onReset: () => void;
-  onActionChange: (action: AutomodAction) => void;
   onOpenHistory?: () => void;
 }
 
-export function PageTopbar({ ruleName, action, saving, onReset, onActionChange, onOpenHistory }: PageTopbarProps) {
-  const actions: AutomodAction[] = ['remove', 'report', 'approve'];
-
-  const getNextAction = (current: AutomodAction): AutomodAction => {
-    const currentIndex = actions.indexOf(current);
-    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % actions.length;
-    return actions[nextIndex] as AutomodAction;
-  };
-
-  const getActionColor = (act: AutomodAction) => {
-    switch (act) {
-      case 'remove':
-        return { bg: 'var(--danger)/15', text: 'var(--danger)', border: 'var(--danger)/25' };
-      case 'report':
-        return { bg: 'var(--warning)/15', text: 'var(--warning)', border: 'var(--warning)/25' };
-      case 'approve':
-        return { bg: 'var(--success)/15', text: 'var(--success)', border: 'var(--success)/25' };
-    }
-  };
-
-  const colors = getActionColor(action);
+export function PageTopbar({ ruleName, saving, onReset, onOpenHistory }: PageTopbarProps) {
 
   return (
     <div className="h-12 flex items-center justify-between px-3 md:px-4 bg-[--surface-1] border-b border-[--border] shrink-0">

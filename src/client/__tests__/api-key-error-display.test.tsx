@@ -5,8 +5,9 @@
  * in the UI, including error messages, toast notifications, and modal behavior.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import ApiKeyModal from '../components/ApiKeyModal';
 import { callGemini } from '../utils/gemini';
 

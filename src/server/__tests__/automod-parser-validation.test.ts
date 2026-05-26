@@ -250,8 +250,8 @@ describe('Round-Trip Compatibility', () => {
     const parsed = parseAutomodRuleDraft(yaml, DEFAULT_AUTOMOD_RULE);
 
     expect(parsed.conditions).toHaveLength(original.conditions.length);
-    expect(parsed.conditions[0].field).toBe(original.conditions[0].field);
-    expect(parsed.conditions[0].value).toBe(original.conditions[0].value);
+    expect(parsed.conditions[0]!.field).toBe(original.conditions[0]!.field);
+    expect(parsed.conditions[0]!.value).toBe(original.conditions[0]!.value);
   });
 
   it('should preserve satisfyAnyThreshold through serialize-parse cycle', () => {

@@ -17,15 +17,13 @@ import {
   serializeAutomodRule,
   buildSimulationPost,
   evaluateRule,
-  type AutomodAction,
   type AutomodRule,
   type RuleStageMode,
-  type YamlLimitation,
 } from '../../shared/automod';
 import type { BlastRadiusResult } from '../../shared/blast-types';
 import { getSnapshots, saveSnapshot, type HistorySnapshot } from '../utils/history';
 import { getMockTests, type SavedMockTest } from '../utils/mock-tests';
-import { saveMatrixCell, getMatrixCell, type MatrixCell } from '../utils/test-matrix';
+import { saveMatrixCell, type MatrixCell } from '../utils/test-matrix';
 import TestMatrixView from '../components/TestMatrixView';
 
 type RuleStageInitResponse = {
@@ -40,13 +38,6 @@ type ChatMessage = {
   timestamp: number;
 };
 
-function cloneRule(rule: AutomodRule): AutomodRule {
-  return {
-    ...rule,
-    conditions: rule.conditions.map((condition) => ({ ...condition })),
-  };
-}
-
 export function RuleStagePage() {
   const { init } = useInit();
   const { toast } = useToast();
@@ -58,7 +49,6 @@ export function RuleStagePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [blasting, setBlasting] = useState(false);
-  const [publishing, setPublishing] = useState(false);
   const [changes, setChanges] = useState<HistorySnapshot[]>(getSnapshots());
   const [mockTests, setMockTests] = useState<SavedMockTest[]>(getMockTests());
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
@@ -134,24 +124,6 @@ export function RuleStagePage() {
 
   const handleAddChatMessage = (message: ChatMessage) => {
     setChatMessages((current) => [...current, message]);
-  };
-
-  const publishToWiki = async () => {
-    try {
-      setPublishing(true);
-      const response = await fetch('/api/rule-stage/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yaml: draft }),
-      });
-      if (!response.ok) throw new Error('Publish failed');
-      toast({ title: 'Published', description: 'AutoModerator wiki updated successfully.' });
-    } catch (err) {
-      console.error('Publish failed:', err);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to publish to subreddit wiki.' });
-    } finally {
-      setPublishing(false);
-    }
   };
 
   const handleApplyYaml = (yaml: string, source?: HistorySnapshot['source']) => {
@@ -323,14 +295,6 @@ export function RuleStagePage() {
     }
   };
 
-  const handleActionChange = (action: AutomodAction) => {
-    const nextRule = cloneRule(rule);
-    nextRule.action = action;
-    setRule(nextRule);
-    setDraft(serializeAutomodRule(nextRule));
-    void persistRule(nextRule);
-  };
-
   const handleReset = async () => {
     try {
       const response = await fetch('/api/rule-stage/reset', { method: 'POST' });
@@ -352,7 +316,7 @@ export function RuleStagePage() {
     }
   };
 
-  const handleTestSaved = (test: SavedMockTest) => {
+  const handleTestSaved = () => {
     setMockTests(getMockTests());
   };
 
@@ -402,10 +366,8 @@ export function RuleStagePage() {
       {/* Page Topbar */}
       <PageTopbar
         ruleName={rule.name}
-        action={rule.action}
         saving={saving}
         onReset={handleReset}
-        onActionChange={handleActionChange}
         onOpenHistory={() => setHistoryPanelOpen(true)}
       />
 

@@ -13,7 +13,6 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { generateText, type ModelProvider } from '../services/model-proxy.service';
-import { resolveServerGitHubApiKey } from '../services/gemini-key.service';
 import {
   parseAutomodRuleDraft,
   DEFAULT_AUTOMOD_RULE,
@@ -31,11 +30,11 @@ const test = GITHUB_API_KEY ? describe : describe.skip;
 function extractYamlFromMarkdown(response: string): string {
   const yamlMatch = response.match(/```yaml\n([\s\S]*?)\n```/);
   if (yamlMatch) {
-    return yamlMatch[1];
+    return yamlMatch[1]!;
   }
   // Try without language specifier
   const fallbackMatch = response.match(/```\n([\s\S]*?)\n```/);
-  return fallbackMatch ? fallbackMatch[1] : response;
+  return fallbackMatch ? fallbackMatch[1]! : response;
 }
 
 // Test posts for spam detection
@@ -107,7 +106,7 @@ test('Suite 1 — Real LLM Output Quality (GitHub Models API)', () => {
 
     // Should NOT flag legitimate discussion posts
     const legitPostIds = ['legit1', 'legit2'];
-    const falsePositives = evaluation.matched.filter((id: string) => legitPostIds.includes(id));
+    const falsePositives = evaluation.items.filter((item) => legitPostIds.includes(item.id));
     expect(falsePositives.length).toBe(0);
   });
 
@@ -267,8 +266,8 @@ test('Suite 2 — Accuracy Metrics (Real API)', () => {
     const spamIds = ['spam1', 'spam2'];
     const legitIds = ['legit1', 'legit2'];
 
-    const correctRemovals = evaluation.removed.filter((id: string) => spamIds.includes(id)).length;
-    const correctNonRemovals = legitIds.filter((id: string) => !evaluation.matched.includes(id)).length;
+    const correctRemovals = evaluation.items.filter((item) => spamIds.includes(item.id) && item.outcome === 'remove').length;
+    const correctNonRemovals = evaluation.items.filter((item) => legitIds.includes(item.id) && item.outcome !== 'remove').length;
     const total = SPAM_TEST_POSTS.length;
 
     const accuracy = (correctRemovals + correctNonRemovals) / total;
@@ -290,7 +289,7 @@ test('Suite 2 — Accuracy Metrics (Real API)', () => {
     const evaluation = evaluateRule(rule, SPAM_TEST_POSTS);
 
     const legitIds = ['legit1', 'legit2'];
-    const falsePositives = evaluation.matched.filter((id: string) => legitIds.includes(id));
+    const falsePositives = evaluation.items.filter((item) => legitIds.includes(item.id) && item.outcome === 'remove');
 
     // Should have zero false positives on legitimate content
     expect(falsePositives.length).toBe(0);

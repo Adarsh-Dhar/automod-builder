@@ -11,8 +11,7 @@ import type { CachedPost } from '../../shared/blast-types';
 import { runDebug, runDebugComparison } from '../services/debugger.service';
 import { runBlastRadius } from '../services/blast-radius.service';
 import { generateText, generateJson, type ModelProvider } from '../services/model-proxy.service';
-import { resolveServerGitHubApiKey } from '../services/gemini-key.service';
-import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule } from '../services/automod.service';
+import { getCurrentRule, getLiveAutomodYaml, pushYamlToWiki, resetRuleStageState, saveCurrentRule, getWikiRevisions, getWikiRevisionContent } from '../services/automod.service';
 
 // (previously used to strip fenced code blocks from model output)
 
@@ -403,6 +402,90 @@ ruleStage.get('/live-yaml', async (c) => {
     return c.json({ status: 'error', message: 'Failed to fetch live YAML' }, 500);
   }
 });
+
+// ============================================================================
+// NEW: Wiki Revisions Endpoint
+// ============================================================================
+
+ruleStage.get('/wiki-revisions', async (c) => {
+  try {
+    const subredditName = context.subredditName ?? '';
+    
+    if (!subredditName || subredditName === 'default') {
+      // In playtest mode, return empty revisions
+      return c.json({
+        status: 'success',
+        revisions: [],
+        message: 'Wiki revisions not available in playtest mode',
+      });
+    }
+
+    const revisions = await getWikiRevisions(subredditName, 50);
+
+    return c.json({
+      status: 'success',
+      revisions,
+      count: revisions.length,
+    });
+  } catch (error) {
+    console.error('[RuleStage] wiki-revisions fetch failed:', error);
+    return c.json(
+      {
+        status: 'error',
+        message: (error as Error).message || 'Failed to fetch wiki revisions',
+      },
+      500
+    );
+  }
+});
+
+ruleStage.get('/wiki-revisions/:revisionId', async (c) => {
+  try {
+    const revisionId = c.req.param('revisionId');
+    const subredditName = context.subredditName ?? '';
+
+    if (!subredditName || subredditName === 'default') {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Cannot fetch revision content in playtest mode',
+        },
+        400
+      );
+    }
+
+    const content = await getWikiRevisionContent(subredditName, revisionId);
+
+    if (!content) {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Revision not found or no permission to access',
+        },
+        404
+      );
+    }
+
+    return c.json({
+      status: 'success',
+      content,
+      revisionId,
+    });
+  } catch (error) {
+    console.error('[RuleStage] wiki-revision-content fetch failed:', error);
+    return c.json(
+      {
+        status: 'error',
+        message: 'Failed to fetch revision content',
+      },
+      500
+    );
+  }
+});
+
+// ============================================================================
+// END NEW CODE
+// ============================================================================
 
 ruleStage.post('/publish', async (c) => {
   try {

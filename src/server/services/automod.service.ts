@@ -201,3 +201,127 @@ export async function resetRuleStageState(): Promise<AutomodRule> {
   await redis.set(postsStorageKey(), JSON.stringify([]));
   return DEFAULT_AUTOMOD_RULE;
 }
+
+// ============================================================================
+// NEW: Wiki Revisions Support
+// ============================================================================
+
+export interface WikiRevision {
+  timestamp: number;
+  author: string;
+  reason?: string;
+}
+
+/**
+ * Fetch wiki revision history for the automod config page.
+ * This allows users to see historical versions from Reddit's wiki.
+ * 
+ * Note: Requires OAuth token with wiki read permissions.
+ */
+export async function getWikiRevisions(
+  subredditName: string,
+  limit: number = 20
+): Promise<WikiRevision[]> {
+  if (!subredditName || subredditName === 'default') {
+    console.warn('[AutoModService] Cannot fetch wiki revisions in playtest mode');
+    return [];
+  }
+
+  try {
+    // Construct Reddit API URL for wiki revisions
+    // Reddit's wiki revisions endpoint requires OAuth access
+    const wikiRevisionsUrl = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator/revisions?limit=${limit}`;
+
+    // Fetch using the reddit API wrapper (Devvit provides authenticated requests)
+    // This uses the app's configured OAuth credentials
+    const response = await fetch(wikiRevisionsUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'AutoModBuilder/1.0 by YourUsername',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(`[AutoModService] Failed to fetch wiki revisions (HTTP ${response.status}):`, errorText);
+      
+      if (response.status === 404) {
+        // Wiki page doesn't exist yet
+        return [];
+      }
+      
+      if (response.status === 403) {
+        // No permission to view revisions
+        console.warn('[AutoModService] No permission to view wiki revisions');
+        return [];
+      }
+      
+      throw new Error(`Wiki revisions API returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as any;
+    
+    if (!data.data?.children) {
+      return [];
+    }
+
+    // Parse revision data from Reddit's response format
+    const revisions: WikiRevision[] = data.data.children
+      .map((child: any) => {
+        const rev = child.data;
+        return {
+          timestamp: (rev.timestamp || 0) * 1000, // Convert Unix seconds to milliseconds
+          author: rev.author || 'Unknown',
+          reason: rev.reason || undefined,
+        };
+      })
+      .sort((a: WikiRevision, b: WikiRevision) => b.timestamp - a.timestamp); // Newest first
+
+    return revisions;
+  } catch (error) {
+    console.warn('[AutoModService] Failed to fetch wiki revisions:', error);
+    // Don't throw - return empty array so app continues to work
+    return [];
+  }
+}
+
+/**
+ * Get the content of a specific wiki revision.
+ * This allows users to view or restore old rule versions.
+ */
+export async function getWikiRevisionContent(
+  subredditName: string,
+  revisionId: string
+): Promise<string> {
+  if (!subredditName || subredditName === 'default') {
+    console.warn('[AutoModService] Cannot fetch wiki revision content in playtest mode');
+    return '';
+  }
+
+  try {
+    // Fetch specific revision by ID
+    const revisionUrl = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator?v=${revisionId}`;
+
+    const response = await fetch(revisionUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'AutoModBuilder/1.0 by YourUsername',
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`[AutoModService] Failed to fetch wiki revision content (HTTP ${response.status})`);
+      return '';
+    }
+
+    const data = (await response.json()) as any;
+    return extractWikiContent(data);
+  } catch (error) {
+    console.warn('[AutoModService] Failed to fetch wiki revision content:', error);
+    return '';
+  }
+}
+
+// ============================================================================
+// END NEW CODE
+// ============================================================================

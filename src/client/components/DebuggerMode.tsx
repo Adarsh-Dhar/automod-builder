@@ -42,7 +42,6 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
   const [mockLoading, setMockLoading] = useState(false);
   const [comparison, setComparison] = useState<DebugComparison | null>(null);
   const [mockError, setMockError] = useState<string | null>(null);
-  const [savedTests, setSavedTests] = useState<SavedMockTest[]>([]);
   const [testCounter, setTestCounter] = useState(1);
 
   // Check if YAML has actual content (not empty/default/template)
@@ -155,7 +154,6 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
     };
 
     const updated = saveMockTest(mockPost, `Mock Test #${testCounter}`);
-    setSavedTests(updated);
     setTestCounter(testCounter + 1);
 
     const savedTest = updated[0];
