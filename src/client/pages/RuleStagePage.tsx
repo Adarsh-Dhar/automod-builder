@@ -340,7 +340,7 @@ export function RuleStagePage() {
       {/* Main workspace */}
       <div className="flex-1 overflow-hidden">
         {/* Main content area */}
-        <div className="flex-1 overflow-auto p-6 md:p-8 bg-[--background]">
+        <div className="flex-1 overflow-auto p-6 md:p-8 bg-[var(--background)]">
           {loading && (
             <div className="space-y-4">
               <Skeleton className="h-8 w-1/3" />
@@ -359,7 +359,7 @@ export function RuleStagePage() {
                     onChange={(event) => handleDraftChange(event.target.value)}
                     className="flex-1 min-h-0 font-mono text-sm"
                   />
-                  <div className="flex items-center justify-between mt-2 text-xs text-[--muted-foreground]">
+                  <div className="flex items-center justify-between mt-2 text-xs text-[var(--muted-foreground)]">
                     <span>Editing the YAML draft updates the shared rule state immediately.</span>
                     <span>{draft.split('\n').length} lines</span>
                   </div>
@@ -371,7 +371,7 @@ export function RuleStagePage() {
               )}
 
               {mode === 'chat' && (
-                <div className="h-full flex flex-col bg-[--background]">
+                <div className="h-full flex flex-col bg-[var(--background)]">
                   <ChatMode
                     ast={[]}
                     messages={chatMessages}
