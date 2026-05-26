@@ -11,7 +11,7 @@ function App() {
   return (
     <InitProvider>
       <ThemeProvider>
-        <WorkspaceShell>
+        <WorkspaceShell ruleName="AutoMod Rule Builder">
           <RuleStagePage />
         </WorkspaceShell>
       </ThemeProvider>

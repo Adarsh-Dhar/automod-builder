@@ -11,14 +11,14 @@ interface RightPanelProps {
 
 export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelProps) {
   return (
-    <div className="w-[340px] lg:w-[340px] md:w-[300px] hidden md:flex flex-col bg-[--surface-1] border-l border-[--border] shrink-0">
+    <div className="w-[340px] lg:w-[380px] hidden md:flex flex-col bg-[--surface-1] border-l border-[--border] shrink-0">
       {/* Section 1: Run Controls */}
-      <div className="p-3 border-b border-[--border] flex gap-2 shrink-0">
+      <div className="p-4 border-b border-[--border] flex gap-2 shrink-0">
         <Button
           onClick={onRunBlast}
           size="sm"
           disabled={blasting}
-          className="flex-1 bg-[--info]/15 text-[--info] border border-[--info]/30 hover:bg-[--info]/25"
+          className="flex-1 bg-[--primary] text-[--primary-foreground] hover:bg-[--primary]/90 font-semibold shadow-md hover:shadow-lg transition-all"
         >
           ⚡ {blasting ? 'Running...' : 'Blast Radius'}
         </Button>
@@ -26,9 +26,9 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
 
       {/* Section 2: Blast Radius */}
       <div className="p-4 border-b border-[--border] shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-[--foreground]">Blast Radius</span>
-          <Badge className="bg-[--info]/15 text-[--info] border-[--info]/25">Backtest</Badge>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm font-semibold text-[--foreground]">Blast Radius</span>
+          <Badge className="bg-[--info]/20 text-[--info] border border-[--info]/30 font-medium">Backtest</Badge>
         </div>
         {blast ? (
           <div className="space-y-3">
@@ -74,14 +74,17 @@ export function RightPanel({ blast, blasting, saving, onRunBlast }: RightPanelPr
 
       {/* Section 3: Status */}
       <div className="flex-1 overflow-auto p-4">
-        <span className="text-sm font-medium text-[--foreground]">Status</span>
-        <div className="mt-3 space-y-2">
-          <div className="p-3 rounded-xl bg-[--surface-2]">
-            <p className="text-[10px] uppercase tracking-wider text-[--muted-foreground]">Rule State</p>
-            <p className="text-sm text-[--foreground]">{saving ? 'Saving...' : 'Saved'}</p>
+        <span className="text-sm font-semibold text-[--foreground]">Status</span>
+        <div className="mt-4 space-y-3">
+          <div className="p-3.5 rounded-xl bg-[--surface-2] border border-[--border]">
+            <p className="text-[10px] uppercase tracking-wider text-[--muted-foreground] font-semibold mb-1">Rule State</p>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${saving ? 'bg-[--warning] animate-pulse' : 'bg-[--success]'}`}></div>
+              <p className="text-sm font-medium text-[--foreground]">{saving ? 'Saving...' : 'Saved'}</p>
+            </div>
           </div>
-          <div className="p-3 rounded-xl bg-[--surface-2]">
-            <p className="text-[10px] uppercase tracking-wider text-[--muted-foreground]">Debug Mode</p>
+          <div className="p-3.5 rounded-xl bg-[--surface-2] border border-[--border]">
+            <p className="text-[10px] uppercase tracking-wider text-[--muted-foreground] font-semibold mb-1">Debug Mode</p>
             <p className="text-sm text-[--foreground]">Test posts via link or mock</p>
           </div>
         </div>

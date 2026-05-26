@@ -334,7 +334,7 @@ export function RuleStagePage() {
       {/* Three-column workspace */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main content area */}
-        <div className="flex-1 overflow-auto p-4 md:p-6 bg-[#16121F]">
+        <div className="flex-1 overflow-auto p-6 md:p-8 bg-[--background]">
           {loading && (
             <div className="space-y-4">
               <Skeleton className="h-8 w-1/3" />
@@ -365,7 +365,7 @@ export function RuleStagePage() {
               )}
 
               {mode === 'chat' && (
-                <div className="h-full flex flex-col bg-[#1E192B]">
+                <div className="h-full flex flex-col bg-[--background]">
                   <ChatMode
                     ast={[]}
                     messages={chatMessages}

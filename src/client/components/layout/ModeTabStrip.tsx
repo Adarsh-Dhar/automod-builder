@@ -14,23 +14,23 @@ const MODES: { id: RuleStageMode; label: string; shortcut: string }[] = [
 
 export function ModeTabStrip({ mode, setMode }: ModeTabStripProps) {
   return (
-    <div className="h-10 flex items-center gap-1 px-4 bg-[--surface-1] border-b border-[--border] shrink-0 overflow-x-auto">
+    <div className="h-12 flex items-center gap-2 px-4 md:px-6 bg-[--surface-1] border-b border-[--border] shrink-0 overflow-x-auto shadow-sm">
       {MODES.map((m) => (
         <button
           key={m.id}
           onClick={() => setMode(m.id)}
           className={cn(
-            'relative px-4 py-2 text-sm font-medium transition-all shrink-0 whitespace-nowrap rounded-lg',
+            'relative px-3 md:px-4 py-2.5 text-sm font-semibold transition-all shrink-0 whitespace-nowrap rounded-lg',
             mode === m.id
-              ? 'text-[--foreground] bg-[--surface-2]'
-              : 'text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3]'
+              ? 'text-[--primary] bg-[--primary]/10 border border-[--primary]/30'
+              : 'text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-2]'
           )}
         >
           {m.label}
           {mode === m.id && (
-            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[--primary]" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-[--primary]" />
           )}
-          <span className="ml-2 text-[10px] text-[--subtle] hidden sm:inline">{m.shortcut}</span>
+          <span className="ml-2 text-[9px] text-[--subtle] hidden lg:inline">{m.shortcut}</span>
         </button>
       ))}
     </div>

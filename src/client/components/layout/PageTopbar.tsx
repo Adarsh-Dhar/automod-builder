@@ -11,25 +11,28 @@ interface PageTopbarProps {
 export function PageTopbar({ ruleName, saving, onReset, onOpenHistory }: PageTopbarProps) {
 
   return (
-    <div className="h-12 flex items-center justify-between px-3 md:px-4 bg-[--surface-1] border-b border-[--border] shrink-0">
+    <div className="h-14 flex items-center justify-between px-4 md:px-6 bg-[--surface-1] border-b border-[--border] shrink-0 shadow-sm">
       {/* Left: Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm min-w-0">
-        <span className="text-[--muted-foreground] hidden sm:inline">Rule Builder</span>
-        <span className="text-[--subtle] hidden sm:inline">/</span>
-        <span className="text-[--foreground] font-medium truncate">{ruleName}</span>
+      <div className="flex items-center gap-3 text-sm min-w-0">
+        <span className="text-[--muted-foreground] text-xs uppercase tracking-wider hidden sm:inline font-medium">Rule Builder</span>
+        <span className="text-[--border] hidden sm:inline">/</span>
+        <span className="text-[--foreground] font-semibold truncate text-base">{ruleName}</span>
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
         {saving && (
-          <RefreshCw className="w-4 h-4 text-[--primary] animate-spin shrink-0" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[--primary]/10">
+            <RefreshCw className="w-4 h-4 text-[--primary] animate-spin shrink-0" />
+            <span className="text-xs text-[--primary] font-medium">Saving...</span>
+          </div>
         )}
 
         <Button
           variant="ghost"
           size="sm"
           onClick={onOpenHistory}
-          className="text-xs text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-3] px-3 hidden sm:inline"
+          className="text-xs text-[--muted-foreground] hover:text-[--foreground] hover:bg-[--surface-2] px-3 hidden sm:inline font-medium"
         >
           History
         </Button>
@@ -37,11 +40,11 @@ export function PageTopbar({ ruleName, saving, onReset, onOpenHistory }: PageTop
           variant="ghost"
           size="sm"
           onClick={onReset}
-          className="text-xs text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 px-3 hidden sm:inline"
+          className="text-xs text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 px-3 hidden sm:inline font-medium"
         >
           Reset
         </Button>
-        <span className="text-[10px] text-[--subtle] hidden sm:inline">Ctrl+S to save</span>
+        <span className="text-[10px] text-[--subtle] hidden md:inline">Ctrl+S</span>
       </div>
     </div>
   );
