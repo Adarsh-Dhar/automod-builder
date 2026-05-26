@@ -208,6 +208,10 @@ export async function pushYamlToWiki(yaml: string, reason?: string): Promise<voi
         reason: reason ?? 'Updated via AutoMod Builder app',
       });
       console.log('[AutoModService] Wiki update successful');
+
+      // Store revision history in Redis after successful wiki update
+      await addWikiRevisionToHistory(subredditName, contentToSend, reason);
+
       return; // Success, exit retry loop
     } catch (error) {
       const errorMessage = (error as Error).message.toLowerCase();
@@ -247,65 +251,90 @@ export interface WikiRevision {
   reason?: string;
 }
 
+function wikiRevisionsKey(subredditName: string): string {
+  return `wiki:revisions:${subredditName}`;
+}
+
+function wikiRevisionContentKey(subredditName: string, revisionId: string): string {
+  return `wiki:revision:${subredditName}:${revisionId}`;
+}
+
 /**
- * Fetch wiki revision history for the automod config page.
- * This allows users to see historical versions from Reddit's wiki.
- * 
- * Note: Requires OAuth token with wiki read permissions.
+ * Add a revision to the local Redis history after successful wiki update.
+ * This provides a workaround since Devvit doesn't allow direct HTTP requests to oauth.reddit.com.
+ */
+async function addWikiRevisionToHistory(
+  subredditName: string,
+  content: string,
+  reason?: string
+): Promise<void> {
+  try {
+    const revisionId = `rev_${Date.now()}`;
+    const timestamp = Date.now();
+    const author = context.userId ?? 'unknown';
+
+    const revision: WikiRevision = {
+      id: revisionId,
+      timestamp,
+      author,
+      reason: reason ?? 'Updated via AutoMod Builder app',
+    };
+
+    // Get existing revisions
+    const existingRaw = await redis.get(wikiRevisionsKey(subredditName));
+    const existingRevisions: WikiRevision[] = existingRaw ? JSON.parse(existingRaw) : [];
+
+    // Add new revision at the beginning
+    const updatedRevisions = [revision, ...existingRevisions].slice(0, 50); // Keep last 50 revisions
+
+    // Save revisions
+    await redis.set(wikiRevisionsKey(subredditName), JSON.stringify(updatedRevisions));
+
+    // Save revision content
+    await redis.set(wikiRevisionContentKey(subredditName, revisionId), content);
+
+    console.log('[AutoModService] Added revision to history:', revisionId);
+  } catch (error) {
+    console.warn('[AutoModService] Failed to add revision to history:', error);
+    // Don't throw - this is a non-critical feature
+  }
+}
+
+/**
+ * Fetch wiki revision history from local Redis storage.
+ * This provides a workaround since Devvit doesn't allow direct HTTP requests to oauth.reddit.com.
  */
 export async function getWikiRevisions(
   subredditName: string,
   limit: number = 50
 ): Promise<WikiRevision[]> {
-  if (!subredditName || subredditName === 'default') return [];
+  try {
+    const raw = await redis.get(wikiRevisionsKey(subredditName));
+    if (!raw) return [];
 
-  const url = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator/revisions?limit=${limit}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: { 'User-Agent': 'AutoModBuilder/1.0' },
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) return [];
-    if (response.status === 403) throw new Error('No permission to view wiki revisions.');
-    throw new Error(`Reddit API returned ${response.status} fetching wiki revisions`);
+    const revisions: WikiRevision[] = JSON.parse(raw);
+    return revisions.slice(0, limit);
+  } catch (error) {
+    console.error('[AutoModService] Failed to fetch wiki revisions from Redis:', error);
+    return [];
   }
-
-  const data = await response.json();
-  if (!data.data?.children) return [];
-
-  return data.data.children
-    .map((child: any) => ({
-      id: child.data.id ?? String(child.data.timestamp ?? Date.now()),
-      timestamp: (child.data.timestamp ?? 0) * 1000,
-      author: child.data.author ?? 'unknown',
-      reason: child.data.reason ?? undefined,
-    }))
-    .sort((a: WikiRevision, b: WikiRevision) => b.timestamp - a.timestamp);
 }
 
 /**
- * Get the content of a specific wiki revision.
- * This allows users to view or restore old rule versions.
+ * Get the content of a specific wiki revision from local Redis storage.
+ * This provides a workaround since Devvit doesn't allow direct HTTP requests to oauth.reddit.com.
  */
 export async function getWikiRevisionContent(
   subredditName: string,
   revisionId: string
 ): Promise<string> {
-  if (!subredditName || subredditName === 'default') return '';
-
-  const url = `https://oauth.reddit.com/r/${subredditName}/wiki/config/automoderator?v=${encodeURIComponent(revisionId)}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: { 'User-Agent': 'AutoModBuilder/1.0' },
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) return '';
-    throw new Error(`Reddit API returned ${response.status} fetching revision content`);
+  try {
+    const content = await redis.get(wikiRevisionContentKey(subredditName, revisionId));
+    return content ?? '';
+  } catch (error) {
+    console.error('[AutoModService] Failed to fetch revision content from Redis:', error);
+    return '';
   }
-
-  return extractWikiContent(await response.json());
 }
 
 // ============================================================================
