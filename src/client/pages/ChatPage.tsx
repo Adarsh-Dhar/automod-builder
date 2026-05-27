@@ -66,6 +66,10 @@ export function ChatPage() {
     console.info('Apply YAML from ChatMode:', yaml.slice(0, 200));
   };
 
+  const handleClearMessages = () => {
+    setChatMessages([]);
+  };
+
   // API key is sourced from environment; no UI modal to save keys.
 
   return (
@@ -172,6 +176,7 @@ export function ChatPage() {
                   onApplyAST={() => {}}
                   onApplyYaml={(yaml) => handleApplyYaml(yaml)}
                   subredditName={subredditName}
+                  onClearMessages={handleClearMessages}
                 />
               </div>
             </main>

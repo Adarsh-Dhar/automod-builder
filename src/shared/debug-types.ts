@@ -32,6 +32,24 @@ export type DebugResponse = {
   postAuthor: string;
   matches: DebugMatch[];
   aiFixYaml: string;
+  // Full post data for populating mock fields
+  accountAgeDays: number;
+  combinedKarma: number;
+  linkKarma: number;
+  commentKarma: number;
+  subreddit: string;
+  domain: string;
+  url: string;
+  isSelf: boolean;
+  over18: boolean;
+  spoiler: boolean;
+  stickied: boolean;
+  numComments: number;
+  score: number;
+  upvoteRatio: number;
+  authorFlairText: string;
+  linkFlairText: string;
+  distinguished: string;
 };
 
 export type MockPostDebugRequest = {

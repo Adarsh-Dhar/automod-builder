@@ -31,6 +31,19 @@ type RedditPost = {
   selftext?: string;
   body?: string;
   author?: RedditAuthor | string | null;
+  subreddit?: string;
+  domain?: string;
+  url?: string;
+  is_self?: boolean;
+  over_18?: boolean;
+  spoiler?: boolean;
+  stickied?: boolean;
+  num_comments?: number;
+  score?: number;
+  upvote_ratio?: number;
+  link_flair_text?: string;
+  author_flair_text?: string;
+  distinguished?: string;
 };
 
 function stripBlockDelimiters(block: string): string {
@@ -97,6 +110,22 @@ function getCombinedKarma(author: RedditAuthor | string | null | undefined): num
   return Number(author.link_karma ?? author.linkKarma ?? 0) + Number(author.comment_karma ?? author.commentKarma ?? 0);
 }
 
+function getLinkKarma(author: RedditAuthor | string | null | undefined): number {
+  if (!author || typeof author === 'string') {
+    return 0;
+  }
+
+  return Number(author.link_karma ?? author.linkKarma ?? 0);
+}
+
+function getCommentKarma(author: RedditAuthor | string | null | undefined): number {
+  if (!author || typeof author === 'string') {
+    return 0;
+  }
+
+  return Number(author.comment_karma ?? author.commentKarma ?? 0);
+}
+
 function normalizePost(post: RedditPost, postId: string): SimulationPost {
   return {
     id: post.id ?? postId,
@@ -105,21 +134,21 @@ function normalizePost(post: RedditPost, postId: string): SimulationPost {
     author: normalizeAuthor(post.author),
     accountAgeDays: getAccountAgeDays(post.author),
     combinedKarma: getCombinedKarma(post.author),
-    linkKarma: 0,
-    commentKarma: 0,
-    subreddit: '',
-    domain: '',
-    url: '',
-    isSelf: false,
-    over18: false,
-    spoiler: false,
-    stickied: false,
-    numComments: 0,
-    score: 0,
-    upvoteRatio: 1,
-    authorFlairText: '',
-    linkFlairText: '',
-    distinguished: '',
+    linkKarma: getLinkKarma(post.author),
+    commentKarma: getCommentKarma(post.author),
+    subreddit: String(post.subreddit ?? ''),
+    domain: String(post.domain ?? ''),
+    url: String(post.url ?? ''),
+    isSelf: Boolean(post.is_self ?? false),
+    over18: Boolean(post.over_18 ?? false),
+    spoiler: Boolean(post.spoiler ?? false),
+    stickied: Boolean(post.stickied ?? false),
+    numComments: Number(post.num_comments ?? 0),
+    score: Number(post.score ?? 0),
+    upvoteRatio: Number(post.upvote_ratio ?? 1),
+    authorFlairText: String(post.author_flair_text ?? ''),
+    linkFlairText: String(post.link_flair_text ?? ''),
+    distinguished: String(post.distinguished ?? ''),
   };
 }
 
@@ -328,6 +357,23 @@ export async function runDebug(postId: string, subredditName?: string): Promise<
     postAuthor: post.author ?? '',
     matches,
     aiFixYaml,
+    accountAgeDays: post.accountAgeDays ?? 0,
+    combinedKarma: post.combinedKarma ?? 0,
+    linkKarma: post.linkKarma ?? 0,
+    commentKarma: post.commentKarma ?? 0,
+    subreddit: post.subreddit ?? '',
+    domain: post.domain ?? '',
+    url: post.url ?? '',
+    isSelf: post.isSelf ?? false,
+    over18: post.over18 ?? false,
+    spoiler: post.spoiler ?? false,
+    stickied: post.stickied ?? false,
+    numComments: post.numComments ?? 0,
+    score: post.score ?? 0,
+    upvoteRatio: post.upvoteRatio ?? 1,
+    authorFlairText: post.authorFlairText ?? '',
+    linkFlairText: post.linkFlairText ?? '',
+    distinguished: post.distinguished ?? '',
   };
 }
 

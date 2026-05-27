@@ -123,6 +123,7 @@ interface ChatModeProps {
   onApplyYaml: (yaml: string) => void;
   subredditName?: string | undefined;
   contextYaml?: string | undefined;
+  onClearMessages?: () => void;
 }
 
 function genId(): string {
@@ -422,6 +423,7 @@ export default function ChatMode({
   onApplyYaml,
   subredditName,
   contextYaml,
+  onClearMessages,
 }: ChatModeProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -525,12 +527,10 @@ export default function ChatMode({
   };
 
   const handleClearChat = () => {
-    // Clear all messages by setting them to empty array
-    // We need to call a function to clear messages in the parent
-    // For now, we'll just reload the page or clear localStorage
     if (confirm('Are you sure you want to clear this conversation?')) {
-      localStorage.removeItem('chat_sessions');
-      window.location.reload();
+      if (onClearMessages) {
+        onClearMessages();
+      }
     }
   };
 

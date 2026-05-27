@@ -3,7 +3,7 @@ import DebugResultCard from './DebugResultCard';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Textarea } from './ui/textarea';
-import type { DebugResponse, DebugComparison } from '../../shared/debug-types';
+import type { DebugResponse, DebugComparison, MockPostDebugRequest } from '../../shared/debug-types';
 import { parsePostId } from '../utils/debug';
 import { saveMockTest, type SavedMockTest } from '../utils/mock-tests';
 
@@ -17,6 +17,8 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DebugResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   // Mock post form state
   const [mockTitle, setMockTitle] = useState('Check out this amazing product');
@@ -47,6 +49,30 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
   // Check if YAML has actual content (not empty/default/template)
   const hasRealYaml = result?.aiFixYaml && !result.aiFixYaml.includes("# Rule draft") && !result.aiFixYaml.includes("title (includes): ['']") && result.aiFixYaml.trim().length > 50;
 
+  // Helper function to populate all mock post fields from a data object
+  const populateMockFields = (data: Partial<MockPostDebugRequest>) => {
+    if (data.title !== undefined) setMockTitle(data.title);
+    if (data.body !== undefined) setMockBody(data.body);
+    if (data.author !== undefined) setMockAuthor(data.author);
+    if (data.accountAgeDays !== undefined) setMockAccountAge(String(data.accountAgeDays));
+    if (data.combinedKarma !== undefined) setMockCombinedKarma(String(data.combinedKarma));
+    if (data.linkKarma !== undefined) setMockLinkKarma(String(data.linkKarma));
+    if (data.commentKarma !== undefined) setMockCommentKarma(String(data.commentKarma));
+    if (data.subreddit !== undefined) setMockSubreddit(data.subreddit);
+    if (data.domain !== undefined) setMockDomain(data.domain);
+    if (data.url !== undefined) setMockUrl(data.url);
+    if (data.isSelf !== undefined) setMockIsSelf(data.isSelf);
+    if (data.over18 !== undefined) setMockOver18(data.over18);
+    if (data.spoiler !== undefined) setMockSpoiler(data.spoiler);
+    if (data.stickied !== undefined) setMockStickied(data.stickied);
+    if (data.numComments !== undefined) setMockNumComments(String(data.numComments));
+    if (data.score !== undefined) setMockScore(String(data.score));
+    if (data.upvoteRatio !== undefined) setMockUpvoteRatio(String(data.upvoteRatio));
+    if (data.authorFlairText !== undefined) setMockAuthorFlairText(data.authorFlairText);
+    if (data.linkFlairText !== undefined) setMockLinkFlairText(data.linkFlairText);
+    if (data.distinguished !== undefined) setMockDistinguished(data.distinguished);
+  };
+
   // Only show the entire card if there's real YAML to apply
   const shouldShowCard = hasRealYaml;
 
@@ -71,6 +97,29 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
       const data = (await res.json()) as { status: string; debug?: DebugResponse };
       if (data?.debug) {
         setResult(data.debug);
+        // Populate mock fields with extracted post data
+        populateMockFields({
+          title: data.debug.postTitle,
+          body: data.debug.postBody,
+          author: data.debug.postAuthor,
+          accountAgeDays: data.debug.accountAgeDays,
+          combinedKarma: data.debug.combinedKarma,
+          linkKarma: data.debug.linkKarma,
+          commentKarma: data.debug.commentKarma,
+          subreddit: data.debug.subreddit,
+          domain: data.debug.domain,
+          url: data.debug.url,
+          isSelf: data.debug.isSelf,
+          over18: data.debug.over18,
+          spoiler: data.debug.spoiler,
+          stickied: data.debug.stickied,
+          numComments: data.debug.numComments,
+          score: data.debug.score,
+          upvoteRatio: data.debug.upvoteRatio,
+          authorFlairText: data.debug.authorFlairText,
+          linkFlairText: data.debug.linkFlairText,
+          distinguished: data.debug.distinguished,
+        });
       } else {
         setError('No debug result returned');
       }
@@ -78,6 +127,31 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
       setError((e as Error).message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleParseJson = () => {
+    setJsonError(null);
+    try {
+      const parsed = JSON.parse(jsonInput) as MockPostDebugRequest;
+      // Validate that all required fields exist
+      const requiredFields: (keyof MockPostDebugRequest)[] = [
+        'title', 'body', 'author', 'accountAgeDays', 'combinedKarma', 'linkKarma',
+        'commentKarma', 'subreddit', 'domain', 'url', 'isSelf', 'over18', 'spoiler',
+        'stickied', 'numComments', 'score', 'upvoteRatio', 'authorFlairText',
+        'linkFlairText', 'distinguished'
+      ];
+      
+      for (const field of requiredFields) {
+        if (parsed[field] === undefined) {
+          throw new Error(`Missing required field: ${field}`);
+        }
+      }
+      
+      populateMockFields(parsed);
+      setJsonInput(''); // Clear input after successful parse
+    } catch (e) {
+      setJsonError((e as Error).message || 'Invalid JSON format');
     }
   };
 
@@ -182,10 +256,28 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
           {error && <p className="mt-2 text-xs text-[--warning]">{error}</p>}
         </Card>
 
-        {/* Create Mock Post Section */}
+        {/* JSON Input Section */}
         <Card className="p-4">
-          <p className="text-sm text-[--muted-foreground]">Create a mock post to test moderation rules.</p>
-          <div className="mt-3 space-y-3">
+          <p className="text-sm text-[--muted-foreground]">Paste JSON post data to populate mock fields.</p>
+          <div className="mt-3 space-y-2">
+            <Textarea
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              placeholder='{"title": "...", "body": "...", "author": "...", ...}'
+              className="min-h-[80px] w-full rounded-2xl border border-[--border] bg-[--surface-3] px-3 py-2 text-[--foreground] outline-none text-sm font-mono"
+            />
+            <Button onClick={handleParseJson} variant="outline" size="sm" className="w-full">
+              Parse JSON
+            </Button>
+            {jsonError && <p className="text-xs text-[--warning]">{jsonError}</p>}
+          </div>
+        </Card>
+      </div>
+
+      {/* Create Mock Post Section - Full Width */}
+      <Card className="p-4">
+        <p className="text-sm text-[--muted-foreground]">Create a mock post to test moderation rules.</p>
+        <div className="mt-3 space-y-3">
             {/* Basic Info */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-[--foreground]">Basic Info</p>
@@ -398,7 +490,6 @@ export default function DebuggerMode({ onApplyYaml, onTestSaved }: DebuggerModeP
           </div>
           {mockError && <p className="mt-2 text-xs text-[--warning]">{mockError}</p>}
         </Card>
-      </div>
 
       {/* Comparison Results */}
       {comparison && (
