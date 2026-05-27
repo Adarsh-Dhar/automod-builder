@@ -123,6 +123,10 @@ export function RuleStagePage() {
     setChatMessages((current) => [...current, message]);
   };
 
+  const handleClearMessages = () => {
+    setChatMessages([]);
+  };
+
   const handleApplyYaml = (yaml: string, source?: HistorySnapshot['source']) => {
     // Generate meaningful title based on source
     const title = source === 'chat' 
@@ -395,6 +399,7 @@ export function RuleStagePage() {
                     onApplyYaml={(yaml) => handleApplyYaml(yaml, 'chat')}
                     subredditName={init?.subredditName}
                     contextYaml={draft}
+                    onClearMessages={handleClearMessages}
                   />
                 </div>
               )}

@@ -30,12 +30,14 @@ const AUTOMOD_SYSTEM_PROMPT = `You are an AutoModerator rule assistant. Follow t
 
 RULES:
 - type: submission always
-- Use: title (includes), title (matches), body (includes), body (matches)
-- Author conditions nested under author: with satisfy_any_threshold: true
+- Match body content with: body (includes): ['keyword'] or body (matches): ['regex']
+- Match title content with: title (includes): ['keyword'] or title (matches): ['regex']
+- Match both with: title+body (includes): ['keyword']
+- Author conditions nested under author: with satisfy_any_threshold: true/false
 - action: remove, approve, or report
 - Always include comment: | and modmail: | blocks
 - Rule name as comment after ---
-- Wrap in \`\`\`yaml ... \`\`\`
+- Wrap in \`\`\`yaml ... \`\`\` 
 - No prose outside code fence
 - Author flair: author_flair_text at top level, NOT under author:
 - Negate with ~ prefix: ~author_flair_text: "official"
@@ -43,26 +45,58 @@ RULES:
 - NEVER use dotted variables like {{author.account_age}} - they don't exist in AutoModerator
 - If rule needs BOTH author thresholds AND title/body keyword matching, split into TWO rules
 
-Example:
+CRITICAL: Generate YAML that matches EXACTLY what the user asked for. Do not substitute a generic spam-guard template.
+
+Examples (each demonstrates a different pattern — pick the right one for the request):
+
+Example 1 — body keyword block (e.g. "remove posts with amazon.com in the body"):
 \`\`\`yaml
 ---
-# Spam guard
+# Amazon link block
 type: submission
-title (includes): ['spam']
-author:
-  satisfy_any_threshold: true
-  account_age: "< 7 days"
-  combined_karma: "< 100"
+body (includes): ['amazon.com']
 action: remove
-comment_stickied: true
 comment: |
-  Removed.
+  External shop links are not allowed here.
 modmail: |
-  Removed: {{permalink}}
+  Removed for Amazon link: {{permalink}}
+  User: u/{{author}}
+---
+\`\`\`
+
+Example 2 — author threshold gate (e.g. "require 30 days account age to post"):
+\`\`\`yaml
+---
+# New account gate
+type: submission
+author:
+  satisfy_any_threshold: false
+  account_age: "< 30 days"
+  combined_karma: "< 50"
+action: remove
+comment: |
+  Your account is too new to post here.
+modmail: |
+  New account removed: {{permalink}}
+  User: u/{{author}}
+---
+\`\`\`
+
+Example 3 — title keyword match (e.g. "remove posts with promo code or use my link in the title"):
+\`\`\`yaml
+---
+# Promo title block
+type: submission
+title (includes): ['promo code', 'use my link', 'discount code']
+action: remove
+comment: |
+  Promotional content is not allowed in this community.
+modmail: |
+  Removed for promo title: {{permalink}}
   User: u/{{author}}
   Title: {{title}}
 ---
-\`\`\`;`;
+\`\`\``;
 
 export async function generateChatReplyOnServer(
   prompt: string,

@@ -1,6 +1,7 @@
 import React from 'react';
 import ChatMode from '../components/ChatMode';
 import type { ChatMessage } from '../types';
+import { Button } from '../components/ui/button';
 
 type Message = { id: string; author: string; text: string; time?: string; me?: boolean };
 type Conversation = { id: string; title: string; last: string; unread?: number };
@@ -18,6 +19,8 @@ export function ChatPage() {
   const [showConversations, setShowConversations] = React.useState(false);
   const [activeConversation, setActiveConversation] = React.useState<string | null>(conversations[0]?.id ?? null);
   const [subredditName, setSubredditName] = React.useState<string>('');
+  const [showApiKeyModal, setShowApiKeyModal] = React.useState(false);
+  const [apiKey, setApiKey] = React.useState('');
 
   const currentConversation = conversations.find((conversation) => conversation.id === activeConversation) ?? conversations[0];
 
@@ -25,6 +28,11 @@ export function ChatPage() {
     setActiveConversation(id);
     setShowConversations(false);
   };
+
+  React.useEffect(() => {
+    const storedKey = localStorage.getItem('gemini_api_key') || '';
+    setApiKey(storedKey);
+  }, []);
 
   React.useEffect(() => {
     let isActive = true;
@@ -68,6 +76,19 @@ export function ChatPage() {
 
   const handleClearMessages = () => {
     setChatMessages([]);
+  };
+
+  const handleSaveApiKey = (key: string) => {
+    const trimmedKey = key.trim();
+    localStorage.setItem('gemini_api_key', trimmedKey);
+    setApiKey(trimmedKey);
+    setShowApiKeyModal(false);
+  };
+
+  const handleClearApiKey = () => {
+    localStorage.removeItem('gemini_api_key');
+    setApiKey('');
+    setShowApiKeyModal(false);
   };
 
   // API key is sourced from environment; no UI modal to save keys.
@@ -159,9 +180,24 @@ export function ChatPage() {
                   Chatin 1.4
                   <span className="text-gray-400">▾</span>
                 </button>
-                <button className="w-9 h-9 rounded-full bg-[#F4F2F7] flex items-center justify-center text-[#1A1020]">
-                  ✏️
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleClearMessages}
+                    className="text-sm text-gray-500 hover:text-red-500 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => setShowApiKeyModal(true)}
+                    className="text-sm text-gray-500 hover:text-blue-500 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                    title="Configure API Key"
+                  >
+                    Settings
+                  </button>
+                  <button className="w-9 h-9 rounded-full bg-[#F4F2F7] flex items-center justify-center text-[#1A1020]">
+                    ✏️
+                  </button>
+                </div>
               </div>
 
               <div className="px-5 pt-5">
@@ -177,6 +213,10 @@ export function ChatPage() {
                   onApplyYaml={(yaml) => handleApplyYaml(yaml)}
                   subredditName={subredditName}
                   onClearMessages={handleClearMessages}
+                  apiKey={apiKey}
+                  setApiKey={setApiKey}
+                  showApiKeyModal={showApiKeyModal}
+                  setShowApiKeyModal={setShowApiKeyModal}
                 />
               </div>
             </main>
@@ -206,7 +246,50 @@ export function ChatPage() {
         </div>
       )}
 
-      {/* ApiKeyModal removed — API key is sourced from environment */}
+      {/* ApiKeyModal */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-[#333] bg-[#1C1C1C] p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-semibold text-white">Gemini API Key</h3>
+            <p className="mb-4 text-sm text-gray-400">
+              Enter your Gemini API key to use the chat feature. Your key is stored locally in your browser.
+            </p>
+            <div className="mb-4">
+              <label className="mb-2 block text-xs font-medium text-gray-400">API Key</label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full rounded-xl border border-[#333] bg-[#2A2A2A] px-3 py-2 text-sm text-white outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#F5C842]/50"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              {apiKey && (
+                <button
+                  onClick={handleClearApiKey}
+                  className="rounded-xl border border-[#333] bg-[#2A2A2A] px-4 py-2 text-sm text-red-400 hover:bg-red-400/10"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                onClick={() => setShowApiKeyModal(false)}
+                className="rounded-xl border border-[#333] bg-[#2A2A2A] px-4 py-2 text-sm text-white hover:bg-[#333]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveApiKey(apiKey)}
+                disabled={!apiKey.trim()}
+                className="rounded-xl bg-[#F5C842] px-4 py-2 text-sm font-semibold text-[#1A1020] transition-colors hover:bg-[#e6b93c] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

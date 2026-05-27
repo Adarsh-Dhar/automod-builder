@@ -124,6 +124,10 @@ interface ChatModeProps {
   subredditName?: string | undefined;
   contextYaml?: string | undefined;
   onClearMessages?: () => void;
+  apiKey?: string;
+  setApiKey?: (key: string) => void;
+  showApiKeyModal?: boolean;
+  setShowApiKeyModal?: (show: boolean) => void;
 }
 
 function genId(): string {
@@ -424,24 +428,34 @@ export default function ChatMode({
   subredditName,
   contextYaml,
   onClearMessages,
+  apiKey: propApiKey,
+  setApiKey: propSetApiKey,
+  showApiKeyModal: propShowApiKeyModal,
+  setShowApiKeyModal: propSetShowApiKeyModal,
 }: ChatModeProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
   const [subredditContext, setSubredditContext] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKey, setApiKey] = useState(propApiKey || '');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(propShowApiKeyModal || false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const storedKey = localStorage.getItem('gemini_api_key') || '';
-    console.log('[ChatMode] Loaded API key from localStorage:', !!storedKey, 'length:', storedKey.length);
-    setApiKey(storedKey);
-  }, []);
+    if (propApiKey !== undefined) {
+      setApiKey(propApiKey);
+    }
+  }, [propApiKey]);
+
+  useEffect(() => {
+    if (propShowApiKeyModal !== undefined) {
+      setShowApiKeyModal(propShowApiKeyModal);
+    }
+  }, [propShowApiKeyModal]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -527,10 +541,22 @@ export default function ChatMode({
   };
 
   const handleClearChat = () => {
-    if (confirm('Are you sure you want to clear this conversation?')) {
-      if (onClearMessages) {
-        onClearMessages();
-      }
+    if (onClearMessages) {
+      onClearMessages();
+    }
+  };
+
+  const handleSetApiKey = (key: string) => {
+    setApiKey(key);
+    if (propSetApiKey) {
+      propSetApiKey(key);
+    }
+  };
+
+  const handleSetShowApiKeyModal = (show: boolean) => {
+    setShowApiKeyModal(show);
+    if (propSetShowApiKeyModal) {
+      propSetShowApiKeyModal(show);
     }
   };
 
@@ -540,7 +566,7 @@ export default function ChatMode({
     console.log('[ChatMode] sendMessage called - apiKey present:', !!apiKey, 'apiKey length:', apiKey.length);
     if (!apiKey) {
       console.log('[ChatMode] No API key, showing modal');
-      setShowApiKeyModal(true);
+      handleSetShowApiKeyModal(true);
       return;
     }
 
@@ -769,31 +795,6 @@ export default function ChatMode({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[--surface-2]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-2 border-b border-[--border] shadow-sm">
-        <div className="flex items-center gap-1">
-        </div>
-        <div className="flex items-center gap-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearChat}
-            className="text-sm text-[--muted-foreground] hover:text-[--danger] hover:bg-[--danger]/10 font-medium"
-          >
-            Clear
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowApiKeyModal(true)}
-            className="text-sm text-[--muted-foreground] hover:text-[--primary] hover:bg-[--primary]/10 font-medium"
-            title="Configure API Key"
-          >
-            Settings
-          </Button>
-        </div>
-      </div>
-
       {/* Messages Area */}
       <div className="flex-1 overflow-auto px-4 md:px-6 py-4 md:py-6 bg-[--surface-2]">
         {messages.length === 0 ? (
@@ -907,10 +908,10 @@ export default function ChatMode({
 
       <ApiKeyModal
         isOpen={showApiKeyModal}
-        onClose={() => setShowApiKeyModal(false)}
+        onClose={() => handleSetShowApiKeyModal(false)}
         onSave={(key) => {
           console.log('[ChatMode] ApiKeyModal onSave called with key length:', key.length);
-          setApiKey(key);
+          handleSetApiKey(key);
         }}
       />
     </div>
